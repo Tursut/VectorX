@@ -63,20 +63,10 @@ export default function Cell({ row, col, cell, isValidMove, isCurrentPlayer, pla
           )}
         </AnimatePresence>
 
-        {/* Skull — drops in from zero at center, spring overshoot gives the thud */}
-        <AnimatePresence>
-          {deathHere && !playerHere && (
-            <motion.span
-              key="skull"
-              className="death-marker"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.25 }}
-            >
-              💀
-            </motion.span>
-          )}
-        </AnimatePresence>
+        {/* Skull — absolutely positioned so it doesn't fight the exiting player in flex layout */}
+        {deathHere && !playerHere && (
+          <span className="death-marker">💀</span>
+        )}
 
         {/* Magic item — pops in, shrinks out */}
         <AnimatePresence>
