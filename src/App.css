@@ -305,6 +305,7 @@
   box-shadow: 0 4px 20px rgba(0,0,0,0.4);
   overflow: hidden;
   box-sizing: border-box;
+  min-height: 88px; /* prevents grid jump when AnimatePresence mode="wait" briefly empties the shell */
 }
 
 .turn-indicator-inner {
@@ -398,6 +399,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-height: 13px; /* always occupies space even when empty, prevents height shift */
 }
 
 /* ── Timer ── */

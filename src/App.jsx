@@ -36,7 +36,7 @@ const fadeSlide = {
 export default function App() {
   const [screen, setScreen] = useState('start');
   const [magicItems, setMagicItems] = useState(false);
-  const [gremlinCount, setGremlinCount] = useState(0);
+  const [gremlinCount, setGremlinCount] = useState(3);
   const [isThinking, setIsThinking] = useState(false);
   const [gameState, dispatch] = useReducer(gameReducer, null);
   const [timeLeft, setTimeLeft] = useState(TURN_TIME);
@@ -101,7 +101,9 @@ export default function App() {
     if (currentPlayerId < PLAYERS.length - gc) return; // human turn
 
     setIsThinking(true);
-    const delay = 800 + Math.random() * 600;
+    const humanCount = PLAYERS.length - gc;
+    const anyHumanAlive = gameState.players.some(p => !p.isEliminated && p.id < humanCount);
+    const delay = anyHumanAlive ? 800 + Math.random() * 600 : 120 + Math.random() * 80;
     const t = setTimeout(() => {
       setIsThinking(false);
       const move = getGremlinMove(gameState);

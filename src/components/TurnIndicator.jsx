@@ -53,9 +53,9 @@ export default function TurnIndicator({ player, taunt, timeLeft, totalTime, bonu
             <div className={`turn-taunt ${isThinking ? 'turn-taunt-thinking' : ''} ${portalActive || bonusMoveActive ? 'turn-taunt-special' : ''}`}>
               {statusLine}
             </div>
-            {eventLine && (
-              <div className="turn-event-line">{eventLine}</div>
-            )}
+            <div className="turn-event-line" style={{ visibility: eventLine ? 'visible' : 'hidden' }}>
+              {eventLine ?? '\u00a0'}
+            </div>
             <div className="turn-timer">
               <span className="turn-watch">⌚</span>
               <div className="timer-bar">
