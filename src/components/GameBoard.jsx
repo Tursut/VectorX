@@ -19,12 +19,13 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
   });
 
   const currentPlayer = players[currentPlayerIndex];
+  const playerColor = PLAYERS[currentPlayerIndex].color;
 
   const bombOriginKey = bombBlast ? `${bombBlast.origin.row},${bombBlast.origin.col}` : null;
   const bombClearedSet = bombBlast ? new Set(bombBlast.cleared.map(c => `${c.row},${c.col}`)) : null;
 
   return (
-    <div className="board">
+    <div className="board" style={{ '--player-color': playerColor }}>
       {grid.map((row, ri) =>
         row.map((cell, ci) => {
           const key = `${ri},${ci}`;
