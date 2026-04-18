@@ -117,11 +117,17 @@ function trySpawnItem(state) {
   const typeKeys = Object.keys(ITEM_TYPES);
   const type = typeKeys[Math.floor(Math.random() * typeKeys.length)];
 
+  // Lifespan scales with how open the board is: generous early, tighter late
+  const totalCells = GRID_SIZE * GRID_SIZE;
+  const claimedCells = state.grid.flat().filter(c => c.owner !== null).length;
+  const boardFill = claimedCells / totalCells;
+  const lifespan = Math.max(4, Math.round(10 - boardFill * 6));
+
   return {
     ...reset,
     items: [
       ...state.items,
-      { id: `${Date.now()}-${Math.random()}`, type, row: cell.row, col: cell.col, turnsLeft: ITEM_LIFESPAN },
+      { id: `${Date.now()}-${Math.random()}`, type, row: cell.row, col: cell.col, turnsLeft: lifespan },
     ],
   };
 }

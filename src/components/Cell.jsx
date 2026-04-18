@@ -92,7 +92,7 @@ export default function Cell({ row, col, cell, isValidMove, isCurrentPlayer, pla
               <span className="item-icon">{ITEM_TYPES[itemHere.type]?.icon}</span>
               <span
                 className="item-badge"
-                style={{ backgroundColor: badgeColor(itemHere.turnsLeft) }}
+                style={{ color: badgeColor(itemHere.turnsLeft) }}
               >
                 {itemHere.turnsLeft}
               </span>

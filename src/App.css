@@ -92,6 +92,7 @@
   cursor: pointer;
   background: #1a1a3e;
   box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.25);
+  touch-action: manipulation;
 }
 
 .cell-valid:hover {
@@ -100,18 +101,31 @@
   z-index: 2;
 }
 
+/* Instant press feedback — no delay on tap */
+.cell-valid:active {
+  transform: scale(0.93);
+  transition: transform 0.05s;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.8);
+}
+
 /* Portal moves glow purple */
 .cell-portal {
   cursor: pointer;
   background: #1a0a2e;
   box-shadow: inset 0 0 0 2px rgba(155, 89, 182, 0.6), 0 0 8px rgba(155,89,182,0.3);
   animation: portalPulse 0.8s infinite alternate ease-in-out;
+  touch-action: manipulation;
 }
 
 .cell-portal:hover {
   transform: scale(1.08);
   box-shadow: inset 0 0 0 2px rgba(155, 89, 182, 1), 0 0 14px rgba(155,89,182,0.6);
   z-index: 2;
+}
+
+.cell-portal:active {
+  transform: scale(0.93);
+  transition: transform 0.05s;
 }
 
 @keyframes portalPulse {
@@ -632,20 +646,15 @@
 
 .item-badge {
   position: absolute;
-  top: 1px;
-  right: 1px;
-  width: calc(var(--cell-size) * 0.3);
-  height: calc(var(--cell-size) * 0.3);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(var(--cell-size) * 0.2);
-  font-family: 'Segoe UI', sans-serif;
-  font-weight: bold;
-  color: #fff;
-  line-height: 1;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  top: 2px;
+  right: 2px;
+  padding: 1px 4px;
+  border-radius: 5px;
+  background: rgba(8, 8, 24, 0.68);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  font-size: calc(var(--cell-size) * 0.21);
+  font-family: 'Fredoka One', sans-serif;
+  line-height: 1.4;
 }
 
 /* ── Magic Items toggle ── */
