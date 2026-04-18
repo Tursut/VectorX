@@ -51,7 +51,7 @@ export default function Cell({ row, col, cell, isValidMove, isCurrentPlayer, pla
           <motion.span
             layoutId={`player-${playerHere.id}`}
             className="player-icon"
-            initial={{ scale: 0.5, opacity: 0 }}
+            initial={false}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ type: 'spring', stiffness: 240, damping: 26 }}
           >
@@ -86,18 +86,8 @@ export default function Cell({ row, col, cell, isValidMove, isCurrentPlayer, pla
           )}
         </AnimatePresence>
 
-        {/* Valid move hint dot */}
-        <AnimatePresence>
-          {isValidMove && !playerHere && !itemHere && (
-            <motion.span
-              className="valid-move-dot"
-              initial={{ opacity: 0, scale: 0.4 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.4 }}
-              transition={{ duration: 0.18, ease: 'easeOut' }}
-            />
-          )}
-        </AnimatePresence>
+        {/* Valid move hint dot — CSS animation only, no Framer Motion */}
+        {isValidMove && !playerHere && !itemHere && <span className="valid-move-dot" />}
       </div>
 
       {/* Swap-target label */}
