@@ -69,9 +69,9 @@ export default function Cell({ row, col, cell, isValidMove, isCurrentPlayer, pla
             <motion.span
               key="skull"
               className="death-marker"
-              initial={{ scale: 0, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ type: 'spring', stiffness: 240, damping: 16 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.25 }}
             >
               💀
             </motion.span>
