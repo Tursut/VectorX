@@ -1,6 +1,6 @@
-import { useReducer, useState } from 'react';
-import { initGame, applyMove, getCurrentValidMoves } from './game/logic';
-import { PLAYERS, TURN_TAUNTS } from './game/constants';
+import { useReducer, useState, useEffect } from 'react';
+import { initGame, applyMove, getCurrentValidMoves, eliminateCurrentPlayer } from './game/logic';
+import { PLAYERS, TURN_TAUNTS, TURN_TIME } from './game/constants';
 import StartScreen from './components/StartScreen';
 import GameBoard from './components/GameBoard';
 import TurnIndicator from './components/TurnIndicator';
@@ -14,6 +14,11 @@ function gameReducer(state, action) {
       return initGame();
     case 'MOVE':
       return applyMove(state, action.row, action.col);
+    case 'TIMEOUT':
+      // Guard: only act if it's still the same player's turn
+      if (state.currentPlayerIndex !== action.playerIndex) return state;
+      if (state.phase !== 'playing') return state;
+      return eliminateCurrentPlayer(state);
     default:
       return state;
   }
@@ -22,6 +27,27 @@ function gameReducer(state, action) {
 export default function App() {
   const [screen, setScreen] = useState('start');
   const [gameState, dispatch] = useReducer(gameReducer, null);
+  const [timeLeft, setTimeLeft] = useState(TURN_TIME);
+
+  // Countdown timer — resets on each new turn
+  useEffect(() => {
+    if (!gameState || gameState.phase !== 'playing') return;
+    const playerIndex = gameState.currentPlayerIndex;
+    setTimeLeft(TURN_TIME);
+
+    const interval = setInterval(() => {
+      setTimeLeft((t) => {
+        if (t <= 1) {
+          clearInterval(interval);
+          dispatch({ type: 'TIMEOUT', playerIndex });
+          return TURN_TIME;
+        }
+        return t - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [gameState?.currentPlayerIndex, gameState?.phase]);
 
   function handleStart() {
     dispatch({ type: 'START' });
@@ -60,6 +86,8 @@ export default function App() {
           <TurnIndicator
             player={PLAYERS[gameState.currentPlayerIndex]}
             taunt={currentTaunt}
+            timeLeft={timeLeft}
+            totalTime={TURN_TIME}
           />
           <div className="game-center">
             <PlayerPanel

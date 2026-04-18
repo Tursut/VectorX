@@ -1,6 +1,6 @@
 import { PLAYERS } from '../game/constants';
 
-export default function Cell({ row, col, cell, isValidMove, isCurrentPlayer, playerHere, onCellClick }) {
+export default function Cell({ row, col, cell, isValidMove, isCurrentPlayer, playerHere, deathHere, onCellClick }) {
   const owner = cell.owner !== null ? PLAYERS[cell.owner] : null;
 
   function handleClick() {
@@ -25,6 +25,15 @@ export default function Cell({ row, col, cell, isValidMove, isCurrentPlayer, pla
           {playerHere.icon}
         </span>
       )}
+
+      {deathHere && (
+        <div className="death-marker">
+          <span className="death-avatar">{deathHere.icon}</span>
+          <span className="death-tombstone">🪦</span>
+          <span className="death-watch">⌚</span>
+        </div>
+      )}
+
       {isValidMove && !playerHere && <span className="valid-move-dot" />}
     </div>
   );

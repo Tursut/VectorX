@@ -1,11 +1,15 @@
-import { PLAYERS, GRID_SIZE } from '../game/constants';
+import { PLAYERS } from '../game/constants';
 import Cell from './Cell';
 
 export default function GameBoard({ grid, players, validMoveSet, onCellClick, currentPlayerIndex }) {
   const playerPositions = {};
+  const deathCells = {};
+
   players.forEach((p) => {
     if (!p.isEliminated) {
       playerPositions[`${p.row},${p.col}`] = PLAYERS[p.id];
+    } else if (p.deathCell) {
+      deathCells[`${p.deathCell.row},${p.deathCell.col}`] = PLAYERS[p.id];
     }
   });
 
@@ -16,12 +20,6 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
       {grid.map((row, ri) =>
         row.map((cell, ci) => {
           const key = `${ri},${ci}`;
-          const playerHere = playerPositions[key] || null;
-          const isCurrentPlayer =
-            currentPlayer &&
-            currentPlayer.row === ri &&
-            currentPlayer.col === ci;
-
           return (
             <Cell
               key={key}
@@ -29,8 +27,11 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
               col={ci}
               cell={cell}
               isValidMove={validMoveSet.has(key)}
-              isCurrentPlayer={isCurrentPlayer}
-              playerHere={playerHere}
+              isCurrentPlayer={
+                currentPlayer && currentPlayer.row === ri && currentPlayer.col === ci
+              }
+              playerHere={playerPositions[key] || null}
+              deathHere={deathCells[key] || null}
               onCellClick={onCellClick}
             />
           );

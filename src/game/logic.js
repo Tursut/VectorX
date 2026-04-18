@@ -18,6 +18,7 @@ export function initGame() {
       row: p.startRow,
       col: p.startCol,
       isEliminated: false,
+      deathCell: null,
     };
   });
 
@@ -25,7 +26,7 @@ export function initGame() {
     grid,
     players,
     currentPlayerIndex: startingPlayerIndex,
-    phase: 'playing', // 'playing' | 'gameover'
+    phase: 'playing',
     winner: null,
     turnCount: 0,
   };
@@ -43,58 +44,45 @@ export function getValidMoves(grid, row, col) {
   return moves;
 }
 
+function markEliminated(p) {
+  return { ...p, isEliminated: true, deathCell: { row: p.row, col: p.col } };
+}
+
+function advanceToNextActive(players, fromIndex) {
+  let next = fromIndex;
+  let attempts = 0;
+  do {
+    next = (next + 1) % PLAYERS.length;
+    attempts++;
+  } while (players[next].isEliminated && attempts <= PLAYERS.length);
+  return next;
+}
+
 export function applyMove(state, targetRow, targetCol) {
   const { grid, players, currentPlayerIndex, turnCount } = state;
   const player = players[currentPlayerIndex];
 
-  // Deep clone grid
   const newGrid = grid.map((row) => row.map((cell) => ({ ...cell })));
   newGrid[targetRow][targetCol] = { owner: player.id };
 
-  const newPlayers = players.map((p) =>
+  const movedPlayers = players.map((p) =>
     p.id === player.id ? { ...p, row: targetRow, col: targetCol } : { ...p }
   );
 
-  // Find next active player, eliminating anyone with no moves along the way
-  let nextIndex = currentPlayerIndex;
-  let skipped = 0;
-  const activePlayers = newPlayers.filter((p) => !p.isEliminated);
-
-  // Eliminate players who have no valid moves now
-  const updatedPlayers = newPlayers.map((p) => {
-    if (p.isEliminated) return p;
-    const moves = getValidMoves(newGrid, p.row, p.col);
-    if (moves.length === 0 && p.id !== player.id) {
-      return { ...p, isEliminated: true };
-    }
-    return p;
+  // Eliminate players (other than the mover) with no valid moves
+  const updatedPlayers = movedPlayers.map((p) => {
+    if (p.isEliminated || p.id === player.id) return p;
+    return getValidMoves(newGrid, p.row, p.col).length === 0 ? markEliminated(p) : p;
   });
 
-  // Find next non-eliminated player
-  let attempts = 0;
-  do {
-    nextIndex = (nextIndex + 1) % PLAYERS.length;
-    attempts++;
-  } while (updatedPlayers[nextIndex].isEliminated && attempts <= PLAYERS.length);
+  let nextIndex = advanceToNextActive(updatedPlayers, currentPlayerIndex);
 
-  // Check if the next player also needs to be eliminated (no moves)
+  // Eliminate the next player too if they have no moves
   const nextPlayer = updatedPlayers[nextIndex];
-  const nextMoves = getValidMoves(newGrid, nextPlayer.row, nextPlayer.col);
-  const finalPlayers = updatedPlayers.map((p) => {
-    if (p.id === nextPlayer.id && nextMoves.length === 0) {
-      return { ...p, isEliminated: true };
-    }
-    return p;
-  });
-
-  // Recheck next after potential elimination
-  let finalNextIndex = nextIndex;
-  if (finalPlayers[nextIndex].isEliminated) {
-    attempts = 0;
-    do {
-      finalNextIndex = (finalNextIndex + 1) % PLAYERS.length;
-      attempts++;
-    } while (finalPlayers[finalNextIndex].isEliminated && attempts <= PLAYERS.length);
+  let finalPlayers = updatedPlayers;
+  if (!nextPlayer.isEliminated && getValidMoves(newGrid, nextPlayer.row, nextPlayer.col).length === 0) {
+    finalPlayers = updatedPlayers.map((p) => p.id === nextPlayer.id ? markEliminated(p) : p);
+    nextIndex = advanceToNextActive(finalPlayers, nextIndex);
   }
 
   const stillAlive = finalPlayers.filter((p) => !p.isEliminated);
@@ -104,7 +92,31 @@ export function applyMove(state, targetRow, targetCol) {
   return {
     grid: newGrid,
     players: finalPlayers,
-    currentPlayerIndex: finalNextIndex,
+    currentPlayerIndex: nextIndex,
+    phase: isGameOver ? 'gameover' : 'playing',
+    winner: winner ? winner.id : null,
+    turnCount: turnCount + 1,
+  };
+}
+
+export function eliminateCurrentPlayer(state) {
+  const { players, currentPlayerIndex, turnCount } = state;
+  const player = players[currentPlayerIndex];
+
+  const updatedPlayers = players.map((p) =>
+    p.id === player.id ? markEliminated(p) : p
+  );
+
+  const nextIndex = advanceToNextActive(updatedPlayers, currentPlayerIndex);
+
+  const stillAlive = updatedPlayers.filter((p) => !p.isEliminated);
+  const isGameOver = stillAlive.length <= 1;
+  const winner = isGameOver ? stillAlive[0] ?? null : null;
+
+  return {
+    ...state,
+    players: updatedPlayers,
+    currentPlayerIndex: nextIndex,
     phase: isGameOver ? 'gameover' : 'playing',
     winner: winner ? winner.id : null,
     turnCount: turnCount + 1,

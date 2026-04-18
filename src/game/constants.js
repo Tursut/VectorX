@@ -69,6 +69,8 @@ export const TURN_TAUNTS = [
   (name) => `${name}'s turn. The grid is judging you.`,
 ];
 
+export const TURN_TIME = 10; // seconds per turn
+
 export const DIRECTIONS = [
   [-1, -1], [-1, 0], [-1, 1],
   [ 0, -1],          [ 0, 1],
