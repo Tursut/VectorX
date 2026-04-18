@@ -63,17 +63,17 @@ export default function Cell({ row, col, cell, isValidMove, isCurrentPlayer, pla
           )}
         </AnimatePresence>
 
-        {/* Tombstone — thuds in after death */}
+        {/* Skull — drops in from zero at center, spring overshoot gives the thud */}
         <AnimatePresence>
           {deathHere && !playerHere && (
             <motion.span
-              key="tombstone"
-              className="death-tombstone"
-              initial={{ scale: 2.2, opacity: 0, y: -8 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              transition={{ type: 'spring', stiffness: 220, damping: 14, delay: 0.15 }}
+              key="skull"
+              className="death-marker"
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: 'spring', stiffness: 240, damping: 16 }}
             >
-              🪦
+              💀
             </motion.span>
           )}
         </AnimatePresence>
