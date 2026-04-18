@@ -122,6 +122,12 @@ export default function App() {
     prevPlayersRef.current = gameState.players;
   }, [gameState?.players]);
 
+  // Background theme — starts with game, stops on game over
+  useEffect(() => {
+    if (gameState?.phase === 'playing') sounds.startBgTheme();
+    else sounds.stopBgTheme();
+  }, [gameState?.phase]);
+
   // Game-over sound
   useEffect(() => {
     if (gameState?.phase !== 'gameover') return;

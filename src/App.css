@@ -145,23 +145,50 @@
 
 .cell-swap-target {
   cursor: pointer;
-  animation: swapPulse 0.65s infinite alternate ease-in-out;
+  animation: swapPulse 0.55s infinite alternate ease-in-out;
   touch-action: manipulation;
+  position: relative;
+  z-index: 1;
 }
 
 .cell-swap-target:hover {
-  transform: scale(1.1);
-  z-index: 2;
+  transform: scale(1.14);
+  z-index: 3;
 }
 
 .cell-swap-target:active {
-  transform: scale(0.93);
+  transform: scale(0.91);
   transition: transform 0.05s;
 }
 
 @keyframes swapPulse {
-  from { box-shadow: inset 0 0 0 2px rgba(46, 204, 113, 0.5), 0 0 5px rgba(46,204,113,0.25); }
-  to   { box-shadow: inset 0 0 0 3px rgba(46, 204, 113, 1),   0 0 14px rgba(46,204,113,0.6); }
+  from {
+    transform: scale(1.0);
+    box-shadow: inset 0 0 0 2px rgba(46, 204, 113, 0.6),
+                0 0 8px rgba(46,204,113,0.35);
+  }
+  to {
+    transform: scale(1.07);
+    box-shadow: inset 0 0 0 3px rgba(46, 204, 113, 1),
+                0 0 22px rgba(46,204,113,0.75),
+                0 0 6px rgba(46,204,113,0.5) inset;
+  }
+}
+
+.cell-swap-label {
+  position: absolute;
+  bottom: 2px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.6px;
+  color: #2ecc71;
+  text-shadow: 0 0 6px rgba(46,204,113,0.9), 0 1px 2px rgba(0,0,0,0.7);
+  pointer-events: none;
+  z-index: 4;
+  line-height: 1;
 }
 
 .player-icon {

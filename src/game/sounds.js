@@ -23,6 +23,78 @@ export function setMuted(val) {
   if (masterGain) masterGain.gain.value = val ? 0 : 1;
 }
 
+// ── Background theme ──────────────────────────────────────────────────────────
+
+const BG_TEMPO   = 0.46;  // seconds per beat (~130 BPM)
+const BG_SCALE   = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25]; // C pentatonic
+// Two-bar arpeggio pattern (indices into BG_SCALE)
+const BG_PATTERN = [0, 2, 4, 2, 5, 4, 2, 4, 1, 2, 4, 2, 3, 4, 2, 0];
+const BG_BASS    = [130.81, 130.81, 174.61, 130.81]; // C2 C2 F2 C2 chord cycle
+const LOOK_AHEAD = 0.28;
+const SCHED_MS   = 110;
+
+let bgPlaying    = false;
+let bgNextBeat   = 0;
+let bgBeatIdx    = 0;
+let bgBassIdx    = 0;
+let bgTimer      = null;
+
+function scheduleBg() {
+  if (!bgPlaying) return;
+  const c = getCtx();
+  const now = c.currentTime;
+
+  while (bgNextBeat < now + LOOK_AHEAD) {
+    const t = bgNextBeat;
+    const beat = bgBeatIdx;
+
+    // Arpeggio — triangle wave, one octave up, quiet
+    const freq = BG_SCALE[BG_PATTERN[beat % BG_PATTERN.length]] * 2;
+    const osc = c.createOscillator();
+    osc.type = 'triangle';
+    osc.frequency.value = freq;
+    const g = c.createGain();
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.028, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.001, t + BG_TEMPO * 0.85);
+    osc.connect(g); g.connect(masterGain);
+    osc.start(t); osc.stop(t + BG_TEMPO);
+
+    // Bass pad — changes every 4 beats, very slow decay
+    if (beat % 4 === 0) {
+      const bassFreq = BG_BASS[bgBassIdx % BG_BASS.length];
+      const bosc = c.createOscillator();
+      bosc.type = 'sine';
+      bosc.frequency.value = bassFreq;
+      const bg = c.createGain();
+      bg.gain.setValueAtTime(0.048, t);
+      bg.gain.exponentialRampToValueAtTime(0.001, t + BG_TEMPO * 4.2);
+      bosc.connect(bg); bg.connect(masterGain);
+      bosc.start(t); bosc.stop(t + BG_TEMPO * 4.4);
+      bgBassIdx++;
+    }
+
+    bgNextBeat += BG_TEMPO;
+    bgBeatIdx = (bgBeatIdx + 1) % BG_PATTERN.length;
+  }
+
+  bgTimer = setTimeout(scheduleBg, SCHED_MS);
+}
+
+export function startBgTheme() {
+  if (bgPlaying) return;
+  bgPlaying = true;
+  bgNextBeat = getCtx().currentTime + 0.12;
+  bgBeatIdx = 0;
+  bgBassIdx = 0;
+  scheduleBg();
+}
+
+export function stopBgTheme() {
+  bgPlaying = false;
+  if (bgTimer) { clearTimeout(bgTimer); bgTimer = null; }
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function noise(ctx, duration) {
@@ -75,31 +147,19 @@ export function playClaim() {
   click.start(t);
 }
 
-// Two-note bell chime — "your move"
+// Single soft ping — gentle nudge, not a fanfare
 export function playYourTurn() {
   const ctx = getCtx();
-  [523.25, 783.99].forEach((freq, i) => {
-    const t = ctx.currentTime + i * 0.16;
-    const osc = ctx.createOscillator();
-    osc.type = 'sine';
-    osc.frequency.value = freq;
-    // inharmonic bell partial
-    const osc2 = ctx.createOscillator();
-    osc2.type = 'sine';
-    osc2.frequency.value = freq * 2.76;
-    const g = ctx.createGain();
-    g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(0.18, t + 0.01);
-    g.gain.exponentialRampToValueAtTime(0.001, t + 0.7);
-    const g2 = ctx.createGain();
-    g2.gain.setValueAtTime(0, t);
-    g2.gain.linearRampToValueAtTime(0.05, t + 0.01);
-    g2.gain.exponentialRampToValueAtTime(0.001, t + 0.32);
-    osc.connect(g); g.connect(out());
-    osc2.connect(g2); g2.connect(out());
-    osc.start(t); osc.stop(t + 0.75);
-    osc2.start(t); osc2.stop(t + 0.36);
-  });
+  const t = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.value = 880;
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(0.055, t + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
+  osc.connect(g); g.connect(out());
+  osc.start(t); osc.stop(t + 0.5);
 }
 
 // Short tick — urgency 0→1 raises pitch

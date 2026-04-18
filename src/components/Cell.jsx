@@ -90,6 +90,11 @@ export default function Cell({ row, col, cell, isValidMove, isCurrentPlayer, pla
         {isValidMove && !playerHere && !itemHere && <span className="valid-move-dot" />}
       </div>
 
+      {/* Swap-target label */}
+      {swapActive && isValidMove && playerHere && (
+        <div className="cell-swap-label">SWAP</div>
+      )}
+
       {/* Bomb explosion overlay — absolutely positioned above everything */}
       {isBombOrigin && <span className="bomb-origin-fx">💥</span>}
     </div>
