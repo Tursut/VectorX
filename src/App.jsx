@@ -112,7 +112,11 @@ export default function App() {
     const t = setTimeout(() => {
       setIsThinking(false);
       const move = getGremlinMove(gameState);
-      if (move) handleMove(move.row, move.col);
+      if (move) {
+        handleMove(move.row, move.col);
+      } else {
+        dispatch({ type: 'TIMEOUT', playerIndex: gameState.currentPlayerIndex });
+      }
     }, delay);
     return () => { clearTimeout(t); setIsThinking(false); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
