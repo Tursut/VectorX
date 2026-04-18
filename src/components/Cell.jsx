@@ -10,7 +10,7 @@ function badgeColor(turnsLeft) {
 
 const spring = { type: 'spring', stiffness: 380, damping: 28 };
 
-export default function Cell({ row, col, cell, isValidMove, isCurrentPlayer, playerHere, deathHere, itemHere, portalActive, swapActive, onCellClick, isBombOrigin, isBombCleared }) {
+export default function Cell({ row, col, cell, isValidMove, isCurrentPlayer, playerHere, deathHere, itemHere, portalActive, swapActive, playerColor, onCellClick, isBombOrigin, isBombCleared }) {
   const owner = cell.owner !== null ? PLAYERS[cell.owner] : null;
 
   let className = 'cell';
@@ -48,6 +48,10 @@ export default function Cell({ row, col, cell, isValidMove, isCurrentPlayer, pla
         {isValidMove && !portalActive && !swapActive && (
           <motion.div
             className="cell-valid-overlay"
+            style={{
+              background: `${playerColor}18`,
+              boxShadow: `inset 0 0 0 2px ${playerColor}66`,
+            }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}

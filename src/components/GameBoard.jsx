@@ -44,6 +44,7 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
               itemHere={itemMap[key] || null}
               portalActive={portalActive}
               swapActive={swapActive}
+              playerColor={playerColor}
               onCellClick={onCellClick}
               isBombOrigin={bombOriginKey === key}
               isBombCleared={bombClearedSet ? bombClearedSet.has(key) : false}
