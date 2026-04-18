@@ -9,7 +9,7 @@ export default function StartScreen({ onStart, magicItems, onToggleMagicItems, g
   return (
     <div className="start-screen">
       <div className="start-content">
-        <h1 className="start-title">GRID TERRITORY</h1>
+        <h1 className="start-title">GRIDMIND</h1>
         <p className="start-subtitle">
           Four players. One grid. Only one walks away smiling.
         </p>
