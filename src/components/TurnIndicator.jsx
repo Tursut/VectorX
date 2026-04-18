@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { PLAYERS } from '../game/constants';
+import { GREMLIN_THOUGHTS } from '../game/ai';
 
 const FREEZE_LINES = [
   (by, target) => `❄️ ${by} froze ${target}. Cold-blooded.`,
@@ -7,12 +8,13 @@ const FREEZE_LINES = [
   (by, target) => `❄️ ${by} hit ${target} with a freeze ray. Uncalled for, honestly.`,
 ];
 
-export default function TurnIndicator({ player, taunt, timeLeft, totalTime, bonusMoveActive, portalActive, lastEvent }) {
+export default function TurnIndicator({ player, taunt, timeLeft, totalTime, bonusMoveActive, portalActive, lastEvent, isGremlin, isThinking }) {
   const pct = (timeLeft / totalTime) * 100;
-  const urgent = timeLeft <= 3;
+  const urgent = timeLeft <= 3 && !isGremlin;
 
   let statusLine = taunt;
-  if (portalActive) statusLine = '🌀 PORTAL active! Pick any empty square on the board.';
+  if (isThinking) statusLine = GREMLIN_THOUGHTS[player.id] ?? 'Scheming…';
+  else if (portalActive) statusLine = '🌀 PORTAL active! Pick any empty square on the board.';
   else if (bonusMoveActive) statusLine = `🚀 ${player.shortName} found turbo. One more move — make it sting.`;
 
   let eventLine = null;
@@ -41,14 +43,14 @@ export default function TurnIndicator({ player, taunt, timeLeft, totalTime, bonu
           exit={{ x: -24, opacity: 0 }}
           transition={{ duration: 0.18 }}
         >
-          <div className="turn-icon" style={{ backgroundColor: player.color }}>
-            {player.icon}
+          <div className={`turn-icon ${isThinking ? 'turn-icon-thinking' : ''}`} style={{ backgroundColor: player.color }}>
+            {isThinking ? '🤔' : player.icon}
           </div>
           <div className="turn-text">
             <div className="turn-name" style={{ color: player.color }}>
               {player.name}
             </div>
-            <div className={`turn-taunt ${portalActive || bonusMoveActive ? 'turn-taunt-special' : ''}`}>
+            <div className={`turn-taunt ${isThinking ? 'turn-taunt-thinking' : ''} ${portalActive || bonusMoveActive ? 'turn-taunt-special' : ''}`}>
               {statusLine}
             </div>
             {eventLine && (

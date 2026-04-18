@@ -11,7 +11,7 @@ export function createInitialGrid() {
   );
 }
 
-export function initGame(magicItems = false) {
+export function initGame(magicItems = false, gremlinCount = 0) {
   const grid = createInitialGrid();
   const startingPlayerIndex = Math.floor(Math.random() * PLAYERS.length);
 
@@ -28,6 +28,7 @@ export function initGame(magicItems = false) {
     winner: null,
     turnCount: 0,
     magicItems,
+    gremlinCount,
     items: [],
     nextSpawnIn: randomInt(ITEM_SPAWN_MIN, ITEM_SPAWN_MAX),
     bonusMoveActive: false,

@@ -1,6 +1,7 @@
 import { useReducer, useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { initGame, applyMove, getCurrentValidMoves, eliminateCurrentPlayer } from './game/logic';
+import { getGremlinMove } from './game/ai';
 import { PLAYERS, TURN_TAUNTS, TURN_TIME, GRID_SIZE } from './game/constants';
 import StartScreen from './components/StartScreen';
 import GameBoard from './components/GameBoard';
@@ -13,7 +14,7 @@ import './App.css';
 function gameReducer(state, action) {
   switch (action.type) {
     case 'START':
-      return initGame(action.magicItems);
+      return initGame(action.magicItems, action.gremlinCount ?? 0);
     case 'MOVE':
       return applyMove(state, action.row, action.col);
     case 'TIMEOUT':
@@ -35,6 +36,8 @@ const fadeSlide = {
 export default function App() {
   const [screen, setScreen] = useState('start');
   const [magicItems, setMagicItems] = useState(false);
+  const [gremlinCount, setGremlinCount] = useState(0);
+  const [isThinking, setIsThinking] = useState(false);
   const [gameState, dispatch] = useReducer(gameReducer, null);
   const [timeLeft, setTimeLeft] = useState(TURN_TIME);
   const [bombBlast, setBombBlast] = useState(null);
@@ -89,13 +92,32 @@ export default function App() {
     return () => clearInterval(interval);
   }, [gameState?.currentPlayerIndex, gameState?.phase, gameState?.bonusMoveActive, gameState?.portalActive]);
 
+  // Gremlin auto-move
+  useEffect(() => {
+    if (!gameState || gameState.phase !== 'playing') return;
+    const gc = gameState.gremlinCount ?? 0;
+    if (gc === 0) return;
+    const currentPlayerId = gameState.players[gameState.currentPlayerIndex].id;
+    if (currentPlayerId < PLAYERS.length - gc) return; // human turn
+
+    setIsThinking(true);
+    const delay = 800 + Math.random() * 600;
+    const t = setTimeout(() => {
+      setIsThinking(false);
+      const move = getGremlinMove(gameState);
+      if (move) handleMove(move.row, move.col);
+    }, delay);
+    return () => { clearTimeout(t); setIsThinking(false); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameState?.currentPlayerIndex, gameState?.phase, gameState?.bonusMoveActive, gameState?.portalActive]);
+
   function handleStart() {
-    dispatch({ type: 'START', magicItems });
+    dispatch({ type: 'START', magicItems, gremlinCount });
     setScreen('game');
   }
 
   function handleRestart() {
-    dispatch({ type: 'START', magicItems });
+    dispatch({ type: 'START', magicItems, gremlinCount });
     // stay on 'game' screen — AnimatePresence handles gameover→game transition
   }
 
@@ -146,6 +168,8 @@ export default function App() {
               onStart={handleStart}
               magicItems={magicItems}
               onToggleMagicItems={() => setMagicItems((v) => !v)}
+              gremlinCount={gremlinCount}
+              onChangeGremlinCount={setGremlinCount}
             />
           </motion.div>
         )}
@@ -167,11 +191,14 @@ export default function App() {
               bonusMoveActive={gameState.bonusMoveActive}
               portalActive={gameState.portalActive}
               lastEvent={gameState.lastEvent}
+              isGremlin={gameState.players[gameState.currentPlayerIndex].id >= PLAYERS.length - (gameState.gremlinCount ?? 0)}
+              isThinking={isThinking}
             />
             <div className="game-center">
               <PlayerPanel
                 players={gameState.players}
                 currentPlayerIndex={gameState.currentPlayerIndex}
+                gremlinCount={gameState.gremlinCount ?? 0}
               />
               <GameBoard
                 grid={gameState.grid}

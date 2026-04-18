@@ -1,6 +1,11 @@
 import { PLAYERS, ITEM_TYPES } from '../game/constants';
 
-export default function StartScreen({ onStart, magicItems, onToggleMagicItems }) {
+export default function StartScreen({ onStart, magicItems, onToggleMagicItems, gremlinCount, onChangeGremlinCount }) {
+  const gremlinLabel =
+    gremlinCount === 0 ? 'No Gremlins — pure human chaos.' :
+    gremlinCount === 4 ? 'All Gremlins — sit back and watch the carnage.' :
+    `${gremlinCount} Gremlin${gremlinCount > 1 ? 's' : ''} — they play dirty. You've been warned.`;
+
   return (
     <div className="start-screen">
       <div className="start-content">
@@ -10,16 +15,37 @@ export default function StartScreen({ onStart, magicItems, onToggleMagicItems })
         </p>
 
         <div className="start-characters">
-          {PLAYERS.map((p) => (
-            <div key={p.id} className="start-character" style={{ borderColor: p.color }}>
-              <div className="start-character-icon" style={{ backgroundColor: p.color }}>
-                {p.icon}
+          {PLAYERS.map((p) => {
+            const isGremlin = p.id >= PLAYERS.length - gremlinCount;
+            return (
+              <div key={p.id} className={`start-character ${isGremlin ? 'start-character-gremlin' : ''}`} style={{ borderColor: p.color }}>
+                <div className="start-character-icon" style={{ backgroundColor: p.color }}>
+                  {p.icon}
+                </div>
+                <div className="start-character-name" style={{ color: p.color }}>
+                  {p.name}
+                </div>
+                {isGremlin && <div className="start-character-badge">👾 GREMLIN</div>}
               </div>
-              <div className="start-character-name" style={{ color: p.color }}>
-                {p.name}
-              </div>
-            </div>
-          ))}
+            );
+          })}
+        </div>
+
+        {/* Gremlin slider */}
+        <div className="gremlin-section">
+          <div className="gremlin-header">
+            <span className="gremlin-title">👾 Gremlins</span>
+            <span className="gremlin-value">{gremlinCount} / 4</span>
+          </div>
+          <input
+            type="range"
+            min="0"
+            max="4"
+            value={gremlinCount}
+            onChange={(e) => onChangeGremlinCount(Number(e.target.value))}
+            className="gremlin-slider"
+          />
+          <p className="gremlin-sub">{gremlinLabel}</p>
         </div>
 
         <div className="start-rules">

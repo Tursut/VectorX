@@ -1,12 +1,13 @@
 import { motion } from 'framer-motion';
 import { PLAYERS } from '../game/constants';
 
-export default function PlayerPanel({ players, currentPlayerIndex }) {
+export default function PlayerPanel({ players, currentPlayerIndex, gremlinCount = 0 }) {
   return (
     <div className="player-panel">
       {players.map((p) => {
         const config = PLAYERS[p.id];
         const isCurrent = p.id === currentPlayerIndex && !p.isEliminated;
+        const isGremlin = p.id >= PLAYERS.length - gremlinCount;
         return (
           <motion.div
             key={p.id}
@@ -25,6 +26,7 @@ export default function PlayerPanel({ players, currentPlayerIndex }) {
             <div className="player-card-name" style={{ color: config.color }}>
               {config.shortName}
             </div>
+            {isGremlin && !p.isEliminated && <div className="player-card-gremlin">👾</div>}
             {p.isEliminated && <div className="player-card-rip">R.I.P.</div>}
             {isCurrent && <div className="player-card-turn">← NOW</div>}
           </motion.div>

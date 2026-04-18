@@ -369,6 +369,27 @@
   font-weight: bold;
 }
 
+@keyframes thinkPulse {
+  0%, 100% { opacity: 0.5; }
+  50%       { opacity: 1; }
+}
+
+.turn-taunt-thinking {
+  color: #cc88ff;
+  font-style: italic;
+  animation: thinkPulse 1s infinite ease-in-out;
+}
+
+@keyframes iconThink {
+  0%, 100% { transform: scale(1) rotate(0deg); }
+  25%       { transform: scale(1.08) rotate(-6deg); }
+  75%       { transform: scale(1.08) rotate(6deg); }
+}
+
+.turn-icon-thinking {
+  animation: iconThink 0.9s infinite ease-in-out;
+}
+
 .turn-event-line {
   font-size: 10px;
   color: #a8d8f0;
@@ -488,6 +509,11 @@
   line-height: 1.2;
 }
 
+.player-card-gremlin {
+  font-size: 12px;
+  line-height: 1;
+}
+
 .player-card-rip {
   font-size: 9px;
   color: #888;
@@ -574,11 +600,94 @@
   justify-content: center;
 }
 
+.start-character-gremlin {
+  border-style: dashed !important;
+  opacity: 0.9;
+}
+
+.start-character-badge {
+  font-size: 9px;
+  font-weight: bold;
+  color: #cc88ff;
+  letter-spacing: 0.5px;
+  margin-top: 2px;
+}
+
 .start-character-name {
   font-size: 11px;
   font-weight: bold;
   text-align: center;
   line-height: 1.3;
+}
+
+/* ── Gremlin Slider ── */
+.gremlin-section {
+  width: 100%;
+  background: #0f0f23;
+  border: 1px solid #333366;
+  border-radius: 10px;
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.gremlin-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.gremlin-title {
+  font-size: 14px;
+  font-weight: bold;
+  color: #cc88ff;
+}
+
+.gremlin-value {
+  font-size: 13px;
+  font-weight: bold;
+  color: #fff;
+}
+
+.gremlin-slider {
+  width: 100%;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 3px;
+  background: #333355;
+  outline: none;
+  cursor: pointer;
+}
+
+.gremlin-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #cc88ff;
+  cursor: pointer;
+  box-shadow: 0 0 8px rgba(204, 136, 255, 0.6);
+}
+
+.gremlin-slider::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #cc88ff;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 0 8px rgba(204, 136, 255, 0.6);
+}
+
+.gremlin-sub {
+  font-size: 11px;
+  color: #888aaa;
+  font-family: 'Segoe UI', sans-serif;
+  font-style: italic;
+  margin: 0;
 }
 
 .start-rules {
