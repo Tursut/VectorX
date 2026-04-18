@@ -87,7 +87,17 @@ export default function Cell({ row, col, cell, isValidMove, isCurrentPlayer, pla
         </AnimatePresence>
 
         {/* Valid move hint dot */}
-        {isValidMove && !playerHere && !itemHere && <span className="valid-move-dot" />}
+        <AnimatePresence>
+          {isValidMove && !playerHere && !itemHere && (
+            <motion.span
+              className="valid-move-dot"
+              initial={{ opacity: 0, scale: 0.4 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.4 }}
+              transition={{ duration: 0.18, ease: 'easeOut' }}
+            />
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Swap-target label */}

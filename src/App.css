@@ -76,6 +76,7 @@
   position: relative;
   cursor: default;
   overflow: hidden;
+  transition: box-shadow 0.22s ease, background-color 0.22s ease;
 }
 
 /* Absolutely-positioned fill layer — animated by Framer Motion on claim/bomb */

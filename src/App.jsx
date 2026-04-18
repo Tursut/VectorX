@@ -158,7 +158,7 @@ export default function App() {
     }, delay);
     return () => { clearTimeout(t); setIsThinking(false); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameState?.currentPlayerIndex, gameState?.phase, gameState?.portalActive, gameState?.swapActive]);
+  }, [gameState?.currentPlayerIndex, gameState?.turnCount, gameState?.phase, gameState?.portalActive, gameState?.swapActive]);
 
   // Countdown sounds + logic
   useEffect(() => {

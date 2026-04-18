@@ -297,10 +297,11 @@ export function getCurrentValidMoves(state) {
     const occupied = new Set(
       players.filter(pl => !pl.isEliminated).map(pl => `${pl.row},${pl.col}`)
     );
+    const itemCells = new Set(state.items.map(i => `${i.row},${i.col}`));
     const moves = [];
     for (let r = 0; r < GRID_SIZE; r++) {
       for (let c = 0; c < GRID_SIZE; c++) {
-        if (grid[r][c].owner === null && !occupied.has(`${r},${c}`)) {
+        if (grid[r][c].owner === null && !occupied.has(`${r},${c}`) && !itemCells.has(`${r},${c}`)) {
           moves.push({ row: r, col: c });
         }
       }
