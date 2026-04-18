@@ -549,11 +549,13 @@
 /* ── Start Screen ── */
 .start-screen {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
   min-height: 100vh;
+  min-height: 100dvh;
   width: 100%;
-  padding: 20px;
+  overflow-y: auto;
+  padding-bottom: 90px; /* room for sticky button */
   box-sizing: border-box;
 }
 
@@ -565,6 +567,21 @@
   max-width: 560px;
   width: 100%;
   text-align: center;
+  padding: 30px 20px 10px;
+  box-sizing: border-box;
+}
+
+/* ── Sticky begin button ── */
+.start-button-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  padding: 14px 20px 20px;
+  background: linear-gradient(to top, #1a1a2e 70%, transparent);
+  z-index: 10;
 }
 
 .start-title {
@@ -742,6 +759,8 @@
   letter-spacing: 2px;
   box-shadow: 0 6px 20px rgba(231, 76, 60, 0.4);
   transition: transform 0.15s, box-shadow 0.15s;
+  width: 100%;
+  max-width: 400px;
 }
 
 .start-button:hover {
@@ -759,6 +778,114 @@
   font-family: 'Segoe UI', sans-serif;
   font-style: italic;
   margin: 0;
+}
+
+/* ── Mode selector ── */
+.mode-section {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mode-selector {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.mode-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 14px 10px;
+  border: 2px solid #333366;
+  border-radius: 12px;
+  background: #0f0f23;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, transform 0.12s;
+  color: #888aaa;
+}
+
+.mode-btn:hover {
+  border-color: #555588;
+  background: #14142e;
+}
+
+.mode-btn-icon {
+  font-size: 26px;
+}
+
+.mode-btn-label {
+  font-size: 14px;
+  font-weight: bold;
+  font-family: 'Fredoka One', 'Segoe UI', sans-serif;
+  letter-spacing: 1px;
+  color: inherit;
+}
+
+.mode-btn-sub {
+  font-size: 10px;
+  font-family: 'Segoe UI', sans-serif;
+  font-style: italic;
+  color: inherit;
+}
+
+.mode-btn-active {
+  border-width: 2px;
+  transform: scale(1.02);
+}
+
+.mode-btn-classic.mode-btn-active {
+  border-color: #e67e22;
+  background: #1e120a;
+  color: #f39c12;
+  box-shadow: 0 0 16px rgba(243, 156, 18, 0.25);
+}
+
+.mode-btn-magic.mode-btn-active {
+  border-color: #9b59b6;
+  background: #150d1e;
+  color: #cc88ff;
+  box-shadow: 0 0 16px rgba(155, 89, 182, 0.35);
+}
+
+/* ── Magic items list (in mode section) ── */
+.magic-items-list {
+  background: #0d0d1e;
+  border: 1px solid #333355;
+  border-radius: 10px;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+}
+
+.magic-item-entry {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.magic-item-icon {
+  font-size: 20px;
+  width: 28px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.magic-item-name {
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.magic-item-desc {
+  font-size: 12px;
+  color: #888aaa;
+  font-family: 'Segoe UI', sans-serif;
 }
 
 /* ── Game Over Screen ── */

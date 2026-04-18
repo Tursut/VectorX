@@ -48,6 +48,42 @@ export default function StartScreen({ onStart, magicItems, onToggleMagicItems, g
           <p className="gremlin-sub">{gremlinLabel}</p>
         </div>
 
+        {/* Game mode selector */}
+        <div className="mode-section">
+          <div className="mode-selector">
+            <button
+              className={`mode-btn ${!magicItems ? 'mode-btn-active mode-btn-classic' : ''}`}
+              onClick={() => magicItems && onToggleMagicItems()}
+            >
+              <span className="mode-btn-icon">⚔️</span>
+              <span className="mode-btn-label">CLASSIC</span>
+              <span className="mode-btn-sub">Pure territory, no surprises.</span>
+            </button>
+            <button
+              className={`mode-btn ${magicItems ? 'mode-btn-active mode-btn-magic' : ''}`}
+              onClick={() => !magicItems && onToggleMagicItems()}
+            >
+              <span className="mode-btn-icon">✨</span>
+              <span className="mode-btn-label">MAGIC</span>
+              <span className="mode-btn-sub">Items appear. Chaos ensues.</span>
+            </button>
+          </div>
+
+          {magicItems && (
+            <div className="magic-items-list">
+              {Object.values(ITEM_TYPES).map((item) => (
+                <div key={item.type} className="magic-item-entry">
+                  <span className="magic-item-icon">{item.icon}</span>
+                  <div>
+                    <span className="magic-item-name" style={{ color: item.color }}>{item.name}</span>
+                    <span className="magic-item-desc"> — {item.desc}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         <div className="start-rules">
           <p>🗺️ Move onto any adjacent square — including diagonally.</p>
           <p>🔒 Claimed squares are locked forever. No take-backs.</p>
@@ -55,40 +91,14 @@ export default function StartScreen({ onStart, magicItems, onToggleMagicItems, g
           <p>🏆 Last one moving wins. Simple. Brutal. Perfect.</p>
         </div>
 
-        {/* Magic Items Toggle */}
-        <div className="magic-toggle" onClick={onToggleMagicItems}>
-          <div className={`magic-toggle-track ${magicItems ? 'magic-toggle-on' : ''}`}>
-            <div className="magic-toggle-thumb" />
-          </div>
-          <div className="magic-toggle-label">
-            <span className="magic-toggle-title">
-              ✨ Magic Items {magicItems ? 'ON' : 'OFF'}
-            </span>
-            <span className="magic-toggle-sub">
-              {magicItems ? 'Items will appear on the board mid-game.' : 'Clean game, no chaos.'}
-            </span>
-          </div>
-        </div>
+        <p className="start-footnote">Starting player is chosen by the chaos gods (random).</p>
+      </div>
 
-        {magicItems && (
-          <div className="magic-items-list">
-            {Object.values(ITEM_TYPES).map((item) => (
-              <div key={item.type} className="magic-item-entry">
-                <span className="magic-item-icon">{item.icon}</span>
-                <div>
-                  <span className="magic-item-name" style={{ color: item.color }}>{item.name}</span>
-                  <span className="magic-item-desc"> — {item.desc}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
+      {/* Sticky begin button — always visible at bottom */}
+      <div className="start-button-bar">
         <button className="start-button" onClick={onStart}>
           BEGIN CHAOS →
         </button>
-
-        <p className="start-footnote">Starting player is chosen by the chaos gods (random).</p>
       </div>
     </div>
   );

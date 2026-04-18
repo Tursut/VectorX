@@ -35,7 +35,7 @@ const fadeSlide = {
 
 export default function App() {
   const [screen, setScreen] = useState('start');
-  const [magicItems, setMagicItems] = useState(false);
+  const [magicItems, setMagicItems] = useState(true);
   const [gremlinCount, setGremlinCount] = useState(3);
   const [isThinking, setIsThinking] = useState(false);
   const [gameState, dispatch] = useReducer(gameReducer, null);
