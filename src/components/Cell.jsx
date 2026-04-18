@@ -34,7 +34,7 @@ export default function Cell({ row, col, cell, isValidMove, isCurrentPlayer, pla
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 0.85 }}
             exit={{ scale: 1.6, opacity: 0, transition: { duration: 0.28 } }}
-            transition={{ ...spring, delay: 0.12 }}
+            transition={{ ...spring, delay: 0.16 }}
           />
         )}
       </AnimatePresence>
@@ -49,7 +49,7 @@ export default function Cell({ row, col, cell, isValidMove, isCurrentPlayer, pla
             className="player-icon"
             initial={{ scale: 0.5, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            transition={{ type: 'spring', stiffness: 340, damping: 28 }}
+            transition={{ type: 'spring', stiffness: 240, damping: 26 }}
           >
             {playerHere.icon}
           </motion.span>
