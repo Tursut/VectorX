@@ -27,11 +27,7 @@ export default function Cell({ row, col, cell, isValidMove, isCurrentPlayer, pla
       )}
 
       {deathHere && (
-        <div className="death-marker">
-          <span className="death-avatar">{deathHere.icon}</span>
-          <span className="death-tombstone">🪦</span>
-          <span className="death-watch">⌚</span>
-        </div>
+        <span className="death-tombstone">🪦</span>
       )}
 
       {isValidMove && !playerHere && <span className="valid-move-dot" />}
