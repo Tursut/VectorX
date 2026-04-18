@@ -1,5 +1,5 @@
 import { GRID_SIZE } from './constants';
-import { getValidMoves, getCurrentValidMoves } from './logic';
+import { getCurrentValidMoves } from './logic';
 
 const GREMLIN_THOUGHTS = [
   'Recklessly scheming…',
@@ -10,44 +10,80 @@ const GREMLIN_THOUGHTS = [
 
 export { GREMLIN_THOUGHTS };
 
-// ── Scoring functions ────────────────────────────────────────────────────────
-
-function scoreReckless(state, move) {
-  // Maximize own freedom after the move
-  const tempGrid = state.grid.map(r => r.map(c => ({ ...c })));
-  tempGrid[move.row][move.col] = { owner: state.players[state.currentPlayerIndex].id };
-  return getValidMoves(tempGrid, move.row, move.col).length;
-}
-
-function scoreGreedy(state, move) {
-  // Count unclaimed cells adjacent to the target position
-  let count = 0;
-  for (let dr = -1; dr <= 1; dr++) {
-    for (let dc = -1; dc <= 1; dc++) {
-      if (dr === 0 && dc === 0) continue;
-      const nr = move.row + dr, nc = move.col + dc;
-      if (nr >= 0 && nr < GRID_SIZE && nc >= 0 && nc < GRID_SIZE && state.grid[nr][nc].owner === null) {
-        count++;
+// ── BFS reachability ─────────────────────────────────────────────────────────
+// Counts empty cells reachable from (row, col) on a given grid.
+// Capped at maxCells to keep it fast on a 10×10 board.
+function reachable(grid, row, col, maxCells = 60) {
+  const visited = new Set([`${row},${col}`]);
+  const queue = [[row, col]];
+  while (queue.length > 0 && visited.size <= maxCells) {
+    const [r, c] = queue.shift();
+    for (let dr = -1; dr <= 1; dr++) {
+      for (let dc = -1; dc <= 1; dc++) {
+        if (dr === 0 && dc === 0) continue;
+        const nr = r + dr, nc = c + dc;
+        const key = `${nr},${nc}`;
+        if (
+          nr >= 0 && nr < GRID_SIZE && nc >= 0 && nc < GRID_SIZE &&
+          grid[nr][nc].owner === null && !visited.has(key)
+        ) {
+          visited.add(key);
+          queue.push([nr, nc]);
+        }
       }
     }
   }
-  return count;
+  return visited.size - 1; // exclude starting cell
 }
 
-function scoreTactical(state, move) {
-  // Minimize nearest active opponent's valid moves after our move
+function cloneGrid(grid) {
+  return grid.map(r => r.map(c => ({ ...c })));
+}
+
+// ── Scoring functions ────────────────────────────────────────────────────────
+
+// Reginald — stay free: picks the move that keeps the most reachable space.
+// Much smarter than counting immediate neighbors — avoids dead ends.
+function scoreExpansive(state, move) {
+  const tempGrid = cloneGrid(state.grid);
+  tempGrid[move.row][move.col] = { owner: state.players[state.currentPlayerIndex].id };
+  return reachable(tempGrid, move.row, move.col);
+}
+
+// Gerald — territory + soft cut: own reachable space plus a bonus for
+// each cell we shave off opponents' reach.
+function scoreTerritorial(state, move) {
   const player = state.players[state.currentPlayerIndex];
-  const opponents = state.players.filter(p => !p.isEliminated && p.id !== player.id);
-  if (opponents.length === 0) return 0;
-
-  const nearest = opponents.reduce((best, opp) => {
-    const dist = Math.max(Math.abs(opp.row - player.row), Math.abs(opp.col - player.col));
-    return dist < best.dist ? { opp, dist } : best;
-  }, { opp: opponents[0], dist: Infinity });
-
-  const tempGrid = state.grid.map(r => r.map(c => ({ ...c })));
+  const tempGrid = cloneGrid(state.grid);
   tempGrid[move.row][move.col] = { owner: player.id };
-  return -getValidMoves(tempGrid, nearest.opp.row, nearest.opp.col).length;
+
+  const ownSpace = reachable(tempGrid, move.row, move.col);
+  const opponents = state.players.filter(p => !p.isEliminated && p.id !== player.id);
+  const blockBonus = opponents.reduce((sum, opp) => {
+    const before = reachable(state.grid, opp.row, opp.col);
+    const after  = reachable(tempGrid, opp.row, opp.col);
+    return sum + Math.max(0, before - after);
+  }, 0);
+
+  return ownSpace + blockBonus * 0.5;
+}
+
+// Bluebot — aggressive cutter: maximises how much space it strips from
+// every active opponent, with a smaller bonus for its own freedom.
+function scoreAggressive(state, move) {
+  const player = state.players[state.currentPlayerIndex];
+  const tempGrid = cloneGrid(state.grid);
+  tempGrid[move.row][move.col] = { owner: player.id };
+
+  const opponents = state.players.filter(p => !p.isEliminated && p.id !== player.id);
+  const totalCut = opponents.reduce((sum, opp) => {
+    const before = reachable(state.grid, opp.row, opp.col);
+    const after  = reachable(tempGrid, opp.row, opp.col);
+    return sum + Math.max(0, before - after);
+  }, 0);
+
+  const ownSpace = reachable(tempGrid, move.row, move.col);
+  return totalCut * 0.7 + ownSpace * 0.3;
 }
 
 function pickBest(moves, scoreFn, state) {
@@ -64,12 +100,10 @@ function pickBest(moves, scoreFn, state) {
 function seekItem(moves, state) {
   if (!state.magicItems || state.items.length === 0) return null;
 
-  // Grab item directly if a valid move lands on it
   for (const move of moves) {
     if (state.items.some(i => i.row === move.row && i.col === move.col)) return move;
   }
 
-  // Otherwise step toward the nearest item — but only when it's within reach
   let bestMove = null, bestDist = Infinity;
   for (const move of moves) {
     for (const item of state.items) {
@@ -77,7 +111,7 @@ function seekItem(moves, state) {
       if (dist < bestDist) { bestDist = dist; bestMove = move; }
     }
   }
-  return bestDist <= 3 ? bestMove : null;
+  return bestDist <= 4 ? bestMove : null;
 }
 
 // ── Main entry point ──────────────────────────────────────────────────────────
@@ -89,19 +123,19 @@ export function getGremlinMove(state) {
 
   const rand = () => moves[Math.floor(Math.random() * moves.length)];
 
-  // 55% chance to seek an item when any are on the board
-  if (state.magicItems && state.items.length > 0 && Math.random() < 0.55) {
+  // 65% chance to seek an item when any are visible
+  if (state.magicItems && state.items.length > 0 && Math.random() < 0.65) {
     const itemMove = seekItem(moves, state);
     if (itemMove) return itemMove;
   }
 
   const playerId = state.players[state.currentPlayerIndex].id;
   switch (playerId) {
-    case 0: return pickBest(moves, scoreReckless, state); // Reginald — expand hard
-    case 1: return pickBest(moves, scoreGreedy, state);   // Gerald   — claim most neighbours
-    case 2: return pickBest(moves, scoreTactical, state); // Bluebot  — trap opponents
-    case 3:                                                // Buzzilda — chaotic
-      return Math.random() < 0.7 ? rand() : pickBest(moves, scoreReckless, state);
+    case 0: return pickBest(moves, scoreExpansive, state);   // Reginald — stay free
+    case 1: return pickBest(moves, scoreTerritorial, state); // Gerald   — territory + soft cut
+    case 2: return pickBest(moves, scoreAggressive, state);  // Bluebot  — cut opponents off
+    case 3:                                                   // Buzzilda — chaotic but less dumb
+      return Math.random() < 0.45 ? rand() : pickBest(moves, scoreExpansive, state);
     default: return rand();
   }
 }
