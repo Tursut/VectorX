@@ -1,7 +1,7 @@
 import { PLAYERS } from '../game/constants';
 import Cell from './Cell';
 
-export default function GameBoard({ grid, players, validMoveSet, onCellClick, currentPlayerIndex, items, portalActive }) {
+export default function GameBoard({ grid, players, validMoveSet, onCellClick, currentPlayerIndex, items, portalActive, bombBlast }) {
   const playerPositions = {};
   const deathCells = {};
   const itemMap = {};
@@ -19,6 +19,9 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
   });
 
   const currentPlayer = players[currentPlayerIndex];
+
+  const bombOriginKey = bombBlast ? `${bombBlast.origin.row},${bombBlast.origin.col}` : null;
+  const bombClearedSet = bombBlast ? new Set(bombBlast.cleared.map(c => `${c.row},${c.col}`)) : null;
 
   return (
     <div className="board">
@@ -38,6 +41,8 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
               itemHere={itemMap[key] || null}
               portalActive={portalActive}
               onCellClick={onCellClick}
+              isBombOrigin={bombOriginKey === key}
+              isBombCleared={bombClearedSet ? bombClearedSet.has(key) : false}
             />
           );
         })

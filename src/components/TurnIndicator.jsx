@@ -1,14 +1,30 @@
 import { AnimatePresence, motion } from 'framer-motion';
+import { PLAYERS } from '../game/constants';
 
-export default function TurnIndicator({ player, taunt, timeLeft, totalTime, bonusMoveActive, portalActive }) {
+const FREEZE_LINES = [
+  (by, target) => `❄️ ${by} froze ${target}. Cold-blooded.`,
+  (by, target) => `❄️ ${target} is on ice. ${by} sends regards.`,
+  (by, target) => `❄️ ${by} hit ${target} with a freeze ray. Uncalled for, honestly.`,
+];
+
+export default function TurnIndicator({ player, taunt, timeLeft, totalTime, bonusMoveActive, portalActive, lastEvent }) {
   const pct = (timeLeft / totalTime) * 100;
   const urgent = timeLeft <= 3;
 
   let statusLine = taunt;
   if (portalActive) statusLine = '🌀 PORTAL active! Pick any empty square on the board.';
-  else if (bonusMoveActive) statusLine = '🚀 BOOST! Take one extra step. Make it hurt.';
+  else if (bonusMoveActive) statusLine = `🚀 ${player.shortName} found turbo. One more move — make it sting.`;
 
-  // Key changes on player switch AND on special state activation so content slides in fresh
+  let eventLine = null;
+  if (lastEvent?.type === 'freeze') {
+    const by = PLAYERS[lastEvent.byId].shortName;
+    const target = lastEvent.targetId != null ? PLAYERS[lastEvent.targetId].shortName : null;
+    if (target) {
+      const line = FREEZE_LINES[(lastEvent.byId + lastEvent.targetId) % FREEZE_LINES.length];
+      eventLine = line(by, target);
+    }
+  }
+
   const animKey = `${player.id}-${bonusMoveActive}-${portalActive}`;
 
   return (
@@ -35,6 +51,9 @@ export default function TurnIndicator({ player, taunt, timeLeft, totalTime, bonu
             <div className={`turn-taunt ${portalActive || bonusMoveActive ? 'turn-taunt-special' : ''}`}>
               {statusLine}
             </div>
+            {eventLine && (
+              <div className="turn-event-line">{eventLine}</div>
+            )}
             <div className="turn-timer">
               <span className="turn-watch">⌚</span>
               <div className="timer-bar">

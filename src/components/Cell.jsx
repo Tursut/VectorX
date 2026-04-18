@@ -10,12 +10,13 @@ function badgeColor(turnsLeft) {
 
 const spring = { type: 'spring', stiffness: 380, damping: 28 };
 
-export default function Cell({ row, col, cell, isValidMove, isCurrentPlayer, playerHere, deathHere, itemHere, portalActive, onCellClick }) {
+export default function Cell({ row, col, cell, isValidMove, isCurrentPlayer, playerHere, deathHere, itemHere, portalActive, onCellClick, isBombOrigin, isBombCleared }) {
   const owner = cell.owner !== null ? PLAYERS[cell.owner] : null;
 
   let className = 'cell';
   if (isValidMove) className += portalActive ? ' cell-portal' : ' cell-valid';
   if (isCurrentPlayer) className += ' cell-current';
+  if (isBombCleared) className += ' cell-bomb-cleared';
 
   return (
     <div
@@ -93,6 +94,9 @@ export default function Cell({ row, col, cell, isValidMove, isCurrentPlayer, pla
         {/* Valid move hint dot */}
         {isValidMove && !playerHere && !itemHere && <span className="valid-move-dot" />}
       </div>
+
+      {/* Bomb explosion overlay — absolutely positioned above everything */}
+      {isBombOrigin && <span className="bomb-origin-fx">💥</span>}
     </div>
   );
 }

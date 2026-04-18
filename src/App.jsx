@@ -1,7 +1,7 @@
 import { useReducer, useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { initGame, applyMove, getCurrentValidMoves, eliminateCurrentPlayer } from './game/logic';
-import { PLAYERS, TURN_TAUNTS, TURN_TIME } from './game/constants';
+import { PLAYERS, TURN_TAUNTS, TURN_TIME, GRID_SIZE } from './game/constants';
 import StartScreen from './components/StartScreen';
 import GameBoard from './components/GameBoard';
 import TurnIndicator from './components/TurnIndicator';
@@ -36,6 +36,13 @@ export default function App() {
   const [magicItems, setMagicItems] = useState(false);
   const [gameState, dispatch] = useReducer(gameReducer, null);
   const [timeLeft, setTimeLeft] = useState(TURN_TIME);
+  const [bombBlast, setBombBlast] = useState(null);
+
+  useEffect(() => {
+    if (!bombBlast) return;
+    const t = setTimeout(() => setBombBlast(null), 700);
+    return () => clearTimeout(t);
+  }, [bombBlast]);
 
   useEffect(() => {
     if (!gameState || gameState.phase !== 'playing') return;
@@ -71,6 +78,22 @@ export default function App() {
   }
 
   function handleMove(row, col) {
+    if (gameState?.magicItems) {
+      const item = gameState.items.find(i => i.row === row && i.col === col);
+      if (item?.type === 'bomb') {
+        const cleared = [];
+        for (let dr = -1; dr <= 1; dr++) {
+          for (let dc = -1; dc <= 1; dc++) {
+            if (dr === 0 && dc === 0) continue;
+            const nr = row + dr, nc = col + dc;
+            if (nr >= 0 && nr < GRID_SIZE && nc >= 0 && nc < GRID_SIZE) {
+              cleared.push({ row: nr, col: nc });
+            }
+          }
+        }
+        setBombBlast({ origin: { row, col }, cleared });
+      }
+    }
     dispatch({ type: 'MOVE', row, col });
   }
 
@@ -114,6 +137,7 @@ export default function App() {
               totalTime={TURN_TIME}
               bonusMoveActive={gameState.bonusMoveActive}
               portalActive={gameState.portalActive}
+              lastEvent={gameState.lastEvent}
             />
             <div className="game-center">
               <PlayerPanel
@@ -128,6 +152,7 @@ export default function App() {
                 currentPlayerIndex={gameState.currentPlayerIndex}
                 items={gameState.items}
                 portalActive={gameState.portalActive}
+                bombBlast={bombBlast}
               />
             </div>
           </motion.div>

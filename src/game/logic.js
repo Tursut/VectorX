@@ -33,6 +33,7 @@ export function initGame(magicItems = false) {
     bonusMoveActive: false,
     portalActive: false,
     freezeNextPlayer: false,
+    lastEvent: null,
   };
 }
 
@@ -144,7 +145,12 @@ function completeTurn(state) {
 
   let nextIndex = advanceToNextActive(updatedPlayers, currentPlayerIndex);
 
+  let lastEvent = null;
   if (freezeNextPlayer) {
+    const frozenPlayer = updatedPlayers[nextIndex];
+    if (!frozenPlayer.isEliminated) {
+      lastEvent = { type: 'freeze', byId: player.id, targetId: frozenPlayer.id };
+    }
     nextIndex = advanceToNextActive(updatedPlayers, nextIndex);
   }
 
@@ -173,6 +179,7 @@ function completeTurn(state) {
     bonusMoveActive: false,
     portalActive: false,
     freezeNextPlayer: false,
+    lastEvent,
   };
 
   return trySpawnItem(nextState);
@@ -192,7 +199,7 @@ export function applyMove(state, targetRow, targetCol) {
   const itemAtTarget = items.find(i => i.row === targetRow && i.col === targetCol);
   const remainingItems = items.filter(i => !(i.row === targetRow && i.col === targetCol));
 
-  const partial = { ...state, grid: newGrid, players: movedPlayers, items: remainingItems };
+  const partial = { ...state, grid: newGrid, players: movedPlayers, items: remainingItems, lastEvent: null };
 
   // If this was already a bonus/portal move, just complete the turn normally
   if (bonusMoveActive || portalActive) {
@@ -258,6 +265,7 @@ export function eliminateCurrentPlayer(state) {
     items: tickedItems,
     bonusMoveActive: false,
     portalActive: false,
+    lastEvent: null,
   });
 }
 

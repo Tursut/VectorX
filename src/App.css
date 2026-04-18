@@ -185,6 +185,40 @@
   opacity: 0.75;
 }
 
+/* ── Bomb Effects ── */
+@keyframes bombFlash {
+  0%   { opacity: 0.85; }
+  100% { opacity: 0; }
+}
+
+.cell-bomb-cleared::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: #e67e22;
+  border-radius: 3px;
+  pointer-events: none;
+  z-index: 2;
+  animation: bombFlash 0.6s ease-out forwards;
+}
+
+@keyframes bombOriginFx {
+  0%   { opacity: 1; transform: translate(-50%, -50%) scale(0.5); }
+  45%  { opacity: 1; transform: translate(-50%, -50%) scale(1.9); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(2.3); }
+}
+
+.bomb-origin-fx {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: calc(var(--cell-size) * 0.8);
+  pointer-events: none;
+  z-index: 3;
+  animation: bombOriginFx 0.65s ease-out forwards;
+}
+
 /* ── Turn Indicator ── */
 .turn-indicator-shell {
   width: 100%;
@@ -257,6 +291,16 @@
   color: #e8d5ff;
   font-style: normal;
   font-weight: bold;
+}
+
+.turn-event-line {
+  font-size: 10px;
+  color: #a8d8f0;
+  font-style: italic;
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ── Timer ── */
