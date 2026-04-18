@@ -1,10 +1,12 @@
 import { PLAYERS, ITEM_TYPES } from '../game/constants';
 
 export default function StartScreen({ onStart, magicItems, onToggleMagicItems, gremlinCount, onChangeGremlinCount }) {
+  const humanCount = PLAYERS.length - gremlinCount;
   const gremlinLabel =
-    gremlinCount === 0 ? 'No Gremlins — just you and your questionable choices.' :
-    gremlinCount === 4 ? 'All Gremlins — sit back and enjoy the show.' :
-    `${gremlinCount} Gremlin${gremlinCount > 1 ? 's' : ''} — they play dirty. You've been warned.`;
+    gremlinCount === 0 ? 'All human. May the best player win.' :
+    gremlinCount === 4 ? 'All gremlins — sit back and enjoy the show.' :
+    humanCount === 1 ? 'Just you vs the gremlins. Good luck.' :
+    `${humanCount} humans, ${gremlinCount} gremlins.`;
 
   return (
     <div className="start-screen">
@@ -14,28 +16,29 @@ export default function StartScreen({ onStart, magicItems, onToggleMagicItems, g
           Four players. One grid. Only one walks away smiling.
         </p>
 
-        <div className="start-characters">
-          {PLAYERS.map((p) => {
-            const isGremlin = p.id >= PLAYERS.length - gremlinCount;
-            return (
-              <div key={p.id} className={`start-character ${isGremlin ? 'start-character-gremlin' : ''}`} style={{ borderColor: p.color }}>
-                <div className="start-character-icon" style={{ backgroundColor: p.color }}>
-                  {p.icon}
-                </div>
-                <div className="start-character-name" style={{ color: p.color }}>
-                  {p.name}
-                </div>
-                {isGremlin && <div className="start-character-badge">👾 GREMLIN</div>}
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Gremlin slider */}
+        {/* Gremlin / player setup */}
         <div className="gremlin-section">
-          <div className="gremlin-header">
-            <span className="gremlin-title">👾 Gremlins</span>
-            <span className="gremlin-value">{gremlinCount} / 4</span>
+          <p className="gremlin-question">Who's playing?</p>
+          <div className="gremlin-slots">
+            {PLAYERS.map((p) => {
+              const isGremlin = p.id >= PLAYERS.length - gremlinCount;
+              return (
+                <div key={p.id} className={`gremlin-slot ${isGremlin ? 'gremlin-slot-bot' : 'gremlin-slot-human'}`}>
+                  <div
+                    className="gremlin-slot-avatar"
+                    style={isGremlin ? {} : { backgroundColor: p.color }}
+                  >
+                    {isGremlin ? '👾' : p.icon}
+                  </div>
+                  <span className="gremlin-slot-name" style={isGremlin ? {} : { color: p.color }}>
+                    {p.shortName}
+                  </span>
+                  <span className="gremlin-slot-type">
+                    {isGremlin ? 'gremlin' : 'human'}
+                  </span>
+                </div>
+              );
+            })}
           </div>
           <input
             type="range"
