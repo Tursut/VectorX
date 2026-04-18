@@ -1,3 +1,4 @@
+import { motion } from 'framer-motion';
 import { PLAYERS } from '../game/constants';
 
 const ELIMINATION_LINES = [
@@ -13,47 +14,104 @@ export default function GameOverScreen({ winner, players, onRestart, onMenu }) {
       <div className="gameover-content">
         {winner ? (
           <>
-            <div className="gameover-winner-icon" style={{ backgroundColor: winner.color }}>
+            <motion.div
+              className="gameover-winner-icon"
+              style={{ backgroundColor: winner.color }}
+              initial={{ scale: 0, rotate: -200 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{ type: 'spring', stiffness: 180, damping: 13 }}
+            >
               {winner.icon}
-            </div>
-            <h1 className="gameover-title" style={{ color: winner.color }}>
+            </motion.div>
+
+            <motion.h1
+              className="gameover-title"
+              style={{ color: winner.color }}
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.22, type: 'spring', stiffness: 300, damping: 22 }}
+            >
               {winner.name.toUpperCase()} WINS!
-            </h1>
-            <p className="gameover-quote">{winner.winQuote}</p>
+            </motion.h1>
+
+            <motion.p
+              className="gameover-quote"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.44, duration: 0.4 }}
+            >
+              {winner.winQuote}
+            </motion.p>
           </>
         ) : (
           <>
-            <div className="gameover-winner-icon">🤝</div>
-            <h1 className="gameover-title">IT'S A DRAW!</h1>
-            <p className="gameover-quote">
+            <motion.div
+              className="gameover-winner-icon"
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: 'spring', stiffness: 200, damping: 14 }}
+            >
+              🤝
+            </motion.div>
+            <motion.h1
+              className="gameover-title"
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+            >
+              IT'S A DRAW!
+            </motion.h1>
+            <motion.p
+              className="gameover-quote"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.4 }}
+            >
               Nobody wins. Everyone loses. Oddly fitting.
-            </p>
+            </motion.p>
           </>
         )}
 
         {eliminated.length > 0 && (
-          <div className="gameover-eliminated">
+          <motion.div
+            className="gameover-eliminated"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.6, duration: 0.35 }}
+          >
             <h3>The fallen:</h3>
-            {eliminated.map((p) => {
+            {eliminated.map((p, i) => {
               const config = PLAYERS[p.id];
               const line = ELIMINATION_LINES[p.id % ELIMINATION_LINES.length];
               return (
-                <div key={p.id} className="gameover-eliminated-entry" style={{ color: config.color }}>
+                <motion.div
+                  key={p.id}
+                  className="gameover-eliminated-entry"
+                  style={{ color: config.color }}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.7 + i * 0.1 }}
+                >
                   {config.icon} {line(config.shortName, config.deathQuote)}
-                </div>
+                </motion.div>
               );
             })}
-          </div>
+          </motion.div>
         )}
 
-        <div className="gameover-buttons">
+        <motion.div
+          className="gameover-buttons"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.85 }}
+        >
           <button className="gameover-button gameover-button-primary" onClick={onRestart}>
             PLAY AGAIN
           </button>
           <button className="gameover-button gameover-button-secondary" onClick={onMenu}>
             Main Menu
           </button>
-        </div>
+        </motion.div>
       </div>
     </div>
   );

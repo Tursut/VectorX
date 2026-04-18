@@ -1,4 +1,5 @@
 import { useReducer, useState, useEffect } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { initGame, applyMove, getCurrentValidMoves, eliminateCurrentPlayer } from './game/logic';
 import { PLAYERS, TURN_TAUNTS, TURN_TIME } from './game/constants';
 import StartScreen from './components/StartScreen';
@@ -23,13 +24,19 @@ function gameReducer(state, action) {
   }
 }
 
+const fadeSlide = {
+  initial: { opacity: 0, y: 16 },
+  animate: { opacity: 1, y: 0 },
+  exit:    { opacity: 0, y: -16 },
+  transition: { duration: 0.22 },
+};
+
 export default function App() {
   const [screen, setScreen] = useState('start');
   const [magicItems, setMagicItems] = useState(false);
   const [gameState, dispatch] = useReducer(gameReducer, null);
   const [timeLeft, setTimeLeft] = useState(TURN_TIME);
 
-  // Reset timer on each new turn, and when bonus/portal activates
   useEffect(() => {
     if (!gameState || gameState.phase !== 'playing') return;
     const playerIndex = gameState.currentPlayerIndex;
@@ -56,7 +63,7 @@ export default function App() {
 
   function handleRestart() {
     dispatch({ type: 'START', magicItems });
-    setScreen('game');
+    // stay on 'game' screen — AnimatePresence handles gameover→game transition
   }
 
   function handleBackToStart() {
@@ -77,52 +84,70 @@ export default function App() {
         )
       : '';
 
+  // Key for AnimatePresence: distinguishes game sessions so player icons re-enter on restart
+  const gameKey = gameState ? `game-${gameState.turnCount === 0 ? 'fresh' : 'running'}-${gameState.players[0]?.row}` : 'none';
+
   return (
     <div className="app">
-      {screen === 'start' && (
-        <StartScreen
-          onStart={handleStart}
-          magicItems={magicItems}
-          onToggleMagicItems={() => setMagicItems((v) => !v)}
-        />
-      )}
+      <AnimatePresence mode="wait">
 
-      {screen === 'game' && gameState && gameState.phase === 'playing' && (
-        <div className="game-layout">
-          <TurnIndicator
-            player={PLAYERS[gameState.currentPlayerIndex]}
-            taunt={currentTaunt}
-            timeLeft={timeLeft}
-            totalTime={TURN_TIME}
-            bonusMoveActive={gameState.bonusMoveActive}
-            portalActive={gameState.portalActive}
-          />
-          <div className="game-center">
-            <PlayerPanel
-              players={gameState.players}
-              currentPlayerIndex={gameState.currentPlayerIndex}
+        {screen === 'start' && (
+          <motion.div key="start" style={{ width: '100%' }} {...fadeSlide}>
+            <StartScreen
+              onStart={handleStart}
+              magicItems={magicItems}
+              onToggleMagicItems={() => setMagicItems((v) => !v)}
             />
-            <GameBoard
-              grid={gameState.grid}
-              players={gameState.players}
-              validMoveSet={validMoveSet}
-              onCellClick={handleMove}
-              currentPlayerIndex={gameState.currentPlayerIndex}
-              items={gameState.items}
+          </motion.div>
+        )}
+
+        {screen === 'game' && gameState?.phase === 'playing' && (
+          <motion.div
+            key={`playing-${gameState.turnCount < 2 ? 'start' : 'mid'}`}
+            className="game-layout"
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.96 }}
+            transition={{ duration: 0.25 }}
+          >
+            <TurnIndicator
+              player={PLAYERS[gameState.currentPlayerIndex]}
+              taunt={currentTaunt}
+              timeLeft={timeLeft}
+              totalTime={TURN_TIME}
+              bonusMoveActive={gameState.bonusMoveActive}
               portalActive={gameState.portalActive}
             />
-          </div>
-        </div>
-      )}
+            <div className="game-center">
+              <PlayerPanel
+                players={gameState.players}
+                currentPlayerIndex={gameState.currentPlayerIndex}
+              />
+              <GameBoard
+                grid={gameState.grid}
+                players={gameState.players}
+                validMoveSet={validMoveSet}
+                onCellClick={handleMove}
+                currentPlayerIndex={gameState.currentPlayerIndex}
+                items={gameState.items}
+                portalActive={gameState.portalActive}
+              />
+            </div>
+          </motion.div>
+        )}
 
-      {screen === 'game' && gameState && gameState.phase === 'gameover' && (
-        <GameOverScreen
-          winner={gameState.winner !== null ? PLAYERS[gameState.winner] : null}
-          players={gameState.players}
-          onRestart={handleRestart}
-          onMenu={handleBackToStart}
-        />
-      )}
+        {screen === 'game' && gameState?.phase === 'gameover' && (
+          <motion.div key="gameover" style={{ width: '100%' }} {...fadeSlide}>
+            <GameOverScreen
+              winner={gameState.winner !== null ? PLAYERS[gameState.winner] : null}
+              players={gameState.players}
+              onRestart={handleRestart}
+              onMenu={handleBackToStart}
+            />
+          </motion.div>
+        )}
+
+      </AnimatePresence>
     </div>
   );
 }

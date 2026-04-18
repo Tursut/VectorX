@@ -1,3 +1,4 @@
+import { motion } from 'framer-motion';
 import { PLAYERS } from '../game/constants';
 
 export default function PlayerPanel({ players, currentPlayerIndex }) {
@@ -7,10 +8,16 @@ export default function PlayerPanel({ players, currentPlayerIndex }) {
         const config = PLAYERS[p.id];
         const isCurrent = p.id === currentPlayerIndex && !p.isEliminated;
         return (
-          <div
+          <motion.div
             key={p.id}
-            className={`player-card ${isCurrent ? 'player-card-active' : ''} ${p.isEliminated ? 'player-card-eliminated' : ''}`}
+            className="player-card"
             style={{ borderColor: config.color }}
+            animate={{
+              scale: isCurrent ? 1.06 : 1,
+              opacity: p.isEliminated ? 0.32 : 1,
+              filter: p.isEliminated ? 'grayscale(0.85)' : 'grayscale(0)',
+            }}
+            transition={{ duration: 0.45 }}
           >
             <div className="player-card-icon" style={{ backgroundColor: config.color }}>
               {p.isEliminated ? '💀' : config.icon}
@@ -20,7 +27,7 @@ export default function PlayerPanel({ players, currentPlayerIndex }) {
             </div>
             {p.isEliminated && <div className="player-card-rip">R.I.P.</div>}
             {isCurrent && <div className="player-card-turn">← NOW</div>}
-          </div>
+          </motion.div>
         );
       })}
     </div>

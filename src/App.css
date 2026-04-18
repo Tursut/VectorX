@@ -64,16 +64,29 @@
   height: var(--cell-size);
   background: #16213e;
   border-radius: 3px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   position: relative;
-  transition: background 0.15s, transform 0.1s;
   cursor: default;
   overflow: hidden;
 }
 
-.cell-owned { opacity: 0.85; }
+/* Absolutely-positioned fill layer — animated by Framer Motion on claim/bomb */
+.cell-fill {
+  position: absolute;
+  inset: 0;
+  border-radius: 3px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Content layer — sits above fill */
+.cell-content {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
 
 .cell-valid {
   cursor: pointer;
@@ -113,14 +126,7 @@
   filter: drop-shadow(0 2px 3px rgba(0,0,0,0.5));
 }
 
-.player-icon-active {
-  animation: bounce 0.6s infinite alternate ease-in-out;
-}
-
-@keyframes bounce {
-  from { transform: translateY(0); }
-  to   { transform: translateY(calc(var(--cell-size) * -0.1)); }
-}
+/* bounce handled by Framer Motion layoutId spring */
 
 .valid-move-dot {
   width: calc(var(--cell-size) * 0.22);
@@ -163,19 +169,22 @@
 }
 
 /* ── Turn Indicator ── */
-.turn-indicator {
+.turn-indicator-shell {
+  width: 100%;
+  max-width: calc(10 * var(--cell-size) + 10 * var(--board-gap) + 8px + 6px);
+  border: 3px solid;
+  border-radius: 12px;
+  background: #0f0f23;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.turn-indicator-inner {
   display: flex;
   align-items: center;
   gap: 12px;
-  background: #0f0f23;
-  border: 3px solid;
-  border-radius: 12px;
   padding: 8px 16px;
-  width: 100%;
-  max-width: calc(10 * var(--cell-size) + 10 * var(--board-gap) + 8px + 6px);
-  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-  transition: box-shadow 0.2s;
-  box-sizing: border-box;
 }
 
 .turn-indicator-urgent {
@@ -315,15 +324,7 @@
   }
 }
 
-.player-card-active {
-  transform: scale(1.06);
-  box-shadow: 0 0 12px rgba(255,255,255,0.15);
-}
-
-.player-card-eliminated {
-  opacity: 0.35;
-  filter: grayscale(0.8);
-}
+/* scale, opacity, filter animated by Framer Motion */
 
 .player-card-icon {
   font-size: 20px;
@@ -524,12 +525,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  animation: winnerSpin 0.8s ease-out;
-}
-
-@keyframes winnerSpin {
-  from { transform: rotate(-10deg) scale(0.5); opacity: 0; }
-  to   { transform: rotate(0deg) scale(1); opacity: 1; }
+  /* entrance animated by Framer Motion */
 }
 
 .gameover-title {
