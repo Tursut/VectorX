@@ -55,8 +55,6 @@ export default function App() {
     if (!gameState?.bonusMoveActive) return;
     const id = Date.now();
     setEventToast({ id, type: 'boost', player: PLAYERS[gameState.currentPlayerIndex] });
-    const t = setTimeout(() => setEventToast(null), 1400);
-    return () => clearTimeout(t);
   }, [gameState?.bonusMoveActive]);
 
   // Freeze toast — fires when lastEvent becomes a freeze event
@@ -70,9 +68,15 @@ export default function App() {
       by: PLAYERS[ev.byId],
       target: ev.targetId != null ? PLAYERS[ev.targetId] : null,
     });
-    const t = setTimeout(() => setEventToast(null), 2000);
-    return () => clearTimeout(t);
   }, [gameState?.lastEvent]);
+
+  // Dismiss toast after its display duration — decoupled from gameState changes
+  useEffect(() => {
+    if (!eventToast) return;
+    const duration = eventToast.type === 'freeze' ? 2000 : 1400;
+    const t = setTimeout(() => setEventToast(null), duration);
+    return () => clearTimeout(t);
+  }, [eventToast?.id]);
 
   useEffect(() => {
     if (!gameState || gameState.phase !== 'playing') return;
