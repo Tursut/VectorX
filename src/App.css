@@ -888,6 +888,23 @@
   font-family: 'Segoe UI', sans-serif;
 }
 
+/* ── Sound toggle ── */
+.sound-toggle {
+  position: fixed;
+  top: 12px;
+  right: 14px;
+  z-index: 300;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 8px;
+  padding: 5px 9px;
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.sound-toggle:hover { background: rgba(255, 255, 255, 0.14); }
+
 /* ── Countdown Overlay ── */
 .countdown-overlay {
   position: fixed;

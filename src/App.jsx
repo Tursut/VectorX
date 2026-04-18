@@ -1,8 +1,9 @@
-import { useReducer, useState, useEffect } from 'react';
+import { useReducer, useState, useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { initGame, applyMove, getCurrentValidMoves, eliminateCurrentPlayer } from './game/logic';
 import { getGremlinMove } from './game/ai';
 import { PLAYERS, TURN_TAUNTS, TURN_TIME, GRID_SIZE } from './game/constants';
+import * as sounds from './game/sounds';
 import StartScreen from './components/StartScreen';
 import GameBoard from './components/GameBoard';
 import TurnIndicator from './components/TurnIndicator';
@@ -43,6 +44,8 @@ export default function App() {
   const [bombBlast, setBombBlast] = useState(null);
   const [eventToast, setEventToast] = useState(null);
   const [countdown, setCountdown] = useState(null);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const prevPlayersRef = useRef(null);
 
   useEffect(() => {
     if (!bombBlast) return;
@@ -50,14 +53,15 @@ export default function App() {
     return () => clearTimeout(t);
   }, [bombBlast]);
 
-  // Boost toast — fires when bonusMoveActive turns true
+  // Boost toast + sound
   useEffect(() => {
     if (!gameState?.bonusMoveActive) return;
     const id = Date.now();
     setEventToast({ id, type: 'boost', player: PLAYERS[gameState.currentPlayerIndex] });
+    sounds.playBoost();
   }, [gameState?.bonusMoveActive]);
 
-  // Freeze toast — fires when lastEvent becomes a freeze event
+  // Freeze toast + sound
   useEffect(() => {
     const ev = gameState?.lastEvent;
     if (!ev || ev.type !== 'freeze') return;
@@ -68,6 +72,7 @@ export default function App() {
       by: PLAYERS[ev.byId],
       target: ev.targetId != null ? PLAYERS[ev.targetId] : null,
     });
+    sounds.playFreeze();
   }, [gameState?.lastEvent]);
 
   // Dismiss toast after its display duration — decoupled from gameState changes
@@ -78,13 +83,17 @@ export default function App() {
     return () => clearTimeout(t);
   }, [eventToast?.id]);
 
+  // Timer — ticks on last 3s for human turns only
   useEffect(() => {
     if (!gameState || gameState.phase !== 'playing') return;
     const playerIndex = gameState.currentPlayerIndex;
+    const gc = gameState.gremlinCount ?? 0;
+    const isHuman = gameState.players[playerIndex].id < PLAYERS.length - gc;
     setTimeLeft(TURN_TIME);
 
     const interval = setInterval(() => {
       setTimeLeft((t) => {
+        if (isHuman && t <= 3 && t > 1) sounds.playTick((4 - t) / 3);
         if (t <= 1) {
           clearInterval(interval);
           dispatch({ type: 'TIMEOUT', playerIndex });
@@ -96,6 +105,33 @@ export default function App() {
 
     return () => clearInterval(interval);
   }, [gameState?.currentPlayerIndex, gameState?.phase, gameState?.bonusMoveActive, gameState?.portalActive]);
+
+  // Your-turn chime — plays when it becomes a human's turn
+  useEffect(() => {
+    if (!gameState || gameState.phase !== 'playing') return;
+    const gc = gameState.gremlinCount ?? 0;
+    const isHuman = gameState.players[gameState.currentPlayerIndex].id < PLAYERS.length - gc;
+    if (isHuman) sounds.playYourTurn();
+  }, [gameState?.currentPlayerIndex, gameState?.phase]);
+
+  // Elimination sound — detects the false→true transition per player
+  useEffect(() => {
+    if (!gameState?.players) { prevPlayersRef.current = null; return; }
+    if (prevPlayersRef.current) {
+      gameState.players.forEach((p, i) => {
+        const prev = prevPlayersRef.current[i];
+        if (prev && p.isEliminated && !prev.isEliminated) sounds.playElimination();
+      });
+    }
+    prevPlayersRef.current = gameState.players;
+  }, [gameState?.players]);
+
+  // Game-over sound
+  useEffect(() => {
+    if (gameState?.phase !== 'gameover') return;
+    if (gameState.winner !== null) sounds.playWin();
+    else sounds.playDraw();
+  }, [gameState?.phase]);
 
   // Gremlin auto-move
   useEffect(() => {
@@ -122,6 +158,7 @@ export default function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameState?.currentPlayerIndex, gameState?.phase, gameState?.bonusMoveActive, gameState?.portalActive]);
 
+  // Countdown sounds + logic
   useEffect(() => {
     if (countdown === null) return;
     if (countdown < 0) {
@@ -130,6 +167,8 @@ export default function App() {
       setScreen('game');
       return;
     }
+    if (countdown === 0) sounds.playCountdownGo();
+    else sounds.playCountdownBeat();
     const delays = { 3: 850, 2: 1200, 1: 1200, 0: 2400 };
     const t = setTimeout(() => setCountdown((c) => c - 1), delays[countdown] ?? 850);
     return () => clearTimeout(t);
@@ -142,7 +181,6 @@ export default function App() {
 
   function handleRestart() {
     dispatch({ type: 'START', magicItems, gremlinCount });
-    // stay on 'game' screen — AnimatePresence handles gameover→game transition
   }
 
   function handleBackToStart() {
@@ -150,6 +188,11 @@ export default function App() {
   }
 
   function handleMove(row, col) {
+    const gc = gameState?.gremlinCount ?? 0;
+    const isBot = gameState?.players[gameState.currentPlayerIndex].id >= PLAYERS.length - gc;
+    sounds.playMove(isBot);
+    setTimeout(() => sounds.playClaim(), 200);
+
     if (gameState?.magicItems) {
       const item = gameState.items.find(i => i.row === row && i.col === col);
       if (item?.type === 'bomb') {
@@ -164,9 +207,20 @@ export default function App() {
           }
         }
         setBombBlast({ origin: { row, col }, cleared });
+        sounds.playBomb();
+      } else if (item?.type === 'portal') {
+        sounds.playPortal();
       }
+      // boost → playBoost() fires via bonusMoveActive effect
+      // freeze → playFreeze() fires via lastEvent effect
     }
     dispatch({ type: 'MOVE', row, col });
+  }
+
+  function toggleSound() {
+    const next = !soundEnabled;
+    setSoundEnabled(next);
+    sounds.setMuted(!next);
   }
 
   const validMoves = gameState ? getCurrentValidMoves(gameState) : [];
@@ -181,6 +235,10 @@ export default function App() {
 
   return (
     <div className="app">
+      <button className="sound-toggle" onClick={toggleSound} title={soundEnabled ? 'Mute' : 'Unmute'}>
+        {soundEnabled ? '🔊' : '🔇'}
+      </button>
+
       <AnimatePresence>
         {eventToast && <EventToast key={eventToast.id} toast={eventToast} />}
       </AnimatePresence>
