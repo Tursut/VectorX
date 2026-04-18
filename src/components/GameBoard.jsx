@@ -1,9 +1,10 @@
 import { PLAYERS } from '../game/constants';
 import Cell from './Cell';
 
-export default function GameBoard({ grid, players, validMoveSet, onCellClick, currentPlayerIndex }) {
+export default function GameBoard({ grid, players, validMoveSet, onCellClick, currentPlayerIndex, items, portalActive }) {
   const playerPositions = {};
   const deathCells = {};
+  const itemMap = {};
 
   players.forEach((p) => {
     if (!p.isEliminated) {
@@ -11,6 +12,10 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
     } else if (p.deathCell) {
       deathCells[`${p.deathCell.row},${p.deathCell.col}`] = PLAYERS[p.id];
     }
+  });
+
+  (items || []).forEach((item) => {
+    itemMap[`${item.row},${item.col}`] = item;
   });
 
   const currentPlayer = players[currentPlayerIndex];
@@ -27,11 +32,11 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
               col={ci}
               cell={cell}
               isValidMove={validMoveSet.has(key)}
-              isCurrentPlayer={
-                currentPlayer && currentPlayer.row === ri && currentPlayer.col === ci
-              }
+              isCurrentPlayer={currentPlayer && currentPlayer.row === ri && currentPlayer.col === ci}
               playerHere={playerPositions[key] || null}
               deathHere={deathCells[key] || null}
+              itemHere={itemMap[key] || null}
+              portalActive={portalActive}
               onCellClick={onCellClick}
             />
           );

@@ -1,25 +1,23 @@
-import { GRID_SIZE, PLAYERS, DIRECTIONS } from './constants';
+import {
+  GRID_SIZE, PLAYERS, DIRECTIONS,
+  ITEM_TYPES, ITEM_LIFESPAN, ITEM_SPAWN_AFTER, MAX_ITEMS_ON_BOARD, ITEM_SPAWN_MIN, ITEM_SPAWN_MAX,
+} from './constants';
+
+const randomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
 export function createInitialGrid() {
-  const grid = Array.from({ length: GRID_SIZE }, () =>
+  return Array.from({ length: GRID_SIZE }, () =>
     Array.from({ length: GRID_SIZE }, () => ({ owner: null }))
   );
-  return grid;
 }
 
-export function initGame() {
+export function initGame(magicItems = false) {
   const grid = createInitialGrid();
   const startingPlayerIndex = Math.floor(Math.random() * PLAYERS.length);
 
   const players = PLAYERS.map((p) => {
     grid[p.startRow][p.startCol] = { owner: p.id };
-    return {
-      id: p.id,
-      row: p.startRow,
-      col: p.startCol,
-      isEliminated: false,
-      deathCell: null,
-    };
+    return { id: p.id, row: p.startRow, col: p.startCol, isEliminated: false, deathCell: null };
   });
 
   return {
@@ -29,6 +27,12 @@ export function initGame() {
     phase: 'playing',
     winner: null,
     turnCount: 0,
+    magicItems,
+    items: [],
+    nextSpawnIn: randomInt(ITEM_SPAWN_MIN, ITEM_SPAWN_MAX),
+    bonusMoveActive: false,
+    portalActive: false,
+    freezeNextPlayer: false,
   };
 }
 
@@ -44,9 +48,7 @@ export function getValidMoves(grid, row, col) {
   return moves;
 }
 
-function markEliminated(p) {
-  return { ...p, isEliminated: true, deathCell: { row: p.row, col: p.col } };
-}
+const markEliminated = (p) => ({ ...p, isEliminated: true, deathCell: { row: p.row, col: p.col } });
 
 function advanceToNextActive(players, fromIndex) {
   let next = fromIndex;
@@ -58,8 +60,120 @@ function advanceToNextActive(players, fromIndex) {
   return next;
 }
 
+function getSpawnCandidates(grid, players, items) {
+  const occupied = new Set([
+    ...players.filter(p => !p.isEliminated).map(p => `${p.row},${p.col}`),
+    ...items.map(i => `${i.row},${i.col}`),
+  ]);
+  const candidates = [];
+  for (let r = 0; r < GRID_SIZE; r++) {
+    for (let c = 0; c < GRID_SIZE; c++) {
+      if (grid[r][c].owner === null && !occupied.has(`${r},${c}`)) {
+        candidates.push({ row: r, col: c });
+      }
+    }
+  }
+  return candidates;
+}
+
+function trySpawnItem(state) {
+  if (!state.magicItems) return state;
+
+  const newNextSpawnIn = state.nextSpawnIn - 1;
+  if (newNextSpawnIn > 0) return { ...state, nextSpawnIn: newNextSpawnIn };
+
+  // Timer hit zero — reset it regardless of whether we actually spawn
+  const reset = { ...state, nextSpawnIn: randomInt(ITEM_SPAWN_MIN, ITEM_SPAWN_MAX) };
+
+  if (state.turnCount < ITEM_SPAWN_AFTER || state.items.length >= MAX_ITEMS_ON_BOARD) {
+    return reset;
+  }
+
+  const candidates = getSpawnCandidates(state.grid, state.players, state.items);
+  if (candidates.length === 0) return reset;
+
+  // 40% bias toward the most-trapped active player
+  let cell = candidates[Math.floor(Math.random() * candidates.length)];
+  if (Math.random() < 0.4) {
+    const active = state.players.filter(p => !p.isEliminated);
+    const trapped = active.reduce(
+      (best, p) => {
+        const n = getValidMoves(state.grid, p.row, p.col).length;
+        return n < best.moves ? { player: p, moves: n } : best;
+      },
+      { player: active[0], moves: Infinity }
+    );
+    if (trapped.player) {
+      const sorted = [...candidates].sort((a, b) => {
+        const da = Math.max(Math.abs(a.row - trapped.player.row), Math.abs(a.col - trapped.player.col));
+        const db = Math.max(Math.abs(b.row - trapped.player.row), Math.abs(b.col - trapped.player.col));
+        return da - db;
+      });
+      const pool = sorted.slice(0, Math.min(5, sorted.length));
+      cell = pool[Math.floor(Math.random() * pool.length)];
+    }
+  }
+
+  const typeKeys = Object.keys(ITEM_TYPES);
+  const type = typeKeys[Math.floor(Math.random() * typeKeys.length)];
+
+  return {
+    ...reset,
+    items: [
+      ...state.items,
+      { id: `${Date.now()}-${Math.random()}`, type, row: cell.row, col: cell.col, turnsLeft: ITEM_LIFESPAN },
+    ],
+  };
+}
+
+// Completes a turn: eliminates trapped players, advances turn order, checks win, ticks items.
+function completeTurn(state) {
+  const { grid, players, currentPlayerIndex, turnCount, items, freezeNextPlayer } = state;
+  const player = players[currentPlayerIndex];
+
+  let updatedPlayers = players.map((p) => {
+    if (p.isEliminated || p.id === player.id) return p;
+    return getValidMoves(grid, p.row, p.col).length === 0 ? markEliminated(p) : p;
+  });
+
+  let nextIndex = advanceToNextActive(updatedPlayers, currentPlayerIndex);
+
+  if (freezeNextPlayer) {
+    nextIndex = advanceToNextActive(updatedPlayers, nextIndex);
+  }
+
+  const nextPlayer = updatedPlayers[nextIndex];
+  if (!nextPlayer.isEliminated && getValidMoves(grid, nextPlayer.row, nextPlayer.col).length === 0) {
+    updatedPlayers = updatedPlayers.map((p) => p.id === nextPlayer.id ? markEliminated(p) : p);
+    nextIndex = advanceToNextActive(updatedPlayers, nextIndex);
+  }
+
+  const stillAlive = updatedPlayers.filter((p) => !p.isEliminated);
+  const isGameOver = stillAlive.length <= 1;
+  const winner = isGameOver ? (stillAlive[0] ?? updatedPlayers.find((p) => p.id === player.id)) : null;
+
+  const tickedItems = items
+    .map(i => ({ ...i, turnsLeft: i.turnsLeft - 1 }))
+    .filter(i => i.turnsLeft > 0);
+
+  const nextState = {
+    ...state,
+    players: updatedPlayers,
+    currentPlayerIndex: nextIndex,
+    phase: isGameOver ? 'gameover' : 'playing',
+    winner: winner ? winner.id : null,
+    turnCount: turnCount + 1,
+    items: tickedItems,
+    bonusMoveActive: false,
+    portalActive: false,
+    freezeNextPlayer: false,
+  };
+
+  return trySpawnItem(nextState);
+}
+
 export function applyMove(state, targetRow, targetCol) {
-  const { grid, players, currentPlayerIndex, turnCount } = state;
+  const { grid, players, currentPlayerIndex, items, bonusMoveActive, portalActive } = state;
   const player = players[currentPlayerIndex];
 
   const newGrid = grid.map((row) => row.map((cell) => ({ ...cell })));
@@ -69,63 +183,97 @@ export function applyMove(state, targetRow, targetCol) {
     p.id === player.id ? { ...p, row: targetRow, col: targetCol } : { ...p }
   );
 
-  // Eliminate players (other than the mover) with no valid moves
-  const updatedPlayers = movedPlayers.map((p) => {
-    if (p.isEliminated || p.id === player.id) return p;
-    return getValidMoves(newGrid, p.row, p.col).length === 0 ? markEliminated(p) : p;
-  });
+  const itemAtTarget = items.find(i => i.row === targetRow && i.col === targetCol);
+  const remainingItems = items.filter(i => !(i.row === targetRow && i.col === targetCol));
 
-  let nextIndex = advanceToNextActive(updatedPlayers, currentPlayerIndex);
+  const partial = { ...state, grid: newGrid, players: movedPlayers, items: remainingItems };
 
-  // Eliminate the next player too if they have no moves
-  const nextPlayer = updatedPlayers[nextIndex];
-  let finalPlayers = updatedPlayers;
-  if (!nextPlayer.isEliminated && getValidMoves(newGrid, nextPlayer.row, nextPlayer.col).length === 0) {
-    finalPlayers = updatedPlayers.map((p) => p.id === nextPlayer.id ? markEliminated(p) : p);
-    nextIndex = advanceToNextActive(finalPlayers, nextIndex);
+  // If this was already a bonus/portal move, just complete the turn normally
+  if (bonusMoveActive || portalActive) {
+    return completeTurn({ ...partial, bonusMoveActive: false, portalActive: false });
   }
 
-  const stillAlive = finalPlayers.filter((p) => !p.isEliminated);
-  const isGameOver = stillAlive.length <= 1;
-  const winner = isGameOver ? (stillAlive[0] ?? finalPlayers.find((p) => p.id === player.id)) : null;
+  // First move — apply item effect if collected
+  if (itemAtTarget) {
+    switch (itemAtTarget.type) {
+      case 'boost':
+        return { ...partial, bonusMoveActive: true, portalActive: false };
 
-  return {
-    grid: newGrid,
-    players: finalPlayers,
-    currentPlayerIndex: nextIndex,
-    phase: isGameOver ? 'gameover' : 'playing',
-    winner: winner ? winner.id : null,
-    turnCount: turnCount + 1,
-  };
+      case 'portal':
+        return { ...partial, portalActive: true, bonusMoveActive: false };
+
+      case 'bomb': {
+        const bombGrid = newGrid.map(r => r.map(c => ({ ...c })));
+        for (let dr = -1; dr <= 1; dr++) {
+          for (let dc = -1; dc <= 1; dc++) {
+            if (dr === 0 && dc === 0) continue;
+            const nr = targetRow + dr;
+            const nc = targetCol + dc;
+            if (nr >= 0 && nr < GRID_SIZE && nc >= 0 && nc < GRID_SIZE) {
+              bombGrid[nr][nc] = { owner: null };
+            }
+          }
+        }
+        return completeTurn({ ...partial, grid: bombGrid });
+      }
+
+      case 'freeze':
+        return completeTurn({ ...partial, freezeNextPlayer: true });
+    }
+  }
+
+  return completeTurn(partial);
 }
 
 export function eliminateCurrentPlayer(state) {
-  const { players, currentPlayerIndex, turnCount } = state;
+  const { players, currentPlayerIndex, turnCount, items } = state;
   const player = players[currentPlayerIndex];
 
   const updatedPlayers = players.map((p) =>
     p.id === player.id ? markEliminated(p) : p
   );
 
-  const nextIndex = advanceToNextActive(updatedPlayers, currentPlayerIndex);
-
+  let nextIndex = advanceToNextActive(updatedPlayers, currentPlayerIndex);
   const stillAlive = updatedPlayers.filter((p) => !p.isEliminated);
   const isGameOver = stillAlive.length <= 1;
   const winner = isGameOver ? stillAlive[0] ?? null : null;
 
-  return {
+  const tickedItems = items
+    .map(i => ({ ...i, turnsLeft: i.turnsLeft - 1 }))
+    .filter(i => i.turnsLeft > 0);
+
+  return trySpawnItem({
     ...state,
     players: updatedPlayers,
     currentPlayerIndex: nextIndex,
     phase: isGameOver ? 'gameover' : 'playing',
     winner: winner ? winner.id : null,
     turnCount: turnCount + 1,
-  };
+    items: tickedItems,
+    bonusMoveActive: false,
+    portalActive: false,
+  });
 }
 
 export function getCurrentValidMoves(state) {
-  const { grid, players, currentPlayerIndex } = state;
+  const { grid, players, currentPlayerIndex, portalActive } = state;
   const p = players[currentPlayerIndex];
   if (p.isEliminated) return [];
+
+  if (portalActive) {
+    const occupied = new Set(
+      players.filter(pl => !pl.isEliminated).map(pl => `${pl.row},${pl.col}`)
+    );
+    const moves = [];
+    for (let r = 0; r < GRID_SIZE; r++) {
+      for (let c = 0; c < GRID_SIZE; c++) {
+        if (grid[r][c].owner === null && !occupied.has(`${r},${c}`)) {
+          moves.push({ row: r, col: c });
+        }
+      }
+    }
+    return moves;
+  }
+
   return getValidMoves(grid, p.row, p.col);
 }

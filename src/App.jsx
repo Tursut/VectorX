@@ -11,11 +11,10 @@ import './App.css';
 function gameReducer(state, action) {
   switch (action.type) {
     case 'START':
-      return initGame();
+      return initGame(action.magicItems);
     case 'MOVE':
       return applyMove(state, action.row, action.col);
     case 'TIMEOUT':
-      // Guard: only act if it's still the same player's turn
       if (state.currentPlayerIndex !== action.playerIndex) return state;
       if (state.phase !== 'playing') return state;
       return eliminateCurrentPlayer(state);
@@ -26,10 +25,11 @@ function gameReducer(state, action) {
 
 export default function App() {
   const [screen, setScreen] = useState('start');
+  const [magicItems, setMagicItems] = useState(false);
   const [gameState, dispatch] = useReducer(gameReducer, null);
   const [timeLeft, setTimeLeft] = useState(TURN_TIME);
 
-  // Countdown timer — resets on each new turn
+  // Reset timer on each new turn, and when bonus/portal activates
   useEffect(() => {
     if (!gameState || gameState.phase !== 'playing') return;
     const playerIndex = gameState.currentPlayerIndex;
@@ -47,15 +47,15 @@ export default function App() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [gameState?.currentPlayerIndex, gameState?.phase]);
+  }, [gameState?.currentPlayerIndex, gameState?.phase, gameState?.bonusMoveActive, gameState?.portalActive]);
 
   function handleStart() {
-    dispatch({ type: 'START' });
+    dispatch({ type: 'START', magicItems });
     setScreen('game');
   }
 
   function handleRestart() {
-    dispatch({ type: 'START' });
+    dispatch({ type: 'START', magicItems });
     setScreen('game');
   }
 
@@ -79,7 +79,13 @@ export default function App() {
 
   return (
     <div className="app">
-      {screen === 'start' && <StartScreen onStart={handleStart} />}
+      {screen === 'start' && (
+        <StartScreen
+          onStart={handleStart}
+          magicItems={magicItems}
+          onToggleMagicItems={() => setMagicItems((v) => !v)}
+        />
+      )}
 
       {screen === 'game' && gameState && gameState.phase === 'playing' && (
         <div className="game-layout">
@@ -88,6 +94,8 @@ export default function App() {
             taunt={currentTaunt}
             timeLeft={timeLeft}
             totalTime={TURN_TIME}
+            bonusMoveActive={gameState.bonusMoveActive}
+            portalActive={gameState.portalActive}
           />
           <div className="game-center">
             <PlayerPanel
@@ -100,6 +108,8 @@ export default function App() {
               validMoveSet={validMoveSet}
               onCellClick={handleMove}
               currentPlayerIndex={gameState.currentPlayerIndex}
+              items={gameState.items}
+              portalActive={gameState.portalActive}
             />
           </div>
         </div>

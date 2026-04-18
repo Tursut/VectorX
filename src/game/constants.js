@@ -69,10 +69,23 @@ export const TURN_TAUNTS = [
   (name) => `${name}'s turn. The grid is judging you.`,
 ];
 
-export const TURN_TIME = 10; // seconds per turn
-
 export const DIRECTIONS = [
   [-1, -1], [-1, 0], [-1, 1],
   [ 0, -1],          [ 0, 1],
   [ 1, -1], [ 1, 0], [ 1, 1],
 ];
+
+export const TURN_TIME = 10;
+
+export const ITEM_TYPES = {
+  boost:  { type: 'boost',  icon: '🚀', name: 'Boost',  color: '#f39c12', desc: 'Take an extra step!' },
+  bomb:   { type: 'bomb',   icon: '💣', name: 'Bomb',   color: '#e74c3c', desc: 'Clears nearby territory!' },
+  portal: { type: 'portal', icon: '🌀', name: 'Portal', color: '#9b59b6', desc: 'Teleport anywhere!' },
+  freeze: { type: 'freeze', icon: '❄️', name: 'Freeze', color: '#3498db', desc: 'Skip the next player!' },
+};
+
+export const ITEM_LIFESPAN      = 5;  // turns before item vanishes
+export const ITEM_SPAWN_AFTER   = 6;  // don't spawn until this many turns in
+export const ITEM_SPAWN_MIN     = 3;  // min turns between spawns
+export const ITEM_SPAWN_MAX     = 7;  // max turns between spawns (random so same player isn't always next)
+export const MAX_ITEMS_ON_BOARD = 2;
