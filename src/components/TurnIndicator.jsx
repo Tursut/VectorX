@@ -34,7 +34,7 @@ export default function TurnIndicator({ player, taunt, timeLeft, totalTime, bonu
       className={`turn-indicator-shell ${urgent ? 'turn-indicator-urgent' : ''}`}
       style={{ borderColor: player.color }}
     >
-      <AnimatePresence mode="wait">
+      <AnimatePresence>
         <motion.div
           key={animKey}
           className="turn-indicator-inner"

@@ -305,10 +305,13 @@
   box-shadow: 0 4px 20px rgba(0,0,0,0.4);
   overflow: hidden;
   box-sizing: border-box;
-  min-height: 88px; /* prevents grid jump when AnimatePresence mode="wait" briefly empties the shell */
+  position: relative;
+  height: 96px; /* fixed — prevents game-layout height changes from shifting vertical centering */
 }
 
 .turn-indicator-inner {
+  position: absolute;
+  inset: 0;
   display: flex;
   align-items: center;
   gap: 12px;
