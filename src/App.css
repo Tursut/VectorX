@@ -6,7 +6,13 @@
 
 @media (max-width: 620px) {
   :root {
+    /* fallback for browsers without dvh support */
     --cell-size: calc((100vw - 20px) / 10 - var(--board-gap));
+    /* constrain by height too: 250px overhead = indicator(96) + panel(70) + gaps+padding(~84) */
+    --cell-size: min(
+      calc((100vw - 20px) / 10 - var(--board-gap)),
+      calc((100dvh - 250px) / 10 - var(--board-gap))
+    );
   }
 }
 
@@ -37,6 +43,9 @@
 
 /* On narrow screens, player panel goes above the board */
 @media (max-width: 620px) {
+  .app {
+    min-height: 100dvh;
+  }
   .game-center {
     flex-direction: column-reverse;
     align-items: center;
