@@ -84,9 +84,6 @@ export default function App() {
         )
       : '';
 
-  // Key for AnimatePresence: distinguishes game sessions so player icons re-enter on restart
-  const gameKey = gameState ? `game-${gameState.turnCount === 0 ? 'fresh' : 'running'}-${gameState.players[0]?.row}` : 'none';
-
   return (
     <div className="app">
       <AnimatePresence mode="wait">
@@ -103,7 +100,7 @@ export default function App() {
 
         {screen === 'game' && gameState?.phase === 'playing' && (
           <motion.div
-            key={`playing-${gameState.turnCount < 2 ? 'start' : 'mid'}`}
+            key="playing"
             className="game-layout"
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
