@@ -122,7 +122,8 @@ export default function App() {
       setScreen('game');
       return;
     }
-    const t = setTimeout(() => setCountdown((c) => c - 1), countdown === 0 ? 1000 : 850);
+    const delays = { 3: 850, 2: 1200, 1: 1200, 0: 2400 };
+    const t = setTimeout(() => setCountdown((c) => c - 1), delays[countdown] ?? 850);
     return () => clearTimeout(t);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [countdown]);
