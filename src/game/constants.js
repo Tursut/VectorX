@@ -1,0 +1,76 @@
+export const GRID_SIZE = 10;
+
+export const PLAYERS = [
+  {
+    id: 0,
+    name: 'Reginald the Reckless',
+    shortName: 'Reginald',
+    color: '#e74c3c',
+    lightColor: '#f1948a',
+    darkColor: '#c0392b',
+    bgClass: 'player-red',
+    icon: '🧙‍♂️',
+    startRow: 0,
+    startCol: 0,
+    deathQuote: 'cornered like a raccoon in a trash can',
+    winQuote: 'The wizard has spoken. And the wizard has WON.',
+  },
+  {
+    id: 1,
+    name: 'Gerald the Greedy',
+    shortName: 'Gerald',
+    color: '#27ae60',
+    lightColor: '#82e0aa',
+    darkColor: '#1e8449',
+    bgClass: 'player-green',
+    icon: '🐸',
+    startRow: 0,
+    startCol: GRID_SIZE - 1,
+    deathQuote: 'trapped himself with his own greed',
+    winQuote: "Gerald croaks in victory. The swamp is EVERYWHERE now.",
+  },
+  {
+    id: 2,
+    name: 'Bluebot 3000',
+    shortName: 'Bluebot',
+    color: '#2980b9',
+    lightColor: '#7fb3d3',
+    darkColor: '#1a5276',
+    bgClass: 'player-blue',
+    icon: '🤖',
+    startRow: GRID_SIZE - 1,
+    startCol: 0,
+    deathQuote: 'computed a losing position. Error: feelings detected',
+    winQuote: 'VICTORY PROTOCOL ACTIVATED. Humans: 0. Bluebot: 1.',
+  },
+  {
+    id: 3,
+    name: 'Queen Buzzilda',
+    shortName: 'Buzzilda',
+    color: '#f39c12',
+    lightColor: '#f9e79f',
+    darkColor: '#d68910',
+    bgClass: 'player-yellow',
+    icon: '🐝',
+    startRow: GRID_SIZE - 1,
+    startCol: GRID_SIZE - 1,
+    deathQuote: 'got her wings clipped',
+    winQuote: 'ALL HAIL THE QUEEN. The grid is now a hive.',
+  },
+];
+
+export const TURN_TAUNTS = [
+  (name) => `Your move, ${name}. No pressure. (Lots of pressure.)`,
+  (name) => `${name}, the grid awaits. Don't blow it.`,
+  (name) => `It's ${name}'s turn. Think fast. Or don't. We'll see.`,
+  (name) => `${name} is up! The crowd holds its breath. (There is no crowd.)`,
+  (name) => `${name}, this is your moment. Make it count.`,
+  (name) => `Hey ${name}, your opponents are watching. Awkward.`,
+  (name) => `${name}'s turn. The grid is judging you.`,
+];
+
+export const DIRECTIONS = [
+  [-1, -1], [-1, 0], [-1, 1],
+  [ 0, -1],          [ 0, 1],
+  [ 1, -1], [ 1, 0], [ 1, 1],
+];
