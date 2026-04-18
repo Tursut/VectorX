@@ -43,6 +43,19 @@ export default function Cell({ row, col, cell, isValidMove, isCurrentPlayer, pla
         )}
       </AnimatePresence>
 
+      {/* ── Layer 0b: valid-move highlight — fades in/out as a group ── */}
+      <AnimatePresence>
+        {isValidMove && !portalActive && !swapActive && (
+          <motion.div
+            className="cell-valid-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.38, ease: 'easeInOut' }}
+          />
+        )}
+      </AnimatePresence>
+
       {/* ── Layer 1: content (player, item, tombstone, dot) ── */}
       <div className="cell-content">
 
