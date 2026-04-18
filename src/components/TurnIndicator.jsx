@@ -8,13 +8,20 @@ const FREEZE_LINES = [
   (by, target) => `❄️ ${by} hit ${target} with a freeze ray. Uncalled for, honestly.`,
 ];
 
-export default function TurnIndicator({ player, taunt, timeLeft, totalTime, portalActive, lastEvent, isGremlin, isThinking }) {
+const SWAP_LINES = [
+  (by, target) => `🔀 ${by} swapped with ${target}. Rude, but effective.`,
+  (by, target) => `🔀 ${target} is now somewhere confusing. Thanks, ${by}.`,
+  (by, target) => `🔀 ${by} and ${target} changed places. ${target} did not consent.`,
+];
+
+export default function TurnIndicator({ player, taunt, timeLeft, totalTime, portalActive, swapActive, lastEvent, isGremlin, isThinking }) {
   const pct = (timeLeft / totalTime) * 100;
   const urgent = timeLeft <= 3 && !isGremlin;
 
   let statusLine = taunt;
   if (isThinking) statusLine = GREMLIN_THOUGHTS[player.id] ?? 'Scheming…';
   else if (portalActive) statusLine = '🌀 PORTAL active! Pick any empty square on the board.';
+  else if (swapActive) statusLine = '🔀 SWAP! Choose a player to switch places with.';
 
   let eventLine = null;
   if (lastEvent?.type === 'freeze') {
@@ -24,9 +31,14 @@ export default function TurnIndicator({ player, taunt, timeLeft, totalTime, port
       const line = FREEZE_LINES[(lastEvent.byId + lastEvent.targetId) % FREEZE_LINES.length];
       eventLine = line(by, target);
     }
+  } else if (lastEvent?.type === 'swap') {
+    const by = PLAYERS[lastEvent.byId].shortName;
+    const target = PLAYERS[lastEvent.targetId].shortName;
+    const line = SWAP_LINES[(lastEvent.byId + lastEvent.targetId) % SWAP_LINES.length];
+    eventLine = line(by, target);
   }
 
-  const animKey = `${player.id}-${portalActive}`;
+  const animKey = `${player.id}-${portalActive}-${swapActive}`;
 
   return (
     <div
@@ -49,7 +61,7 @@ export default function TurnIndicator({ player, taunt, timeLeft, totalTime, port
             <div className="turn-name" style={{ color: player.color }}>
               {player.name}
             </div>
-            <div className={`turn-taunt ${isThinking ? 'turn-taunt-thinking' : ''} ${portalActive ? 'turn-taunt-special' : ''}`}>
+            <div className={`turn-taunt ${isThinking ? 'turn-taunt-thinking' : ''} ${portalActive || swapActive ? 'turn-taunt-special' : ''}`}>
               {statusLine}
             </div>
             <div className="turn-event-line" style={{ visibility: eventLine ? 'visible' : 'hidden' }}>

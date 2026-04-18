@@ -53,18 +53,22 @@ export default function App() {
     return () => clearTimeout(t);
   }, [bombBlast]);
 
-  // Freeze toast + sound
+  // Freeze / swap toast + sound
   useEffect(() => {
     const ev = gameState?.lastEvent;
-    if (!ev || ev.type !== 'freeze') return;
-    const id = Date.now();
-    setEventToast({
-      id,
-      type: 'freeze',
-      by: PLAYERS[ev.byId],
-      target: ev.targetId != null ? PLAYERS[ev.targetId] : null,
-    });
-    sounds.playFreeze();
+    if (!ev) return;
+    if (ev.type === 'freeze') {
+      const id = Date.now();
+      setEventToast({
+        id,
+        type: 'freeze',
+        by: PLAYERS[ev.byId],
+        target: ev.targetId != null ? PLAYERS[ev.targetId] : null,
+      });
+      sounds.playFreeze();
+    } else if (ev.type === 'swap') {
+      sounds.playSwap();
+    }
   }, [gameState?.lastEvent]);
 
   // Dismiss toast after its display duration — decoupled from gameState changes
@@ -148,7 +152,7 @@ export default function App() {
     }, delay);
     return () => { clearTimeout(t); setIsThinking(false); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameState?.currentPlayerIndex, gameState?.phase, gameState?.portalActive]);
+  }, [gameState?.currentPlayerIndex, gameState?.phase, gameState?.portalActive, gameState?.swapActive]);
 
   // Countdown sounds + logic
   useEffect(() => {
@@ -202,6 +206,8 @@ export default function App() {
         sounds.playBomb();
       } else if (item?.type === 'portal') {
         sounds.playPortal();
+      } else if (item?.type === 'swap') {
+        sounds.playSwapActivate();
       }
       // freeze → playFreeze() fires via lastEvent effect
     }
@@ -287,6 +293,7 @@ export default function App() {
               timeLeft={timeLeft}
               totalTime={TURN_TIME}
               portalActive={gameState.portalActive}
+              swapActive={gameState.swapActive}
               lastEvent={gameState.lastEvent}
               isGremlin={gameState.players[gameState.currentPlayerIndex].id >= PLAYERS.length - (gameState.gremlinCount ?? 0)}
               isThinking={isThinking}
@@ -305,6 +312,7 @@ export default function App() {
                 currentPlayerIndex={gameState.currentPlayerIndex}
                 items={gameState.items}
                 portalActive={gameState.portalActive}
+                swapActive={gameState.swapActive}
                 bombBlast={bombBlast}
               />
             </div>

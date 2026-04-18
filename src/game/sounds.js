@@ -297,6 +297,54 @@ export function playCountdownBeat() {
   osc.start(t); osc.stop(t + 0.42);
 }
 
+// Swooshy two-note indicator — "pick someone"
+export function playSwapActivate() {
+  const ctx = getCtx();
+  const t = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(440, t);
+  osc.frequency.exponentialRampToValueAtTime(880, t + 0.18);
+  osc.frequency.exponentialRampToValueAtTime(660, t + 0.34);
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.18, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+  osc.connect(g); g.connect(out());
+  osc.start(t); osc.stop(t + 0.55);
+  // high sparkle
+  const osc2 = ctx.createOscillator();
+  osc2.type = 'sine';
+  osc2.frequency.setValueAtTime(1760, t + 0.08);
+  osc2.frequency.exponentialRampToValueAtTime(2637, t + 0.3);
+  const g2 = ctx.createGain();
+  g2.gain.setValueAtTime(0, t + 0.08);
+  g2.gain.linearRampToValueAtTime(0.1, t + 0.12);
+  g2.gain.exponentialRampToValueAtTime(0.001, t + 0.48);
+  osc2.connect(g2); g2.connect(out());
+  osc2.start(t + 0.08); osc2.stop(t + 0.52);
+}
+
+// Double-whoosh zip — positions exchanged
+export function playSwap() {
+  const ctx = getCtx();
+  const t = ctx.currentTime;
+  [[660, 220, 0], [220, 660, 0.12]].forEach(([f0, f1, delay]) => {
+    const osc = ctx.createOscillator();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(f0, t + delay);
+    osc.frequency.exponentialRampToValueAtTime(f1, t + delay + 0.22);
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(2000, t + delay);
+    filter.frequency.exponentialRampToValueAtTime(400, t + delay + 0.24);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.16, t + delay);
+    g.gain.exponentialRampToValueAtTime(0.001, t + delay + 0.32);
+    osc.connect(filter); filter.connect(g); g.connect(out());
+    osc.start(t + delay); osc.stop(t + delay + 0.36);
+  });
+}
+
 // Warm rising chord
 export function playCountdownGo() {
   const ctx = getCtx();

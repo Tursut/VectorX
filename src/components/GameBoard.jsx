@@ -2,7 +2,7 @@ import { LayoutGroup } from 'framer-motion';
 import { PLAYERS } from '../game/constants';
 import Cell from './Cell';
 
-export default function GameBoard({ grid, players, validMoveSet, onCellClick, currentPlayerIndex, items, portalActive, bombBlast }) {
+export default function GameBoard({ grid, players, validMoveSet, onCellClick, currentPlayerIndex, items, portalActive, swapActive, bombBlast }) {
   const playerPositions = {};
   const deathCells = {};
   const itemMap = {};
@@ -43,6 +43,7 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
               deathHere={deathCells[key] || null}
               itemHere={itemMap[key] || null}
               portalActive={portalActive}
+              swapActive={swapActive}
               onCellClick={onCellClick}
               isBombOrigin={bombOriginKey === key}
               isBombCleared={bombClearedSet ? bombClearedSet.has(key) : false}

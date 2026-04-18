@@ -32,6 +32,7 @@ export function initGame(magicItems = false, gremlinCount = 0) {
     items: [],
     nextSpawnIn: randomInt(ITEM_SPAWN_MIN, ITEM_SPAWN_MAX),
     portalActive: false,
+    swapActive: false,
     freezeNextPlayer: false,
     lastEvent: null,
   };
@@ -177,6 +178,7 @@ function completeTurn(state) {
     turnCount: turnCount + 1,
     items: tickedItems,
     portalActive: false,
+    swapActive: false,
     freezeNextPlayer: false,
     lastEvent,
   };
@@ -185,8 +187,20 @@ function completeTurn(state) {
 }
 
 export function applyMove(state, targetRow, targetCol) {
-  const { grid, players, currentPlayerIndex, items, portalActive } = state;
+  const { grid, players, currentPlayerIndex, items, portalActive, swapActive } = state;
   const player = players[currentPlayerIndex];
+
+  // Swap selection: don't claim any square — just exchange positions
+  if (swapActive) {
+    const target = players.find(p => !p.isEliminated && p.id !== player.id && p.row === targetRow && p.col === targetCol);
+    const swappedPlayers = players.map(p => {
+      if (p.id === player.id) return { ...p, row: targetRow, col: targetCol };
+      if (p.id === target?.id) return { ...p, row: player.row, col: player.col };
+      return { ...p };
+    });
+    const result = completeTurn({ ...state, players: swappedPlayers, swapActive: false });
+    return { ...result, lastEvent: target ? { type: 'swap', byId: player.id, targetId: target.id } : null };
+  }
 
   const newGrid = grid.map((row) => row.map((cell) => ({ ...cell })));
   newGrid[targetRow][targetCol] = { owner: player.id };
@@ -200,7 +214,7 @@ export function applyMove(state, targetRow, targetCol) {
 
   const partial = { ...state, grid: newGrid, players: movedPlayers, items: remainingItems, lastEvent: null };
 
-  // If this was a portal move, just complete the turn normally
+  // Portal move: complete turn normally
   if (portalActive) {
     return completeTurn({ ...partial, portalActive: false });
   }
@@ -210,6 +224,9 @@ export function applyMove(state, targetRow, targetCol) {
     switch (itemAtTarget.type) {
       case 'portal':
         return { ...partial, portalActive: true };
+
+      case 'swap':
+        return { ...partial, swapActive: true };
 
       case 'bomb': {
         const bombGrid = newGrid.map(r => r.map(c => ({ ...c })));
@@ -260,14 +277,21 @@ export function eliminateCurrentPlayer(state) {
     turnCount: turnCount + 1,
     items: tickedItems,
     portalActive: false,
+    swapActive: false,
     lastEvent: null,
   });
 }
 
 export function getCurrentValidMoves(state) {
-  const { grid, players, currentPlayerIndex, portalActive } = state;
+  const { grid, players, currentPlayerIndex, portalActive, swapActive } = state;
   const p = players[currentPlayerIndex];
   if (p.isEliminated) return [];
+
+  if (swapActive) {
+    return players
+      .filter(op => !op.isEliminated && op.id !== p.id)
+      .map(op => ({ row: op.row, col: op.col }));
+  }
 
   if (portalActive) {
     const occupied = new Set(
