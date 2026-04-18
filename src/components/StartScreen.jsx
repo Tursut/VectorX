@@ -2,8 +2,8 @@ import { PLAYERS, ITEM_TYPES } from '../game/constants';
 
 export default function StartScreen({ onStart, magicItems, onToggleMagicItems, gremlinCount, onChangeGremlinCount }) {
   const gremlinLabel =
-    gremlinCount === 0 ? 'No Gremlins — pure human chaos.' :
-    gremlinCount === 4 ? 'All Gremlins — sit back and watch the carnage.' :
+    gremlinCount === 0 ? 'No Gremlins — just you and your questionable choices.' :
+    gremlinCount === 4 ? 'All Gremlins — sit back and enjoy the show.' :
     `${gremlinCount} Gremlin${gremlinCount > 1 ? 's' : ''} — they play dirty. You've been warned.`;
 
   return (
@@ -11,7 +11,7 @@ export default function StartScreen({ onStart, magicItems, onToggleMagicItems, g
       <div className="start-content">
         <h1 className="start-title">GRID TERRITORY</h1>
         <p className="start-subtitle">
-          Four heroes. One grid. Absolutely no friendship will survive this.
+          Four players. One grid. Only one walks away smiling.
         </p>
 
         <div className="start-characters">
@@ -57,7 +57,7 @@ export default function StartScreen({ onStart, magicItems, onToggleMagicItems, g
             >
               <span className="mode-btn-icon">✨</span>
               <span className="mode-btn-label">MAGIC</span>
-              <span className="mode-btn-sub">Items appear. Chaos ensues.</span>
+              <span className="mode-btn-sub">Items appear. Things get interesting.</span>
             </button>
             <button
               className={`mode-btn ${!magicItems ? 'mode-btn-active mode-btn-classic' : ''}`}
@@ -88,16 +88,16 @@ export default function StartScreen({ onStart, magicItems, onToggleMagicItems, g
           <p>🗺️ Move onto any adjacent square — including diagonally.</p>
           <p>🔒 Claimed squares are locked forever. No take-backs.</p>
           <p>💀 No moves left? You're out. Try not to corner yourself.</p>
-          <p>🏆 Last one moving wins. Simple. Brutal. Perfect.</p>
+          <p>🏆 Last one moving wins. Simple. Clever. Perfect.</p>
         </div>
 
-        <p className="start-footnote">Starting player is chosen by the chaos gods (random).</p>
+        <p className="start-footnote">Starting player chosen by fate (it's random).</p>
       </div>
 
       {/* Sticky begin button — always visible at bottom */}
       <div className="start-button-bar">
         <button className="start-button" onClick={onStart}>
-          BEGIN CHAOS →
+          TAKE THE GRID →
         </button>
       </div>
     </div>

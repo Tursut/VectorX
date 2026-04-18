@@ -203,7 +203,7 @@ export default function App() {
                 exit={{ scale: 0.5, opacity: 0 }}
                 transition={{ type: 'spring', stiffness: 320, damping: 22 }}
               >
-                {countdown === 0 ? 'LET THE CARNAGE BEGIN.' : countdown}
+                {countdown === 0 ? 'MAY THE BEST MOVER WIN.' : countdown}
               </motion.div>
             </AnimatePresence>
           </motion.div>
