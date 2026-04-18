@@ -519,6 +519,11 @@
   line-height: 1;
 }
 
+.player-card-empty {
+  font-size: 9px;
+  min-height: 1em;
+}
+
 .player-card-rip {
   font-size: 9px;
   color: #888;

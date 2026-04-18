@@ -26,9 +26,15 @@ export default function PlayerPanel({ players, currentPlayerIndex, gremlinCount 
             <div className="player-card-name" style={{ color: config.color }}>
               {config.shortName}
             </div>
-            {isGremlin && !p.isEliminated && <div className="player-card-gremlin">👾</div>}
-            {p.isEliminated && <div className="player-card-rip">R.I.P.</div>}
-            {isCurrent && <div className="player-card-turn">← NOW</div>}
+            <div className={
+              isCurrent && !p.isEliminated ? 'player-card-turn' :
+              p.isEliminated ? 'player-card-rip' :
+              isGremlin ? 'player-card-gremlin' : 'player-card-empty'
+            }>
+              {isCurrent && !p.isEliminated ? '← NOW' :
+               p.isEliminated ? 'R.I.P.' :
+               isGremlin ? '👾' : '\u00a0'}
+            </div>
           </motion.div>
         );
       })}
