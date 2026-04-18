@@ -8,14 +8,13 @@ const FREEZE_LINES = [
   (by, target) => `❄️ ${by} hit ${target} with a freeze ray. Uncalled for, honestly.`,
 ];
 
-export default function TurnIndicator({ player, taunt, timeLeft, totalTime, bonusMoveActive, portalActive, lastEvent, isGremlin, isThinking }) {
+export default function TurnIndicator({ player, taunt, timeLeft, totalTime, portalActive, lastEvent, isGremlin, isThinking }) {
   const pct = (timeLeft / totalTime) * 100;
   const urgent = timeLeft <= 3 && !isGremlin;
 
   let statusLine = taunt;
   if (isThinking) statusLine = GREMLIN_THOUGHTS[player.id] ?? 'Scheming…';
   else if (portalActive) statusLine = '🌀 PORTAL active! Pick any empty square on the board.';
-  else if (bonusMoveActive) statusLine = `🚀 ${player.shortName} found turbo. One more move — make it sting.`;
 
   let eventLine = null;
   if (lastEvent?.type === 'freeze') {
@@ -27,7 +26,7 @@ export default function TurnIndicator({ player, taunt, timeLeft, totalTime, bonu
     }
   }
 
-  const animKey = `${player.id}-${bonusMoveActive}-${portalActive}`;
+  const animKey = `${player.id}-${portalActive}`;
 
   return (
     <div
@@ -50,7 +49,7 @@ export default function TurnIndicator({ player, taunt, timeLeft, totalTime, bonu
             <div className="turn-name" style={{ color: player.color }}>
               {player.name}
             </div>
-            <div className={`turn-taunt ${isThinking ? 'turn-taunt-thinking' : ''} ${portalActive || bonusMoveActive ? 'turn-taunt-special' : ''}`}>
+            <div className={`turn-taunt ${isThinking ? 'turn-taunt-thinking' : ''} ${portalActive ? 'turn-taunt-special' : ''}`}>
               {statusLine}
             </div>
             <div className="turn-event-line" style={{ visibility: eventLine ? 'visible' : 'hidden' }}>

@@ -78,7 +78,6 @@ export const DIRECTIONS = [
 export const TURN_TIME = 10;
 
 export const ITEM_TYPES = {
-  boost:  { type: 'boost',  icon: '🚀', name: 'Boost',  color: '#f39c12', desc: 'Take an extra step!' },
   bomb:   { type: 'bomb',   icon: '💣', name: 'Bomb',   color: '#e74c3c', desc: 'Clears nearby territory!' },
   portal: { type: 'portal', icon: '🌀', name: 'Portal', color: '#9b59b6', desc: 'Teleport anywhere!' },
   freeze: { type: 'freeze', icon: '❄️', name: 'Freeze', color: '#3498db', desc: 'Skip the next player!' },

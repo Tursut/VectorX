@@ -31,7 +31,6 @@ export function initGame(magicItems = false, gremlinCount = 0) {
     gremlinCount,
     items: [],
     nextSpawnIn: randomInt(ITEM_SPAWN_MIN, ITEM_SPAWN_MAX),
-    bonusMoveActive: false,
     portalActive: false,
     freezeNextPlayer: false,
     lastEvent: null,
@@ -177,7 +176,6 @@ function completeTurn(state) {
     winner: winner ? winner.id : null,
     turnCount: turnCount + 1,
     items: tickedItems,
-    bonusMoveActive: false,
     portalActive: false,
     freezeNextPlayer: false,
     lastEvent,
@@ -187,7 +185,7 @@ function completeTurn(state) {
 }
 
 export function applyMove(state, targetRow, targetCol) {
-  const { grid, players, currentPlayerIndex, items, bonusMoveActive, portalActive } = state;
+  const { grid, players, currentPlayerIndex, items, portalActive } = state;
   const player = players[currentPlayerIndex];
 
   const newGrid = grid.map((row) => row.map((cell) => ({ ...cell })));
@@ -202,19 +200,16 @@ export function applyMove(state, targetRow, targetCol) {
 
   const partial = { ...state, grid: newGrid, players: movedPlayers, items: remainingItems, lastEvent: null };
 
-  // If this was already a bonus/portal move, just complete the turn normally
-  if (bonusMoveActive || portalActive) {
-    return completeTurn({ ...partial, bonusMoveActive: false, portalActive: false });
+  // If this was a portal move, just complete the turn normally
+  if (portalActive) {
+    return completeTurn({ ...partial, portalActive: false });
   }
 
   // First move — apply item effect if collected
   if (itemAtTarget) {
     switch (itemAtTarget.type) {
-      case 'boost':
-        return { ...partial, bonusMoveActive: true, portalActive: false };
-
       case 'portal':
-        return { ...partial, portalActive: true, bonusMoveActive: false };
+        return { ...partial, portalActive: true };
 
       case 'bomb': {
         const bombGrid = newGrid.map(r => r.map(c => ({ ...c })));
@@ -264,7 +259,6 @@ export function eliminateCurrentPlayer(state) {
     winner: winner ? winner.id : null,
     turnCount: turnCount + 1,
     items: tickedItems,
-    bonusMoveActive: false,
     portalActive: false,
     lastEvent: null,
   });

@@ -53,14 +53,6 @@ export default function App() {
     return () => clearTimeout(t);
   }, [bombBlast]);
 
-  // Boost toast + sound
-  useEffect(() => {
-    if (!gameState?.bonusMoveActive) return;
-    const id = Date.now();
-    setEventToast({ id, type: 'boost', player: PLAYERS[gameState.currentPlayerIndex] });
-    sounds.playBoost();
-  }, [gameState?.bonusMoveActive]);
-
   // Freeze toast + sound
   useEffect(() => {
     const ev = gameState?.lastEvent;
@@ -104,7 +96,7 @@ export default function App() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [gameState?.currentPlayerIndex, gameState?.phase, gameState?.bonusMoveActive, gameState?.portalActive]);
+  }, [gameState?.currentPlayerIndex, gameState?.phase, gameState?.portalActive]);
 
   // Your-turn chime — plays when it becomes a human's turn
   useEffect(() => {
@@ -156,7 +148,7 @@ export default function App() {
     }, delay);
     return () => { clearTimeout(t); setIsThinking(false); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameState?.currentPlayerIndex, gameState?.phase, gameState?.bonusMoveActive, gameState?.portalActive]);
+  }, [gameState?.currentPlayerIndex, gameState?.phase, gameState?.portalActive]);
 
   // Countdown sounds + logic
   useEffect(() => {
@@ -211,7 +203,6 @@ export default function App() {
       } else if (item?.type === 'portal') {
         sounds.playPortal();
       }
-      // boost → playBoost() fires via bonusMoveActive effect
       // freeze → playFreeze() fires via lastEvent effect
     }
     dispatch({ type: 'MOVE', row, col });
@@ -295,7 +286,6 @@ export default function App() {
               taunt={currentTaunt}
               timeLeft={timeLeft}
               totalTime={TURN_TIME}
-              bonusMoveActive={gameState.bonusMoveActive}
               portalActive={gameState.portalActive}
               lastEvent={gameState.lastEvent}
               isGremlin={gameState.players[gameState.currentPlayerIndex].id >= PLAYERS.length - (gameState.gremlinCount ?? 0)}
