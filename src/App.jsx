@@ -42,6 +42,7 @@ export default function App() {
   const [timeLeft, setTimeLeft] = useState(TURN_TIME);
   const [bombBlast, setBombBlast] = useState(null);
   const [eventToast, setEventToast] = useState(null);
+  const [countdown, setCountdown] = useState(null);
 
   useEffect(() => {
     if (!bombBlast) return;
@@ -113,9 +114,21 @@ export default function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameState?.currentPlayerIndex, gameState?.phase, gameState?.bonusMoveActive, gameState?.portalActive]);
 
+  useEffect(() => {
+    if (countdown === null) return;
+    if (countdown < 0) {
+      setCountdown(null);
+      dispatch({ type: 'START', magicItems, gremlinCount });
+      setScreen('game');
+      return;
+    }
+    const t = setTimeout(() => setCountdown((c) => c - 1), countdown === 0 ? 1000 : 850);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [countdown]);
+
   function handleStart() {
-    dispatch({ type: 'START', magicItems, gremlinCount });
-    setScreen('game');
+    setCountdown(3);
   }
 
   function handleRestart() {
@@ -161,6 +174,31 @@ export default function App() {
     <div className="app">
       <AnimatePresence>
         {eventToast && <EventToast key={eventToast.id} toast={eventToast} />}
+      </AnimatePresence>
+      <AnimatePresence>
+        {countdown !== null && (
+          <motion.div
+            key="countdown-overlay"
+            className="countdown-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={countdown}
+                className={countdown === 0 ? 'countdown-message' : 'countdown-number'}
+                initial={{ scale: 1.6, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.5, opacity: 0 }}
+                transition={{ type: 'spring', stiffness: 320, damping: 22 }}
+              >
+                {countdown === 0 ? 'LET THE CARNAGE BEGIN.' : countdown}
+              </motion.div>
+            </AnimatePresence>
+          </motion.div>
+        )}
       </AnimatePresence>
       <AnimatePresence mode="wait">
 

@@ -888,6 +888,38 @@
   font-family: 'Segoe UI', sans-serif;
 }
 
+/* ── Countdown Overlay ── */
+.countdown-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 10, 22, 0.88);
+  backdrop-filter: blur(6px);
+}
+
+.countdown-number {
+  font-size: clamp(120px, 28vw, 200px);
+  font-family: 'Fredoka One', 'Segoe UI', sans-serif;
+  font-weight: bold;
+  color: #fff;
+  text-shadow: 0 0 60px rgba(231, 76, 60, 0.7), 0 8px 0 #000;
+  line-height: 1;
+}
+
+.countdown-message {
+  font-size: clamp(22px, 5vw, 38px);
+  font-family: 'Fredoka One', 'Segoe UI', sans-serif;
+  font-weight: bold;
+  color: #f39c12;
+  letter-spacing: 3px;
+  text-shadow: 0 0 30px rgba(243, 156, 18, 0.6), 0 4px 0 #000;
+  text-align: center;
+  padding: 0 20px;
+}
+
 /* ── Game Over Screen ── */
 .gameover-screen {
   display: flex;

@@ -52,20 +52,20 @@ export default function StartScreen({ onStart, magicItems, onToggleMagicItems, g
         <div className="mode-section">
           <div className="mode-selector">
             <button
-              className={`mode-btn ${!magicItems ? 'mode-btn-active mode-btn-classic' : ''}`}
-              onClick={() => magicItems && onToggleMagicItems()}
-            >
-              <span className="mode-btn-icon">⚔️</span>
-              <span className="mode-btn-label">CLASSIC</span>
-              <span className="mode-btn-sub">Pure territory, no surprises.</span>
-            </button>
-            <button
               className={`mode-btn ${magicItems ? 'mode-btn-active mode-btn-magic' : ''}`}
               onClick={() => !magicItems && onToggleMagicItems()}
             >
               <span className="mode-btn-icon">✨</span>
               <span className="mode-btn-label">MAGIC</span>
               <span className="mode-btn-sub">Items appear. Chaos ensues.</span>
+            </button>
+            <button
+              className={`mode-btn ${!magicItems ? 'mode-btn-active mode-btn-classic' : ''}`}
+              onClick={() => magicItems && onToggleMagicItems()}
+            >
+              <span className="mode-btn-icon">⚔️</span>
+              <span className="mode-btn-label">CLASSIC</span>
+              <span className="mode-btn-sub">Pure territory, no surprises.</span>
             </button>
           </div>
 
