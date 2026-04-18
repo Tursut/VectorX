@@ -44,8 +44,8 @@ export default function StartScreen({ onStart, magicItems, onToggleMagicItems, g
             type="range"
             min="0"
             max="4"
-            value={gremlinCount}
-            onChange={(e) => onChangeGremlinCount(Number(e.target.value))}
+            value={4 - gremlinCount}
+            onChange={(e) => onChangeGremlinCount(4 - Number(e.target.value))}
             className="gremlin-slider"
           />
           <p className="gremlin-sub">{gremlinLabel}</p>
