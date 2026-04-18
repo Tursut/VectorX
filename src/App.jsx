@@ -7,6 +7,7 @@ import GameBoard from './components/GameBoard';
 import TurnIndicator from './components/TurnIndicator';
 import PlayerPanel from './components/PlayerPanel';
 import GameOverScreen from './components/GameOverScreen';
+import EventToast from './components/EventToast';
 import './App.css';
 
 function gameReducer(state, action) {
@@ -37,12 +38,37 @@ export default function App() {
   const [gameState, dispatch] = useReducer(gameReducer, null);
   const [timeLeft, setTimeLeft] = useState(TURN_TIME);
   const [bombBlast, setBombBlast] = useState(null);
+  const [eventToast, setEventToast] = useState(null);
 
   useEffect(() => {
     if (!bombBlast) return;
     const t = setTimeout(() => setBombBlast(null), 700);
     return () => clearTimeout(t);
   }, [bombBlast]);
+
+  // Boost toast — fires when bonusMoveActive turns true
+  useEffect(() => {
+    if (!gameState?.bonusMoveActive) return;
+    const id = Date.now();
+    setEventToast({ id, type: 'boost', player: PLAYERS[gameState.currentPlayerIndex] });
+    const t = setTimeout(() => setEventToast(null), 1400);
+    return () => clearTimeout(t);
+  }, [gameState?.bonusMoveActive]);
+
+  // Freeze toast — fires when lastEvent becomes a freeze event
+  useEffect(() => {
+    const ev = gameState?.lastEvent;
+    if (!ev || ev.type !== 'freeze') return;
+    const id = Date.now();
+    setEventToast({
+      id,
+      type: 'freeze',
+      by: PLAYERS[ev.byId],
+      target: ev.targetId != null ? PLAYERS[ev.targetId] : null,
+    });
+    const t = setTimeout(() => setEventToast(null), 2000);
+    return () => clearTimeout(t);
+  }, [gameState?.lastEvent]);
 
   useEffect(() => {
     if (!gameState || gameState.phase !== 'playing') return;
@@ -109,6 +135,9 @@ export default function App() {
 
   return (
     <div className="app">
+      <AnimatePresence>
+        {eventToast && <EventToast key={eventToast.id} toast={eventToast} />}
+      </AnimatePresence>
       <AnimatePresence mode="wait">
 
         {screen === 'start' && (

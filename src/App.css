@@ -185,6 +185,81 @@
   opacity: 0.75;
 }
 
+/* ── Event Toast ── */
+.event-toast {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
+  z-index: 200;
+  padding: 28px 40px;
+  border-radius: 20px;
+  border: 2px solid;
+  text-align: center;
+  pointer-events: none;
+  min-width: 230px;
+  background: rgba(10, 8, 28, 0.94);
+  backdrop-filter: blur(10px);
+}
+
+.event-toast-freeze {
+  border-color: #7dd3fc;
+  box-shadow: 0 0 48px rgba(125, 211, 252, 0.45), 0 8px 32px rgba(0,0,0,0.6);
+}
+
+.event-toast-players {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.event-toast-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  margin-bottom: 10px;
+}
+
+.event-toast-players .event-toast-icon {
+  margin-bottom: 0;
+}
+
+.event-toast-frozen {
+  opacity: 0.45;
+  filter: grayscale(0.5) blur(1px);
+}
+
+.event-toast-zap {
+  font-size: 26px;
+}
+
+.event-toast-title {
+  font-size: 34px;
+  font-weight: 900;
+  letter-spacing: 3px;
+  margin-bottom: 6px;
+  line-height: 1;
+}
+
+.event-toast-body {
+  font-size: 13px;
+  color: #ddd;
+  line-height: 1.4;
+}
+
+.event-toast-flavor {
+  font-size: 11px;
+  color: #888;
+  font-style: italic;
+  margin-top: 4px;
+}
+
 /* ── Bomb Effects ── */
 @keyframes bombFlash {
   0%   { opacity: 0.85; }
