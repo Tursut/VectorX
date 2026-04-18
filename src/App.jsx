@@ -108,7 +108,7 @@ export default function App() {
     setIsThinking(true);
     const humanCount = PLAYERS.length - gc;
     const anyHumanAlive = gameState.players.some(p => !p.isEliminated && p.id < humanCount);
-    const delay = anyHumanAlive ? 800 + Math.random() * 600 : 120 + Math.random() * 80;
+    const delay = anyHumanAlive ? 1200 + Math.random() * 600 : 500 + Math.random() * 200;
     const t = setTimeout(() => {
       setIsThinking(false);
       const move = getGremlinMove(gameState);
