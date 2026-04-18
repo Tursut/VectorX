@@ -34,7 +34,7 @@ export default function Cell({ row, col, cell, isValidMove, isCurrentPlayer, pla
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 0.85 }}
             exit={{ scale: 1.6, opacity: 0, transition: { duration: 0.28 } }}
-            transition={spring}
+            transition={{ ...spring, delay: 0.12 }}
           />
         )}
       </AnimatePresence>
@@ -42,27 +42,18 @@ export default function Cell({ row, col, cell, isValidMove, isCurrentPlayer, pla
       {/* ── Layer 1: content (player, item, tombstone, dot) ── */}
       <div className="cell-content">
 
-        {/* Player icon — layoutId makes it glide across the board */}
-        <AnimatePresence>
-          {playerHere && (
-            <motion.span
-              key={`player-${playerHere.id}`}
-              layoutId={`player-${playerHere.id}`}
-              className="player-icon"
-              initial={{ y: -28, opacity: 0, scale: 0.5 }}
-              animate={{
-                y: 0,
-                opacity: 1,
-                scale: 1,
-                ...(isCurrentPlayer ? {} : {}),
-              }}
-              exit={{ scale: 0, rotate: 540, opacity: 0, transition: { duration: 0.35 } }}
-              transition={{ ...spring, delay: playerHere.id * 0.08 }}
-            >
-              {playerHere.icon}
-            </motion.span>
-          )}
-        </AnimatePresence>
+        {/* Player icon — layoutId glides it across the board via LayoutGroup */}
+        {playerHere && (
+          <motion.span
+            layoutId={`player-${playerHere.id}`}
+            className="player-icon"
+            initial={{ scale: 0.5, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: 'spring', stiffness: 340, damping: 28 }}
+          >
+            {playerHere.icon}
+          </motion.span>
+        )}
 
         {/* Skull — absolutely positioned so it doesn't fight the exiting player in flex layout */}
         {deathHere && !playerHere && (
