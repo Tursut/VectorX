@@ -57,16 +57,20 @@ export default function App() {
   const prevPlayersRef = useRef(null);
   const momentTimerRef = useRef(null);
 
-  // Resume AudioContext when returning from background — iOS suspends it when page is hidden
+  // Resume AudioContext when returning from background — iOS closes/suspends it
   useEffect(() => {
-    const onVisible = () => { if (document.visibilityState === 'visible') sounds.resumeAudio(); };
+    const resume = () => sounds.resumeAudio();
+    // Small delay gives iOS time to restore its audio session before we call resume
+    const onVisible = () => { if (document.visibilityState === 'visible') setTimeout(resume, 200); };
     document.addEventListener('visibilitychange', onVisible);
-    document.addEventListener('touchstart', sounds.resumeAudio, { passive: true });
-    document.addEventListener('click', sounds.resumeAudio);
+    window.addEventListener('focus', resume);
+    document.addEventListener('touchstart', resume, { passive: true });
+    document.addEventListener('click', resume);
     return () => {
       document.removeEventListener('visibilitychange', onVisible);
-      document.removeEventListener('touchstart', sounds.resumeAudio, { passive: true });
-      document.removeEventListener('click', sounds.resumeAudio);
+      window.removeEventListener('focus', resume);
+      document.removeEventListener('touchstart', resume, { passive: true });
+      document.removeEventListener('click', resume);
     };
   }, []);
 

@@ -3,14 +3,23 @@
 let ctx = null;
 let masterGain = null;
 
+function createContext() {
+  ctx = new (window.AudioContext || window.webkitAudioContext)();
+  masterGain = ctx.createGain();
+  masterGain.gain.value = 1;
+  masterGain.connect(ctx.destination);
+  // When iOS resumes a suspended context, restart bg music if needed
+  ctx.onstatechange = () => {
+    if (ctx.state === 'running' && bgPlaying && !bgTimer) {
+      bgNextBeat = ctx.currentTime + 0.1;
+      scheduleBg();
+    }
+  };
+}
+
 function getCtx() {
-  if (!ctx) {
-    ctx = new (window.AudioContext || window.webkitAudioContext)();
-    masterGain = ctx.createGain();
-    masterGain.gain.value = 1;
-    masterGain.connect(ctx.destination);
-  }
-  if (ctx.state === 'suspended') ctx.resume();
+  if (!ctx || ctx.state === 'closed') createContext();
+  if (ctx.state === 'suspended') ctx.resume().catch(() => {});
   return ctx;
 }
 
@@ -23,17 +32,18 @@ export function setMuted(val) {
   if (masterGain) masterGain.gain.value = val ? 0 : 1;
 }
 
-// Call on any user gesture to un-suspend the AudioContext after backgrounding
+// Resume or recreate AudioContext after iOS backgrounding
 export function resumeAudio() {
-  if (!ctx) return;
+  if (!ctx || ctx.state === 'closed') {
+    // Context was closed — recreate and restart bg music if needed
+    const wasPlaying = bgPlaying;
+    if (bgPlaying) stopBgTheme();
+    createContext();
+    if (wasPlaying) startBgTheme();
+    return;
+  }
   if (ctx.state !== 'running') {
-    ctx.resume().then(() => {
-      // Restart bg scheduler if it was killed by iOS JS throttling
-      if (bgPlaying && !bgTimer) {
-        bgNextBeat = ctx.currentTime + 0.1;
-        scheduleBg();
-      }
-    }).catch(() => {});
+    ctx.resume().catch(() => {});
   }
 }
 
