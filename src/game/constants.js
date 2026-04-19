@@ -81,7 +81,7 @@ export const ITEM_TYPES = {
   bomb:   { type: 'bomb',   icon: '💣', name: 'Bomb',   color: '#e74c3c', desc: 'Clears nearby territory!' },
   portal: { type: 'portal', icon: '🌀', name: 'Portal', color: '#9b59b6', desc: 'Teleport anywhere!' },
   freeze: { type: 'freeze', icon: '❄️', name: 'Freeze', color: '#3498db', desc: 'Skip the next player!' },
-  swap:   { type: 'swap',   icon: '🔀', name: 'Swap',   color: '#2ecc71', desc: 'Switch places with any player!' },
+  swap:   { type: 'swap',   icon: '🎭', name: 'Swap',   color: '#2ecc71', desc: 'Switch places with any player!' },
 };
 
 export const ITEM_LIFESPAN      = 5;  // turns before item vanishes

@@ -10,9 +10,9 @@ const FREEZE_LINES = [
 ];
 
 const SWAP_LINES = [
-  (by, target) => `🔀 ${by} swapped with ${target}. Rude, but effective.`,
-  (by, target) => `🔀 ${target} is now somewhere confusing. Thanks, ${by}.`,
-  (by, target) => `🔀 ${by} and ${target} changed places. ${target} did not consent.`,
+  (by, target) => `🎭 ${by} swapped with ${target}. Rude, but effective.`,
+  (by, target) => `🎭 ${target} is now somewhere confusing. Thanks, ${by}.`,
+  (by, target) => `🎭 ${by} and ${target} changed places. ${target} did not consent.`,
 ];
 
 export default function TurnIndicator({ player, taunt, timeLeft, totalTime, portalActive, swapActive, lastEvent, isGremlin, isThinking, soundEnabled, onToggleSound }) {
@@ -22,7 +22,7 @@ export default function TurnIndicator({ player, taunt, timeLeft, totalTime, port
   let statusLine = taunt;
   if (isThinking) statusLine = GREMLIN_THOUGHTS[player.id] ?? 'Scheming…';
   else if (portalActive) statusLine = '🌀 PORTAL active! Pick any empty square on the board.';
-  else if (swapActive) statusLine = '🔀 SWAP! Choose a player to switch places with.';
+  else if (swapActive) statusLine = '🎭 SWAP! Choose a player to switch places with.';
 
   let eventLine = null;
   if (lastEvent?.type === 'freeze') {

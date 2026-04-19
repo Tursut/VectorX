@@ -8,7 +8,7 @@ export default function SandboxPanel({
   let statusText = `${currentPlayer.name}'s turn`;
   if (isThinking)   statusText = 'Bot is thinking…';
   if (portalActive) statusText = '🌀 Portal active — pick any empty cell';
-  if (swapActive)   statusText = '🔀 Swap active — click a player to swap with';
+  if (swapActive)   statusText = '🎭 Swap active — click a player to swap with';
 
   const buttonsEnabled = !isThinking && !portalActive && !swapActive;
 
