@@ -33,6 +33,14 @@ export function setMuted(val) {
   if (masterGain) masterGain.gain.value = val ? 0 : 1;
 }
 
+export function getAudioState() {
+  return ctx ? ctx.state : 'none';
+}
+
+export function isBgPlaying() {
+  return bgPlaying;
+}
+
 // Must be called from a user-gesture handler (touchstart / click).
 // Recreates the context if closed/missing (iOS can close it when backgrounded),
 // then resumes and restarts bg music via onstatechange.
