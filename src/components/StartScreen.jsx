@@ -95,15 +95,13 @@ export default function StartScreen({ onStart, onSandbox, magicItems, onToggleMa
         </div>
 
         <p className="start-footnote">Starting player chosen by fate (it's random).</p>
+        <button className="sandbox-entry-btn" onClick={onSandbox}>🧪 testing ground</button>
       </div>
 
       {/* Sticky begin button — always visible at bottom */}
       <div className="start-button-bar">
         <button className="start-button" onClick={onStart}>
           TAKE THE GRID →
-        </button>
-        <button className="sandbox-entry-btn" onClick={onSandbox}>
-          🧪 Testing Ground
         </button>
       </div>
     </div>

@@ -893,23 +893,20 @@
 }
 
 .sandbox-entry-btn {
-  background: transparent;
-  color: #aa66dd;
-  border: 2px solid #553377;
-  border-radius: 10px;
-  padding: 9px 28px;
-  font-size: 14px;
-  font-family: 'Fredoka One', 'Segoe UI', sans-serif;
-  letter-spacing: 1px;
+  background: none;
+  border: none;
+  color: #4a4a66;
+  font-size: 11px;
+  font-family: 'Segoe UI', sans-serif;
+  letter-spacing: 0.5px;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, transform 0.12s;
-  width: 100%;
-  max-width: 400px;
+  padding: 4px 0;
+  margin-top: 6px;
+  display: block;
+  transition: color 0.15s;
 }
 .sandbox-entry-btn:hover {
-  background: rgba(85, 51, 119, 0.28);
-  border-color: #9955cc;
-  transform: translateY(-2px);
+  color: #8855bb;
 }
 
 /* ── Sandbox Panel ── */
