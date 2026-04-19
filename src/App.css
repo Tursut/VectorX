@@ -47,6 +47,78 @@
   gap: 10px;
 }
 
+.exit-game-btn {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  color: #556;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 2px 4px;
+  letter-spacing: 0.03em;
+  transition: color 0.15s;
+}
+.exit-game-btn:hover { color: #aab; }
+
+.exit-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 300;
+}
+.exit-confirm-card {
+  background: #12122a;
+  border: 2px solid #334;
+  border-radius: 16px;
+  padding: 32px 40px;
+  text-align: center;
+  max-width: 320px;
+  width: 90%;
+}
+.exit-confirm-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #eee;
+  margin: 0 0 8px;
+}
+.exit-confirm-sub {
+  font-size: 14px;
+  color: #778;
+  margin: 0 0 28px;
+}
+.exit-confirm-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.exit-confirm-yes {
+  background: #e74c3c;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 12px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.exit-confirm-yes:hover { background: #c0392b; }
+.exit-confirm-no {
+  background: #1e1e3a;
+  color: #aab;
+  border: 2px solid #334;
+  border-radius: 10px;
+  padding: 11px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.exit-confirm-no:hover { background: #252545; color: #ccd; }
+
 /* On narrow screens, player panel goes above the board */
 @media (max-width: 620px) {
   .app {

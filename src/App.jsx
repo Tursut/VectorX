@@ -54,6 +54,7 @@ export default function App() {
   const [countdown, setCountdown] = useState(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [playerMoment, setPlayerMoment] = useState(null);
+  const [exitConfirm, setExitConfirm] = useState(false);
   const prevPlayersRef = useRef(null);
   const momentTimerRef = useRef(null);
 
@@ -122,6 +123,7 @@ export default function App() {
     if (!gameState || gameState.phase !== 'playing') return;
     if (gameState.sandboxMode) return; // no timer in sandbox
     if (playerMoment) return; // paused during elimination overlay
+    if (exitConfirm) return; // paused during exit confirmation
     const playerIndex = gameState.currentPlayerIndex;
     const gc = gameState.gremlinCount ?? 0;
     const isHuman = gameState.players[playerIndex].id < PLAYERS.length - gc;
@@ -140,7 +142,7 @@ export default function App() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [gameState?.currentPlayerIndex, gameState?.phase, gameState?.portalActive, playerMoment]);
+  }, [gameState?.currentPlayerIndex, gameState?.phase, gameState?.portalActive, playerMoment, exitConfirm]);
 
   // Your-turn chime — plays when it becomes a human's turn
   useEffect(() => {
@@ -190,6 +192,7 @@ export default function App() {
   useEffect(() => {
     if (!gameState || gameState.phase !== 'playing') return;
     if (playerMoment) return; // pause bots during elimination overlay
+    if (exitConfirm) return; // pause bots during exit confirmation
     const gc = gameState.gremlinCount ?? 0;
     if (gc === 0) return;
     const currentPlayerId = gameState.players[gameState.currentPlayerIndex].id;
@@ -214,7 +217,7 @@ export default function App() {
     }, delay);
     return () => { cancelAnimationFrame(rafId); clearTimeout(t); setIsThinking(false); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameState?.currentPlayerIndex, gameState?.turnCount, gameState?.phase, gameState?.portalActive, gameState?.swapActive, playerMoment]);
+  }, [gameState?.currentPlayerIndex, gameState?.turnCount, gameState?.phase, gameState?.portalActive, gameState?.swapActive, playerMoment, exitConfirm]);
 
   // Countdown sounds + logic
   const cdSoundRef = useRef(null);
@@ -259,6 +262,7 @@ export default function App() {
   }
 
   function handleBackToStart() {
+    setExitConfirm(false);
     setScreen('start');
   }
 
@@ -425,8 +429,38 @@ export default function App() {
                   portalJump={portalJump}
                   swapFlash={swapFlash}
                 />
+                <button className="exit-game-btn" onClick={() => setExitConfirm(true)}>
+                  ← Exit to menu
+                </button>
               </div>
             </div>
+
+            <AnimatePresence>
+              {exitConfirm && (
+                <motion.div
+                  className="exit-confirm-overlay"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.18 }}
+                >
+                  <motion.div
+                    className="exit-confirm-card"
+                    initial={{ scale: 0.85, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.85, opacity: 0 }}
+                    transition={{ type: 'spring', stiffness: 340, damping: 26 }}
+                  >
+                    <p className="exit-confirm-title">Exit to menu?</p>
+                    <p className="exit-confirm-sub">Your current game will be lost.</p>
+                    <div className="exit-confirm-btns">
+                      <button className="exit-confirm-yes" onClick={handleBackToStart}>Yes, exit</button>
+                      <button className="exit-confirm-no" onClick={() => setExitConfirm(false)}>Keep playing</button>
+                    </div>
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
         )}
 
