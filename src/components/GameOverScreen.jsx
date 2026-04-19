@@ -106,7 +106,6 @@ export default function GameOverScreen({ winner, players, onRestart, onMenu }) {
                 <span className="gameover-rank-name" style={{ color: config.color }}>
                   {config.shortName}
                 </span>
-                {isWinner && <span className="gameover-rank-badge">WINNER</span>}
               </motion.div>
             ))}
           </motion.div>
