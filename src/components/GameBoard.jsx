@@ -83,7 +83,7 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
             scale:   [1, 1.25, 1.25, 1.25, 1.25, 1.25, 0],
             opacity: [1, 1,    1,    1,    1,    1,    0],
           }}
-          transition={{ duration: 0.7, times: [0, 0.15, 0.3, 0.45, 0.58, 0.72, 1] }}
+          transition={{ duration: 1.1, times: [0, 0.15, 0.3, 0.45, 0.58, 0.72, 1] }}
         >
           <span className="player-icon">{PLAYERS[tp.id].icon}</span>
         </motion.div>
