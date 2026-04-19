@@ -1,4 +1,4 @@
-import { LayoutGroup } from 'framer-motion';
+
 import { PLAYERS } from '../game/constants';
 import Cell from './Cell';
 
@@ -31,7 +31,6 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
     : null;
 
   return (
-    <LayoutGroup>
     <div className="board" style={{ '--player-color': playerColor }}>
       {grid.map((row, ri) =>
         row.map((cell, ci) => {
@@ -61,6 +60,5 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
         })
       )}
     </div>
-    </LayoutGroup>
   );
 }
