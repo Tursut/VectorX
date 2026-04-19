@@ -190,15 +190,18 @@ export function applyMove(state, targetRow, targetCol) {
   const { grid, players, currentPlayerIndex, items, portalActive, swapActive } = state;
   const player = players[currentPlayerIndex];
 
-  // Swap selection: don't claim any square — just exchange positions
+  // Swap selection: exchange positions and claim the new squares
   if (swapActive) {
     const target = players.find(p => !p.isEliminated && p.id !== player.id && p.row === targetRow && p.col === targetCol);
+    const swapGrid = grid.map(r => r.map(c => ({ ...c })));
+    swapGrid[targetRow][targetCol] = { owner: player.id };
+    if (target) swapGrid[player.row][player.col] = { owner: target.id };
     const swappedPlayers = players.map(p => {
       if (p.id === player.id) return { ...p, row: targetRow, col: targetCol };
       if (p.id === target?.id) return { ...p, row: player.row, col: player.col };
       return { ...p };
     });
-    const result = completeTurn({ ...state, players: swappedPlayers, swapActive: false });
+    const result = completeTurn({ ...state, grid: swapGrid, players: swappedPlayers, swapActive: false });
     return { ...result, lastEvent: target ? { type: 'swap', byId: player.id, targetId: target.id } : null };
   }
 

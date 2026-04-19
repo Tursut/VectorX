@@ -68,7 +68,7 @@ export default function Cell({ row, col, cell, isValidMove, isCurrentPlayer, pla
           <motion.span
             layoutId={`player-${playerHere.id}`}
             className="player-icon"
-            initial={false}
+            initial={{ scale: 1, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ type: 'spring', stiffness: 240, damping: 26 }}
           >
