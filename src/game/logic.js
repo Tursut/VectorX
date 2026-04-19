@@ -56,9 +56,9 @@ function advanceToNextActive(players, fromIndex) {
   let next = fromIndex;
   let attempts = 0;
   do {
-    next = (next + 1) % PLAYERS.length;
+    next = (next + 1) % players.length;
     attempts++;
-  } while (players[next].isEliminated && attempts <= PLAYERS.length);
+  } while (players[next].isEliminated && attempts <= players.length);
   return next;
 }
 
@@ -79,7 +79,7 @@ function getSpawnCandidates(grid, players, items) {
 }
 
 function trySpawnItem(state) {
-  if (!state.magicItems) return state;
+  if (!state.magicItems || state.sandboxMode) return state;
 
   const newNextSpawnIn = state.nextSpawnIn - 1;
   if (newNextSpawnIn > 0) return { ...state, nextSpawnIn: newNextSpawnIn };
@@ -310,4 +310,57 @@ export function getCurrentValidMoves(state) {
   }
 
   return getValidMoves(grid, p.row, p.col);
+}
+
+export function initSandboxGame() {
+  const grid = createInitialGrid();
+  const sandboxPlayers = [PLAYERS[0], PLAYERS[3]]; // Reginald (human) + Buzzilda (bot)
+  const players = sandboxPlayers.map((p) => {
+    grid[p.startRow][p.startCol] = { owner: p.id };
+    return { id: p.id, row: p.startRow, col: p.startCol, isEliminated: false, deathCell: null };
+  });
+  return {
+    grid,
+    players,
+    currentPlayerIndex: 0,
+    phase: 'playing',
+    winner: null,
+    turnCount: 0,
+    magicItems: true,
+    gremlinCount: 1,
+    items: [],
+    nextSpawnIn: 999,
+    portalActive: false,
+    swapActive: false,
+    freezeNextPlayer: false,
+    lastEvent: null,
+    sandboxMode: true,
+  };
+}
+
+export function placeSandboxItem(state, type) {
+  const human = state.players[0];
+  const occupied = new Set([
+    ...state.players.filter(p => !p.isEliminated).map(p => `${p.row},${p.col}`),
+    ...state.items.map(i => `${i.row},${i.col}`),
+  ]);
+  const candidates = [];
+  for (const [dr, dc] of DIRECTIONS) {
+    const nr = human.row + dr;
+    const nc = human.col + dc;
+    if (
+      nr >= 0 && nr < GRID_SIZE && nc >= 0 && nc < GRID_SIZE &&
+      state.grid[nr][nc].owner === null &&
+      !occupied.has(`${nr},${nc}`)
+    ) {
+      candidates.push({ row: nr, col: nc });
+    }
+  }
+  if (candidates.length === 0) return state;
+  const cell = candidates[0];
+  const filtered = state.items.filter(i => i.type !== type);
+  return {
+    ...state,
+    items: [...filtered, { id: `sb-${type}-${Date.now()}`, type, row: cell.row, col: cell.col, turnsLeft: 99 }],
+  };
 }

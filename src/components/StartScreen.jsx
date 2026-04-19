@@ -1,6 +1,6 @@
 import { PLAYERS, ITEM_TYPES } from '../game/constants';
 
-export default function StartScreen({ onStart, magicItems, onToggleMagicItems, gremlinCount, onChangeGremlinCount }) {
+export default function StartScreen({ onStart, onSandbox, magicItems, onToggleMagicItems, gremlinCount, onChangeGremlinCount }) {
   const humanCount = PLAYERS.length - gremlinCount;
   const gremlinLabel =
     gremlinCount === 0 ? 'All human. May the best player win.' :
@@ -101,6 +101,9 @@ export default function StartScreen({ onStart, magicItems, onToggleMagicItems, g
       <div className="start-button-bar">
         <button className="start-button" onClick={onStart}>
           TAKE THE GRID →
+        </button>
+        <button className="sandbox-entry-btn" onClick={onSandbox}>
+          🧪 Testing Ground
         </button>
       </div>
     </div>

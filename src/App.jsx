@@ -1,6 +1,6 @@
 import { useReducer, useState, useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { initGame, applyMove, getCurrentValidMoves, eliminateCurrentPlayer } from './game/logic';
+import { initGame, initSandboxGame, applyMove, getCurrentValidMoves, eliminateCurrentPlayer, placeSandboxItem, getValidMoves } from './game/logic';
 import { getGremlinMove } from './game/ai';
 import { PLAYERS, TURN_TAUNTS, TURN_TIME, GRID_SIZE } from './game/constants';
 import * as sounds from './game/sounds';
@@ -10,12 +10,17 @@ import TurnIndicator from './components/TurnIndicator';
 import PlayerPanel from './components/PlayerPanel';
 import GameOverScreen from './components/GameOverScreen';
 import EventToast from './components/EventToast';
+import SandboxPanel from './components/SandboxPanel';
 import './App.css';
 
 function gameReducer(state, action) {
   switch (action.type) {
     case 'START':
       return initGame(action.magicItems, action.gremlinCount ?? 0);
+    case 'SANDBOX_START':
+      return initSandboxGame();
+    case 'SANDBOX_GIVE_ITEM':
+      return placeSandboxItem(state, action.itemType);
     case 'MOVE':
       return applyMove(state, action.row, action.col);
     case 'TIMEOUT':
@@ -96,6 +101,7 @@ export default function App() {
   // Timer — ticks on last 3s for human turns only
   useEffect(() => {
     if (!gameState || gameState.phase !== 'playing') return;
+    if (gameState.sandboxMode) return; // no timer in sandbox
     const playerIndex = gameState.currentPlayerIndex;
     const gc = gameState.gremlinCount ?? 0;
     const isHuman = gameState.players[playerIndex].id < PLAYERS.length - gc;
@@ -119,6 +125,7 @@ export default function App() {
   // Your-turn chime — plays when it becomes a human's turn
   useEffect(() => {
     if (!gameState || gameState.phase !== 'playing') return;
+    if (gameState.sandboxMode) return;
     const gc = gameState.gremlinCount ?? 0;
     const isHuman = gameState.players[gameState.currentPlayerIndex].id < PLAYERS.length - gc;
     if (isHuman) sounds.playYourTurn();
@@ -160,7 +167,9 @@ export default function App() {
     setIsThinking(true);
     const humanCount = PLAYERS.length - gc;
     const anyHumanAlive = gameState.players.some(p => !p.isEliminated && p.id < humanCount);
-    const delay = anyHumanAlive ? 1600 + Math.random() * 600 : 120 + Math.random() * 80;
+    const delay = gameState.sandboxMode
+      ? 700 + Math.random() * 200
+      : anyHumanAlive ? 1600 + Math.random() * 600 : 120 + Math.random() * 80;
     const t = setTimeout(() => {
       setIsThinking(false);
       const move = getGremlinMove(gameState);
@@ -193,6 +202,19 @@ export default function App() {
 
   function handleStart() {
     setCountdown(3);
+  }
+
+  function handleSandboxStart() {
+    dispatch({ type: 'SANDBOX_START' });
+    setScreen('sandbox');
+  }
+
+  function handleSandboxReset() {
+    dispatch({ type: 'SANDBOX_START' });
+    setBombBlast(null);
+    setPortalJump(null);
+    setSwapFlash(null);
+    setEventToast(null);
   }
 
   function handleRestart() {
@@ -302,6 +324,7 @@ export default function App() {
           <motion.div key="start" style={{ width: '100%' }} {...fadeSlide}>
             <StartScreen
               onStart={handleStart}
+              onSandbox={handleSandboxStart}
               magicItems={magicItems}
               onToggleMagicItems={() => setMagicItems((v) => !v)}
               gremlinCount={gremlinCount}
@@ -360,6 +383,58 @@ export default function App() {
               players={gameState.players}
               onRestart={handleRestart}
               onMenu={handleBackToStart}
+            />
+          </motion.div>
+        )}
+
+        {screen === 'sandbox' && gameState?.phase === 'playing' && (
+          <motion.div
+            key="sandbox"
+            className="game-layout"
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.96 }}
+            transition={{ duration: 0.25 }}
+          >
+            <SandboxPanel
+              currentPlayer={PLAYERS[gameState.players[gameState.currentPlayerIndex].id]}
+              isThinking={isThinking}
+              portalActive={gameState.portalActive}
+              swapActive={gameState.swapActive}
+              onPlaceItem={(type) => dispatch({ type: 'SANDBOX_GIVE_ITEM', itemType: type })}
+              onReset={handleSandboxReset}
+              onExit={() => setScreen('start')}
+            />
+            <div className="game-center">
+              <PlayerPanel
+                players={gameState.players}
+                currentPlayerIndex={gameState.currentPlayerIndex}
+                gremlinCount={gameState.gremlinCount ?? 0}
+              />
+              <GameBoard
+                grid={gameState.grid}
+                players={gameState.players}
+                validMoveSet={validMoveSet}
+                onCellClick={handleMove}
+                currentPlayerIndex={gameState.currentPlayerIndex}
+                items={gameState.items}
+                portalActive={gameState.portalActive}
+                swapActive={gameState.swapActive}
+                bombBlast={bombBlast}
+                portalJump={portalJump}
+                swapFlash={swapFlash}
+              />
+            </div>
+          </motion.div>
+        )}
+
+        {screen === 'sandbox' && gameState?.phase === 'gameover' && (
+          <motion.div key="sandbox-over" style={{ width: '100%' }} {...fadeSlide}>
+            <GameOverScreen
+              winner={gameState.winner !== null ? PLAYERS[gameState.winner] : null}
+              players={gameState.players}
+              onRestart={handleSandboxReset}
+              onMenu={() => setScreen('start')}
             />
           </motion.div>
         )}
