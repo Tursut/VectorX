@@ -18,6 +18,7 @@ const SWAP_LINES = [
 export default function TurnIndicator({ player, taunt, timeLeft, totalTime, portalActive, swapActive, lastEvent, isGremlin, isThinking, soundEnabled, onToggleSound }) {
   const pct = (timeLeft / totalTime) * 100;
   const urgent = timeLeft <= 3 && !isGremlin;
+  const isReset = timeLeft === totalTime;
 
   let statusLine = taunt;
   if (isThinking) statusLine = GREMLIN_THOUGHTS[player.id] ?? 'Scheming…';
@@ -76,7 +77,11 @@ export default function TurnIndicator({ player, taunt, timeLeft, totalTime, port
               <div className="timer-bar">
                 <div
                   className="timer-fill"
-                  style={{ width: `${pct}%`, backgroundColor: urgent ? '#e74c3c' : player.color }}
+                  style={{
+                    width: `${pct}%`,
+                    backgroundColor: urgent ? '#e74c3c' : player.color,
+                    transition: isReset ? 'none' : 'width 0.85s linear, background-color 0.3s',
+                  }}
                 />
               </div>
               <span className={`timer-count ${urgent ? 'timer-count-urgent' : ''}`}>

@@ -11,6 +11,7 @@ import PlayerPanel from './components/PlayerPanel';
 import GameOverScreen from './components/GameOverScreen';
 import EventToast from './components/EventToast';
 import SandboxPanel from './components/SandboxPanel';
+import EliminationMoment from './components/EliminationMoment';
 import './App.css';
 
 function gameReducer(state, action) {
@@ -52,7 +53,9 @@ export default function App() {
   const [eventToast, setEventToast] = useState(null);
   const [countdown, setCountdown] = useState(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [playerMoment, setPlayerMoment] = useState(null);
   const prevPlayersRef = useRef(null);
+  const momentTimerRef = useRef(null);
 
   useEffect(() => {
     if (!bombBlast) return;
@@ -77,14 +80,17 @@ export default function App() {
     const ev = gameState?.lastEvent;
     if (!ev) return;
     if (ev.type === 'freeze') {
-      const id = Date.now();
-      setEventToast({
-        id,
-        type: 'freeze',
-        by: PLAYERS[ev.byId],
-        target: ev.targetId != null ? PLAYERS[ev.targetId] : null,
-      });
       sounds.playFreeze();
+      const gc = gameState.gremlinCount ?? 0;
+      const humanAlive = gameState.players.some(p => !p.isEliminated && p.id < PLAYERS.length - gc);
+      if (humanAlive) {
+        setEventToast({
+          id: Date.now(),
+          type: 'freeze',
+          by: PLAYERS[ev.byId],
+          target: ev.targetId != null ? PLAYERS[ev.targetId] : null,
+        });
+      }
     } else if (ev.type === 'swap') {
       sounds.playSwap();
     }
@@ -102,6 +108,7 @@ export default function App() {
   useEffect(() => {
     if (!gameState || gameState.phase !== 'playing') return;
     if (gameState.sandboxMode) return; // no timer in sandbox
+    if (playerMoment) return; // paused during elimination overlay
     const playerIndex = gameState.currentPlayerIndex;
     const gc = gameState.gremlinCount ?? 0;
     const isHuman = gameState.players[playerIndex].id < PLAYERS.length - gc;
@@ -120,7 +127,7 @@ export default function App() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [gameState?.currentPlayerIndex, gameState?.phase, gameState?.portalActive]);
+  }, [gameState?.currentPlayerIndex, gameState?.phase, gameState?.portalActive, playerMoment]);
 
   // Your-turn chime — plays when it becomes a human's turn
   useEffect(() => {
@@ -131,13 +138,22 @@ export default function App() {
     if (isHuman) sounds.playYourTurn();
   }, [gameState?.currentPlayerIndex, gameState?.phase]);
 
-  // Elimination sound — detects the false→true transition per player
+  // Elimination sound + human moment — detects the false→true transition per player
   useEffect(() => {
     if (!gameState?.players) { prevPlayersRef.current = null; return; }
     if (prevPlayersRef.current) {
+      const gc = gameState.gremlinCount ?? 0;
       gameState.players.forEach((p, i) => {
         const prev = prevPlayersRef.current[i];
-        if (prev && p.isEliminated && !prev.isEliminated) sounds.playElimination();
+        if (prev && p.isEliminated && !prev.isEliminated) {
+          sounds.playElimination();
+          const isHuman = p.id < PLAYERS.length - gc;
+          if (isHuman) {
+            clearTimeout(momentTimerRef.current);
+            setPlayerMoment({ player: PLAYERS[p.id] });
+            momentTimerRef.current = setTimeout(() => setPlayerMoment(null), 2500);
+          }
+        }
       });
     }
     prevPlayersRef.current = gameState.players;
@@ -172,7 +188,7 @@ export default function App() {
       : anyHumanAlive ? 1600 + Math.random() * 600 : 120 + Math.random() * 80;
     const t = setTimeout(() => {
       setIsThinking(false);
-      const move = getGremlinMove(gameState);
+      const move = getGremlinMove(gameState, 1);
       if (move) {
         handleMove(move.row, move.col);
       } else {
@@ -184,6 +200,7 @@ export default function App() {
   }, [gameState?.currentPlayerIndex, gameState?.turnCount, gameState?.phase, gameState?.portalActive, gameState?.swapActive]);
 
   // Countdown sounds + logic
+  const cdSoundRef = useRef(null);
   useEffect(() => {
     if (countdown === null) return;
     if (countdown < 0) {
@@ -192,11 +209,14 @@ export default function App() {
       setScreen('game');
       return;
     }
-    if (countdown === 0) sounds.playCountdownGo();
-    else sounds.playCountdownBeat();
+    // Delay sound ~200ms so it lands when the number peaks on screen
+    cdSoundRef.current = setTimeout(() => {
+      if (countdown === 0) sounds.playCountdownGo();
+      else sounds.playCountdownBeat();
+    }, 200);
     const delays = { 3: 850, 2: 1200, 1: 1200, 0: 2400 };
     const t = setTimeout(() => setCountdown((c) => c - 1), delays[countdown] ?? 850);
-    return () => clearTimeout(t);
+    return () => { clearTimeout(t); clearTimeout(cdSoundRef.current); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [countdown]);
 
@@ -291,6 +311,9 @@ export default function App() {
         {eventToast && <EventToast key={eventToast.id} toast={eventToast} />}
       </AnimatePresence>
       <AnimatePresence>
+        {playerMoment && <EliminationMoment key={playerMoment.player.id} player={playerMoment.player} />}
+      </AnimatePresence>
+      <AnimatePresence>
         {countdown !== null && (
           <motion.div
             key="countdown-overlay"
@@ -306,7 +329,7 @@ export default function App() {
                 className={countdown === 0 ? 'countdown-message' : 'countdown-number'}
                 initial={{ scale: 1.6, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.5, opacity: 0 }}
+                exit={{ scale: 0.5, opacity: 0, transition: { duration: 0.18 } }}
                 transition={{ type: 'spring', stiffness: 320, damping: 22 }}
               >
                 {countdown === 0 ? 'MAY THE BEST MOVER WIN.' : countdown}

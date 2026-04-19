@@ -1,5 +1,5 @@
-import { GRID_SIZE } from './constants';
-import { getCurrentValidMoves } from './logic';
+import { GRID_SIZE, DIRECTIONS } from './constants';
+import { getCurrentValidMoves, getValidMoves } from './logic';
 
 const GREMLIN_THOUGHTS = [
   'Recklessly scheming…',
@@ -11,8 +11,6 @@ const GREMLIN_THOUGHTS = [
 export { GREMLIN_THOUGHTS };
 
 // ── BFS reachability ─────────────────────────────────────────────────────────
-// Counts empty cells reachable from (row, col) on a given grid.
-// Capped at maxCells to keep it fast on a 10×10 board.
 function reachable(grid, row, col, maxCells = 60) {
   const visited = new Set([`${row},${col}`]);
   const queue = [[row, col]];
@@ -33,25 +31,37 @@ function reachable(grid, row, col, maxCells = 60) {
       }
     }
   }
-  return visited.size - 1; // exclude starting cell
+  return visited.size - 1;
 }
 
 function cloneGrid(grid) {
   return grid.map(r => r.map(c => ({ ...c })));
 }
 
+// Returns the number of empty immediate neighbours of a cell (used to penalise dead ends)
+function openNeighbours(grid, row, col) {
+  let count = 0;
+  for (const [dr, dc] of DIRECTIONS) {
+    const nr = row + dr, nc = col + dc;
+    if (nr >= 0 && nr < GRID_SIZE && nc >= 0 && nc < GRID_SIZE && grid[nr][nc].owner === null) count++;
+  }
+  return count;
+}
+
+// Small dead-end penalty: avoid moves that leave very few exits
+function deadEndPenalty(grid, row, col) {
+  const exits = openNeighbours(grid, row, col);
+  return exits < 3 ? -0.4 * (3 - exits) : 0;
+}
+
 // ── Scoring functions ────────────────────────────────────────────────────────
 
-// Reginald — stay free: picks the move that keeps the most reachable space.
-// Much smarter than counting immediate neighbors — avoids dead ends.
 function scoreExpansive(state, move) {
   const tempGrid = cloneGrid(state.grid);
   tempGrid[move.row][move.col] = { owner: state.players[state.currentPlayerIndex].id };
-  return reachable(tempGrid, move.row, move.col);
+  return reachable(tempGrid, move.row, move.col) + deadEndPenalty(tempGrid, move.row, move.col);
 }
 
-// Gerald — territory + soft cut: own reachable space plus a bonus for
-// each cell we shave off opponents' reach.
 function scoreTerritorial(state, move) {
   const player = state.players[state.currentPlayerIndex];
   const tempGrid = cloneGrid(state.grid);
@@ -65,11 +75,9 @@ function scoreTerritorial(state, move) {
     return sum + Math.max(0, before - after);
   }, 0);
 
-  return ownSpace + blockBonus * 0.5;
+  return ownSpace + blockBonus * 0.5 + deadEndPenalty(tempGrid, move.row, move.col);
 }
 
-// Bluebot — aggressive cutter: maximises how much space it strips from
-// every active opponent, with a smaller bonus for its own freedom.
 function scoreAggressive(state, move) {
   const player = state.players[state.currentPlayerIndex];
   const tempGrid = cloneGrid(state.grid);
@@ -83,7 +91,7 @@ function scoreAggressive(state, move) {
   }, 0);
 
   const ownSpace = reachable(tempGrid, move.row, move.col);
-  return totalCut * 0.7 + ownSpace * 0.3;
+  return totalCut * 0.7 + ownSpace * 0.3 + deadEndPenalty(tempGrid, move.row, move.col);
 }
 
 function pickBest(moves, scoreFn, state) {
@@ -114,12 +122,52 @@ function seekItem(moves, state) {
   return bestDist <= 4 ? bestMove : null;
 }
 
-// ── Main entry point ──────────────────────────────────────────────────────────
+// ── Special item decisions (difficulty >= 1) ─────────────────────────────────
 
-export function getGremlinMove(state) {
+// Swap: pick the opponent position that gives the most mobility advantage.
+// Score = reachable(my new position) - reachable(opponent's new position at my old spot)
+function pickSwapTarget(state) {
+  const moves = getCurrentValidMoves(state); // opponent positions
+  if (moves.length === 0) return null;
+  const player = state.players[state.currentPlayerIndex];
+
+  let best = moves[0], bestScore = -Infinity;
+  for (const m of moves) {
+    const myGain = reachable(state.grid, m.row, m.col);
+    const theirGain = reachable(state.grid, player.row, player.col);
+    // Also penalise swapping into a dead end
+    const score = myGain - theirGain + deadEndPenalty(state.grid, m.row, m.col);
+    if (score > bestScore) { bestScore = score; best = m; }
+  }
+  return best;
+}
+
+// Portal: jump to the empty cell with the most reachable open space.
+function pickPortalDest(state) {
+  const moves = getCurrentValidMoves(state); // all empty cells
+  if (moves.length === 0) return null;
+
+  let best = moves[0], bestScore = -1;
+  for (const m of moves) {
+    const score = reachable(state.grid, m.row, m.col);
+    if (score > bestScore) { bestScore = score; best = m; }
+  }
+  return best;
+}
+
+// ── Main entry point ─────────────────────────────────────────────────────────
+// difficulty: 0 = original, 1 = improved (default)
+
+export function getGremlinMove(state, difficulty = 1) {
   const moves = getCurrentValidMoves(state);
   if (moves.length === 0) return null;
   if (moves.length === 1) return moves[0];
+
+  // Handle special item states first at difficulty >= 1
+  if (difficulty >= 1) {
+    if (state.swapActive) return pickSwapTarget(state) ?? moves[0];
+    if (state.portalActive) return pickPortalDest(state) ?? moves[0];
+  }
 
   const rand = () => moves[Math.floor(Math.random() * moves.length)];
 
@@ -131,11 +179,11 @@ export function getGremlinMove(state) {
 
   const playerId = state.players[state.currentPlayerIndex].id;
   switch (playerId) {
-    case 0: return pickBest(moves, scoreExpansive, state);   // Reginald — stay free
-    case 1: return pickBest(moves, scoreTerritorial, state); // Gerald   — territory + soft cut
-    case 2: return pickBest(moves, scoreAggressive, state);  // Bluebot  — cut opponents off
-    case 3:                                                   // Buzzilda — chaotic but less dumb
-      return Math.random() < 0.45 ? rand() : pickBest(moves, scoreExpansive, state);
+    case 0: return pickBest(moves, scoreExpansive, state);
+    case 1: return pickBest(moves, scoreTerritorial, state);
+    case 2: return pickBest(moves, scoreAggressive, state);
+    case 3: // Buzzilda — less chaotic than before (20% random)
+      return Math.random() < 0.2 ? rand() : pickBest(moves, scoreExpansive, state);
     default: return rand();
   }
 }

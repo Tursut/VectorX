@@ -141,7 +141,9 @@ function completeTurn(state) {
 
   let updatedPlayers = players.map((p) => {
     if (p.isEliminated || p.id === player.id) return p;
-    return getValidMoves(grid, p.row, p.col).length === 0 ? markEliminated(p) : p;
+    return getValidMoves(grid, p.row, p.col).length === 0
+      ? { ...markEliminated(p), finishTurn: turnCount }
+      : p;
   });
 
   let nextIndex = advanceToNextActive(updatedPlayers, currentPlayerIndex);
@@ -157,7 +159,9 @@ function completeTurn(state) {
 
   const nextPlayer = updatedPlayers[nextIndex];
   if (!nextPlayer.isEliminated && getValidMoves(grid, nextPlayer.row, nextPlayer.col).length === 0) {
-    updatedPlayers = updatedPlayers.map((p) => p.id === nextPlayer.id ? markEliminated(p) : p);
+    updatedPlayers = updatedPlayers.map((p) =>
+      p.id === nextPlayer.id ? { ...markEliminated(p), finishTurn: turnCount } : p
+    );
     nextIndex = advanceToNextActive(updatedPlayers, nextIndex);
   }
 
@@ -259,7 +263,7 @@ export function eliminateCurrentPlayer(state) {
   const player = players[currentPlayerIndex];
 
   const updatedPlayers = players.map((p) =>
-    p.id === player.id ? markEliminated(p) : p
+    p.id === player.id ? { ...markEliminated(p), finishTurn: turnCount } : p
   );
 
   let nextIndex = advanceToNextActive(updatedPlayers, currentPlayerIndex);
