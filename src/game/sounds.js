@@ -97,6 +97,9 @@ function scheduleBg() {
   if (!bgPlaying) return;
   const c = getCtx();
   const now = c.currentTime;
+  // If context was recreated (new currentTime starts at 0), bgNextBeat will be
+  // far in the future — resync it so the scheduler can actually schedule notes.
+  if (bgNextBeat > now + 5) bgNextBeat = now + 0.05;
 
   while (bgNextBeat < now + LOOK_AHEAD) {
     const t    = bgNextBeat;
