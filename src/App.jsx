@@ -297,9 +297,12 @@ export default function App() {
     sounds.setMuted(!next);
   }
 
-  // Hide valid-move hints while the bot is thinking — human can't click anything,
-  // and the swap-target CSS animation creates a stacking context that hides the icon layer.
-  const validMoves = gameState && !isThinking ? getCurrentValidMoves(gameState) : [];
+  // Only show valid-move hints on human turns — bots don't need them and the
+  // swap-target animation creates a stacking context that hides the icon layer.
+  const isGremlinTurn = gameState
+    ? gameState.players[gameState.currentPlayerIndex].id >= PLAYERS.length - (gameState.gremlinCount ?? 0)
+    : false;
+  const validMoves = gameState && !isGremlinTurn ? getCurrentValidMoves(gameState) : [];
   const validMoveSet = new Set(validMoves.map((m) => `${m.row},${m.col}`));
 
   const currentTaunt =
