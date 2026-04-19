@@ -25,7 +25,16 @@ export function setMuted(val) {
 
 // Call on any user gesture to un-suspend the AudioContext after backgrounding
 export function resumeAudio() {
-  if (ctx && ctx.state === 'suspended') ctx.resume();
+  if (!ctx) return;
+  if (ctx.state !== 'running') {
+    ctx.resume().then(() => {
+      // Restart bg scheduler if it was killed by iOS JS throttling
+      if (bgPlaying && !bgTimer) {
+        bgNextBeat = ctx.currentTime + 0.1;
+        scheduleBg();
+      }
+    }).catch(() => {});
+  }
 }
 
 // ── Cheap room reverb helper ──────────────────────────────────────────────────
