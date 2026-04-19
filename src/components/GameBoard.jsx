@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { PLAYERS } from '../game/constants';
 import Cell from './Cell';
 
-export default function GameBoard({ grid, players, validMoveSet, onCellClick, currentPlayerIndex, items, portalActive, swapActive, bombBlast, portalJump, swapFlash }) {
+export default function GameBoard({ grid, players, validMoveSet, onCellClick, currentPlayerIndex, items, portalActive, swapActive, isGremlinTurn, bombBlast, portalJump, swapFlash }) {
   const playerPositions = {};
   const deathCells = {};
   const itemMap = {};
@@ -43,6 +43,7 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
               cell={cell}
               isValidMove={validMoveSet.has(key)}
               isCurrentPlayer={currentPlayer && currentPlayer.row === ri && currentPlayer.col === ci}
+              isBotTurn={isGremlinTurn && currentPlayer && currentPlayer.row === ri && currentPlayer.col === ci}
               playerHere={playerPositions[key] || null}
               deathHere={deathCells[key] || null}
               itemHere={itemMap[key] || null}

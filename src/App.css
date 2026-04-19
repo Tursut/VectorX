@@ -146,6 +146,21 @@
   to   { box-shadow: inset 0 0 0 2px rgba(155, 89, 182, 0.9), 0 0 12px rgba(155,89,182,0.5); }
 }
 
+.cell-bot-thinking {
+  animation: botThink 0.8s infinite alternate ease-in-out;
+}
+
+@keyframes botThink {
+  from {
+    box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--player-color) 55%, transparent),
+                0 0 8px color-mix(in srgb, var(--player-color) 35%, transparent);
+  }
+  to {
+    box-shadow: inset 0 0 0 3px var(--player-color),
+                0 0 22px color-mix(in srgb, var(--player-color) 75%, transparent);
+  }
+}
+
 .cell-swap-target {
   cursor: pointer;
   animation: swapPulse 0.55s infinite alternate ease-in-out;

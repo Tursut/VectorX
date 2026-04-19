@@ -406,6 +406,7 @@ export default function App() {
                 items={gameState.items}
                 portalActive={gameState.portalActive}
                 swapActive={gameState.swapActive}
+                isGremlinTurn={isGremlinTurn}
                 bombBlast={bombBlast}
                 portalJump={portalJump}
                 swapFlash={swapFlash}
@@ -460,6 +461,7 @@ export default function App() {
                 items={gameState.items}
                 portalActive={gameState.portalActive}
                 swapActive={gameState.swapActive}
+                isGremlinTurn={isGremlinTurn}
                 bombBlast={bombBlast}
                 portalJump={portalJump}
                 swapFlash={swapFlash}
