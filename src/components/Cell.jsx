@@ -10,7 +10,7 @@ function badgeColor(turnsLeft) {
 
 const spring = { type: 'spring', stiffness: 380, damping: 28 };
 
-export default function Cell({ row, col, cell, isValidMove, isCurrentPlayer, playerHere, deathHere, itemHere, portalActive, swapActive, playerColor, onCellClick, isBombOrigin, isBombCleared }) {
+export default function Cell({ row, col, cell, isValidMove, isCurrentPlayer, playerHere, deathHere, itemHere, portalActive, swapActive, playerColor, onCellClick, isBombOrigin, isBombCleared, isPortalOrigin, isPortalDest }) {
   const owner = cell.owner !== null ? PLAYERS[cell.owner] : null;
 
   let className = 'cell';
@@ -110,6 +110,26 @@ export default function Cell({ row, col, cell, isValidMove, isCurrentPlayer, pla
       {/* Swap-target label */}
       {swapActive && isValidMove && playerHere && (
         <div className="cell-swap-label">SWAP</div>
+      )}
+
+      {/* Portal origin — ring collapses inward */}
+      {isPortalOrigin && (
+        <motion.div
+          className="portal-ring"
+          initial={{ scale: 1.1, opacity: 0.9 }}
+          animate={{ scale: 0, opacity: 0 }}
+          transition={{ duration: 0.55, ease: 'easeIn' }}
+        />
+      )}
+
+      {/* Portal destination — ring expands outward */}
+      {isPortalDest && (
+        <motion.div
+          className="portal-ring"
+          initial={{ scale: 0, opacity: 0.95 }}
+          animate={{ scale: 2.8, opacity: 0 }}
+          transition={{ duration: 0.65, ease: 'easeOut' }}
+        />
       )}
 
       {/* Bomb explosion overlay — absolutely positioned above everything */}

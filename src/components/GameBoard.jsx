@@ -2,7 +2,7 @@ import { LayoutGroup } from 'framer-motion';
 import { PLAYERS } from '../game/constants';
 import Cell from './Cell';
 
-export default function GameBoard({ grid, players, validMoveSet, onCellClick, currentPlayerIndex, items, portalActive, swapActive, bombBlast }) {
+export default function GameBoard({ grid, players, validMoveSet, onCellClick, currentPlayerIndex, items, portalActive, swapActive, bombBlast, portalJump }) {
   const playerPositions = {};
   const deathCells = {};
   const itemMap = {};
@@ -24,6 +24,8 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
 
   const bombOriginKey = bombBlast ? `${bombBlast.origin.row},${bombBlast.origin.col}` : null;
   const bombClearedSet = bombBlast ? new Set(bombBlast.cleared.map(c => `${c.row},${c.col}`)) : null;
+  const portalFromKey = portalJump ? `${portalJump.from.row},${portalJump.from.col}` : null;
+  const portalToKey   = portalJump ? `${portalJump.to.row},${portalJump.to.col}`   : null;
 
   return (
     <LayoutGroup>
@@ -48,6 +50,8 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
               onCellClick={onCellClick}
               isBombOrigin={bombOriginKey === key}
               isBombCleared={bombClearedSet ? bombClearedSet.has(key) : false}
+              isPortalOrigin={portalFromKey === key}
+              isPortalDest={portalToKey === key}
             />
           );
         })

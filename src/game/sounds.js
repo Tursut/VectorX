@@ -357,6 +357,34 @@ export function playCountdownBeat() {
   osc.start(t); osc.stop(t + 0.42);
 }
 
+// Sharp descending whoosh + sparkle — actual teleport jump
+export function playPortalJump() {
+  const ctx = getCtx();
+  const t = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(900, t);
+  osc.frequency.exponentialRampToValueAtTime(180, t + 0.22);
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.28, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.32);
+  osc.connect(g); g.connect(out());
+  osc.start(t); osc.stop(t + 0.36);
+  // arrival sparkle
+  [1047, 1568, 2093].forEach((freq, i) => {
+    const ts = t + 0.15 + i * 0.055;
+    const o = ctx.createOscillator();
+    o.type = 'sine';
+    o.frequency.value = freq;
+    const og = ctx.createGain();
+    og.gain.setValueAtTime(0, ts);
+    og.gain.linearRampToValueAtTime(0.09, ts + 0.01);
+    og.gain.exponentialRampToValueAtTime(0.001, ts + 0.38);
+    o.connect(og); og.connect(out());
+    o.start(ts); o.stop(ts + 0.42);
+  });
+}
+
 // Swooshy two-note indicator — "pick someone"
 export function playSwapActivate() {
   const ctx = getCtx();

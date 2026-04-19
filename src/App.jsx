@@ -42,6 +42,7 @@ export default function App() {
   const [gameState, dispatch] = useReducer(gameReducer, null);
   const [timeLeft, setTimeLeft] = useState(TURN_TIME);
   const [bombBlast, setBombBlast] = useState(null);
+  const [portalJump, setPortalJump] = useState(null);
   const [eventToast, setEventToast] = useState(null);
   const [countdown, setCountdown] = useState(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -52,6 +53,12 @@ export default function App() {
     const t = setTimeout(() => setBombBlast(null), 700);
     return () => clearTimeout(t);
   }, [bombBlast]);
+
+  useEffect(() => {
+    if (!portalJump) return;
+    const t = setTimeout(() => setPortalJump(null), 800);
+    return () => clearTimeout(t);
+  }, [portalJump]);
 
   // Freeze / swap toast + sound
   useEffect(() => {
@@ -211,12 +218,19 @@ export default function App() {
         setBombBlast({ origin: { row, col }, cleared });
         sounds.playBomb();
       } else if (item?.type === 'portal') {
-        sounds.playPortal();
+        sounds.playPortal(); // item pickup
       } else if (item?.type === 'swap') {
         sounds.playSwapActivate();
       }
       // freeze → playFreeze() fires via lastEvent effect
     }
+
+    if (gameState?.portalActive) {
+      const p = gameState.players[gameState.currentPlayerIndex];
+      setPortalJump({ from: { row: p.row, col: p.col }, to: { row, col } });
+      sounds.playPortalJump();
+    }
+
     dispatch({ type: 'MOVE', row, col });
   }
 
@@ -320,6 +334,7 @@ export default function App() {
                 portalActive={gameState.portalActive}
                 swapActive={gameState.swapActive}
                 bombBlast={bombBlast}
+                portalJump={portalJump}
               />
             </div>
           </motion.div>
