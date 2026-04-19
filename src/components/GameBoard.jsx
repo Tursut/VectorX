@@ -79,11 +79,11 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
             zIndex: 3,
           }}
           animate={{
-            rotate:  [0, -18, 18, -18, 18, -18, 360],
-            scale:   [1, 1.25, 1.25, 1.25, 1.25, 1.25, 0],
-            opacity: [1, 1,    1,    1,    1,    1,    0],
+            rotate:  [0, -28, 28, -28, 28, -28, 28, -28, 720],
+            scale:   [1, 1.4,  1.4,  1.4,  1.4,  1.4,  1.4,  1.4,  0],
+            opacity: [1, 1,    1,    1,    1,    1,    1,    1,    0],
           }}
-          transition={{ duration: 1.8, times: [0, 0.10, 0.22, 0.38, 0.52, 0.65, 1] }}
+          transition={{ duration: 2.5, times: [0, 0.07, 0.16, 0.25, 0.34, 0.43, 0.52, 0.63, 1] }}
         >
           <span className="player-icon">{PLAYERS[tp.id].icon}</span>
         </motion.div>

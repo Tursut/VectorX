@@ -236,13 +236,19 @@
 
 .cell-trapped {
   z-index: 1;
-  animation: trapPulse 1.8s ease-out forwards;
+  animation: trapPulse 2.5s ease-in-out forwards;
 }
 
 @keyframes trapPulse {
-  0%   { box-shadow: 0 0  0   0   rgba(231, 76, 60, 0);   }
-  20%  { box-shadow: 0 0 22px 7px rgba(231, 76, 60, 0.9); }
-  100% { box-shadow: 0 0 10px 3px rgba(231, 76, 60, 0);   }
+  0%   { box-shadow: 0 0  4px  1px rgba(231, 76, 60, 0.2); }
+  10%  { box-shadow: 0 0 28px 10px rgba(231, 76, 60, 1.0); }
+  20%  { box-shadow: 0 0  4px  1px rgba(231, 76, 60, 0.2); }
+  33%  { box-shadow: 0 0 28px 10px rgba(231, 76, 60, 1.0); }
+  46%  { box-shadow: 0 0  4px  1px rgba(231, 76, 60, 0.2); }
+  59%  { box-shadow: 0 0 28px 10px rgba(231, 76, 60, 1.0); }
+  72%  { box-shadow: 0 0  4px  1px rgba(231, 76, 60, 0.2); }
+  85%  { box-shadow: 0 0 28px 10px rgba(231, 76, 60, 1.0); }
+  100% { box-shadow: 0 0  4px  1px rgba(231, 76, 60, 0.1); }
 }
 
 .cell-swap-target {
