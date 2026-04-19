@@ -216,7 +216,7 @@ export default function App() {
       if (countdown === 0) sounds.playCountdownGo();
       else sounds.playCountdownBeat();
     }, 200);
-    const delays = { 3: 850, 2: 1200, 1: 1200, 0: 2400 };
+    const delays = { 3: 1200, 2: 1200, 1: 1200, 0: 2400 };
     const t = setTimeout(() => setCountdown((c) => c - 1), delays[countdown] ?? 850);
     return () => { clearTimeout(t); clearTimeout(cdSoundRef.current); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
