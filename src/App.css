@@ -642,6 +642,7 @@
   text-align: center;
   padding: 30px 20px 10px;
   box-sizing: border-box;
+  position: relative;
 }
 
 /* ── Sticky begin button ── */
@@ -900,6 +901,7 @@
   letter-spacing: 0.5px;
   cursor: pointer;
   padding: 4px 0;
+  display: block;
   transition: color 0.15s;
 }
 .sandbox-entry-btn:hover {
@@ -1183,13 +1185,11 @@
   z-index: 2;
 }
 
-/* Start screen bottom row: sandbox link + sound toggle side-by-side */
-.start-bottom-row {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  margin-top: 6px;
+/* Sound toggle anchored to top-right of start card */
+.start-sound-corner {
+  position: absolute;
+  top: 8px;
+  right: 8px;
 }
 
 /* ── Countdown Overlay ── */

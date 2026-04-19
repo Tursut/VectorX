@@ -12,6 +12,9 @@ export default function StartScreen({ onStart, onSandbox, magicItems, onToggleMa
   return (
     <div className="start-screen">
       <div className="start-content">
+        <div className="start-sound-corner">
+          <SoundToggle enabled={soundEnabled} onToggle={onToggleSound} />
+        </div>
         <h1 className="start-title">GRIDMIND</h1>
         <p className="start-subtitle">
           Four players. One grid. Only one walks away smiling.
@@ -96,10 +99,7 @@ export default function StartScreen({ onStart, onSandbox, magicItems, onToggleMa
         </div>
 
         <p className="start-footnote">Starting player chosen by fate (it's random).</p>
-        <div className="start-bottom-row">
-          <button className="sandbox-entry-btn" onClick={onSandbox}>🧪 testing ground</button>
-          <SoundToggle enabled={soundEnabled} onToggle={onToggleSound} />
-        </div>
+        <button className="sandbox-entry-btn" onClick={onSandbox}>🧪 testing ground</button>
       </div>
 
       {/* Sticky begin button — always visible at bottom */}
