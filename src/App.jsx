@@ -148,7 +148,8 @@ export default function App() {
         if (prev && p.isEliminated && !prev.isEliminated) {
           sounds.playElimination();
           const isHuman = p.id < PLAYERS.length - gc;
-          if (isHuman) {
+          const humanAlive = gameState.players.some(q => !q.isEliminated && q.id < PLAYERS.length - gc);
+          if (isHuman || humanAlive) {
             clearTimeout(momentTimerRef.current);
             setPlayerMoment({ player: PLAYERS[p.id] });
             momentTimerRef.current = setTimeout(() => setPlayerMoment(null), 2500);
