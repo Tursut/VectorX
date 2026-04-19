@@ -51,15 +51,35 @@ function openNeighbours(grid, row, col) {
 // Small dead-end penalty: avoid moves that leave very few exits
 function deadEndPenalty(grid, row, col) {
   const exits = openNeighbours(grid, row, col);
-  return exits < 3 ? -0.4 * (3 - exits) : 0;
+  if (exits === 0) return -8;   // never walk into a cell with no exits
+  if (exits === 1) return -2.0; // strong penalty for near-dead-ends
+  if (exits === 2) return -0.6;
+  return 0;
+}
+
+// One-step lookahead: best reachable space achievable from any next move
+function futureReachable(grid, row, col, playerId) {
+  let best = 0;
+  for (const [dr, dc] of DIRECTIONS) {
+    const nr = row + dr, nc = col + dc;
+    if (nr >= 0 && nr < GRID_SIZE && nc >= 0 && nc < GRID_SIZE && grid[nr][nc].owner === null) {
+      const tempGrid = cloneGrid(grid);
+      tempGrid[nr][nc] = { owner: playerId };
+      best = Math.max(best, reachable(tempGrid, nr, nc));
+    }
+  }
+  return best;
 }
 
 // ── Scoring functions ────────────────────────────────────────────────────────
 
 function scoreExpansive(state, move) {
+  const playerId = state.players[state.currentPlayerIndex].id;
   const tempGrid = cloneGrid(state.grid);
-  tempGrid[move.row][move.col] = { owner: state.players[state.currentPlayerIndex].id };
-  return reachable(tempGrid, move.row, move.col) + deadEndPenalty(tempGrid, move.row, move.col);
+  tempGrid[move.row][move.col] = { owner: playerId };
+  const now    = reachable(tempGrid, move.row, move.col);
+  const future = futureReachable(tempGrid, move.row, move.col, playerId);
+  return now * 0.8 + future * 0.2 + deadEndPenalty(tempGrid, move.row, move.col);
 }
 
 function scoreTerritorial(state, move) {
@@ -67,7 +87,10 @@ function scoreTerritorial(state, move) {
   const tempGrid = cloneGrid(state.grid);
   tempGrid[move.row][move.col] = { owner: player.id };
 
-  const ownSpace = reachable(tempGrid, move.row, move.col);
+  const now    = reachable(tempGrid, move.row, move.col);
+  const future = futureReachable(tempGrid, move.row, move.col, player.id);
+  const ownSpace = now * 0.8 + future * 0.2;
+
   const opponents = state.players.filter(p => !p.isEliminated && p.id !== player.id);
   const blockBonus = opponents.reduce((sum, opp) => {
     const before = reachable(state.grid, opp.row, opp.col);
@@ -75,7 +98,7 @@ function scoreTerritorial(state, move) {
     return sum + Math.max(0, before - after);
   }, 0);
 
-  return ownSpace + blockBonus * 0.5 + deadEndPenalty(tempGrid, move.row, move.col);
+  return ownSpace + blockBonus * 0.65 + deadEndPenalty(tempGrid, move.row, move.col);
 }
 
 function scoreAggressive(state, move) {
@@ -90,8 +113,9 @@ function scoreAggressive(state, move) {
     return sum + Math.max(0, before - after);
   }, 0);
 
-  const ownSpace = reachable(tempGrid, move.row, move.col);
-  return totalCut * 0.7 + ownSpace * 0.3 + deadEndPenalty(tempGrid, move.row, move.col);
+  const now    = reachable(tempGrid, move.row, move.col);
+  const future = futureReachable(tempGrid, move.row, move.col, player.id);
+  return totalCut * 0.75 + (now * 0.8 + future * 0.2) * 0.25 + deadEndPenalty(tempGrid, move.row, move.col);
 }
 
 function pickBest(moves, scoreFn, state) {
@@ -119,27 +143,29 @@ function seekItem(moves, state) {
       if (dist < bestDist) { bestDist = dist; bestMove = move; }
     }
   }
-  return bestDist <= 4 ? bestMove : null;
+  return bestDist <= 5 ? bestMove : null;
 }
 
 // ── Special item decisions (difficulty >= 1) ─────────────────────────────────
 
-// Swap: pick the opponent position that gives the most mobility advantage.
-// Score = reachable(my new position) - reachable(opponent's new position at my old spot)
+// Swap: target the opponent who has the most reachable space (most dangerous),
+// but only if swapping into their position is actually better than staying.
 function pickSwapTarget(state) {
   const moves = getCurrentValidMoves(state); // opponent positions
   if (moves.length === 0) return null;
   const player = state.players[state.currentPlayerIndex];
+  const myCurrentSpace = reachable(state.grid, player.row, player.col);
 
   let best = moves[0], bestScore = -Infinity;
   for (const m of moves) {
-    const myGain = reachable(state.grid, m.row, m.col);
-    const theirGain = reachable(state.grid, player.row, player.col);
-    // Also penalise swapping into a dead end
-    const score = myGain - theirGain + deadEndPenalty(state.grid, m.row, m.col);
+    const myNewSpace   = reachable(state.grid, m.row, m.col);
+    const theirNewSpace = myCurrentSpace; // they inherit the bot's old position
+    const netGain = myNewSpace - theirNewSpace;
+    const score = netGain + deadEndPenalty(state.grid, m.row, m.col);
     if (score > bestScore) { bestScore = score; best = m; }
   }
-  return best;
+  // Don't swap if it's clearly a losing trade
+  return bestScore > -2 ? best : moves[0];
 }
 
 // Portal: jump to the empty cell with the most reachable open space.
@@ -171,8 +197,8 @@ export function getGremlinMove(state, difficulty = 1) {
 
   const rand = () => moves[Math.floor(Math.random() * moves.length)];
 
-  // 65% chance to seek an item when any are visible
-  if (state.magicItems && state.items.length > 0 && Math.random() < 0.65) {
+  // 72% chance to seek an item when any are visible
+  if (state.magicItems && state.items.length > 0 && Math.random() < 0.72) {
     const itemMove = seekItem(moves, state);
     if (itemMove) return itemMove;
   }
