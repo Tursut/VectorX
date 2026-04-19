@@ -8,23 +8,24 @@ function createContext() {
   masterGain = ctx.createGain();
   masterGain.gain.value = 1;
   masterGain.connect(ctx.destination);
-  // When iOS resumes a suspended context, restart bg music if needed
   ctx.onstatechange = () => {
-    if (ctx.state === 'running' && bgPlaying && !bgTimer) {
-      bgNextBeat = ctx.currentTime + 0.1;
+    if (ctx.state === 'running' && bgPlaying) {
+      clearTimeout(bgTimer); bgTimer = null;
+      bgNextBeat = ctx.currentTime + 0.05;
       scheduleBg();
     }
   };
 }
 
+// Never auto-recreates a closed context — that must happen from a user gesture in resumeAudio().
+// Returning null lets callers fail silently rather than create a tainted context.
 function getCtx() {
-  if (!ctx || ctx.state === 'closed') createContext();
+  if (!ctx || ctx.state === 'closed') return null;
   if (ctx.state === 'suspended') ctx.resume().catch(() => {});
   return ctx;
 }
 
 function out() {
-  getCtx();
   return masterGain;
 }
 
@@ -32,18 +33,26 @@ export function setMuted(val) {
   if (masterGain) masterGain.gain.value = val ? 0 : 1;
 }
 
-// Resume or recreate AudioContext after iOS backgrounding
+// Must be called from a user-gesture handler (touchstart / click).
+// Recreates the context if closed/missing (iOS can close it when backgrounded),
+// then resumes and restarts bg music via onstatechange.
 export function resumeAudio() {
   if (!ctx || ctx.state === 'closed') {
-    // Context was closed — recreate and restart bg music if needed
     const wasPlaying = bgPlaying;
-    if (bgPlaying) stopBgTheme();
+    clearTimeout(bgTimer); bgTimer = null; bgPlaying = false;
     createContext();
-    if (wasPlaying) startBgTheme();
+    if (wasPlaying) bgPlaying = true; // onstatechange will restart scheduler
+    ctx.resume().catch(() => {});
     return;
   }
   if (ctx.state !== 'running') {
-    ctx.resume().catch(() => {});
+    ctx.resume().then(() => {
+      if (bgPlaying) {
+        clearTimeout(bgTimer); bgTimer = null;
+        bgNextBeat = ctx.currentTime + 0.05;
+        scheduleBg();
+      }
+    }).catch(() => {});
   }
 }
 
@@ -67,12 +76,12 @@ function makeReverb(c, delayTime = 0.06, feedback = 0.22, wet = 0.18) {
 
 const BG_TEMPO   = 0.34;  // seconds per beat (~176 BPM — lively and jolly)
 const BG_SCALE   = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33]; // C4 maj pentatonic + D5
-// 64-beat jolly pattern — 4 distinct phrases, ~22s before looping
+// 64-beat jolly pattern — melody stays in warm C4-D5 range (no octave boost)
 const BG_PATTERN = [
-  // Phrase A — bouncy leaps, bright and ascending
+  // Phrase A — bouncy leaps upward, bright ascending feel
   0, 3, 2, 3, 5, 3, 2, 3,
   0, 2, 3, 5, 3, 2, 0, 2,
-  // Phrase B — climbs to the top, energetic answer
+  // Phrase B — climbs higher for an energetic answer
   2, 3, 5, 6, 5, 3, 5, 3,
   2, 3, 2, 0, 2, 3, 2, 0,
   // Phrase C — sits around A4, more playful/syncopated feel
@@ -96,9 +105,12 @@ let bgTimer    = null;
 function scheduleBg() {
   if (!bgPlaying) return;
   const c = getCtx();
+  if (!c || c.state !== 'running') {
+    bgTimer = setTimeout(scheduleBg, 500);
+    return;
+  }
   const now = c.currentTime;
-  // If context was recreated (new currentTime starts at 0), bgNextBeat will be
-  // far in the future — resync it so the scheduler can actually schedule notes.
+  // Resync if context was recreated (new currentTime starts at 0)
   if (bgNextBeat > now + 5) bgNextBeat = now + 0.05;
 
   while (bgNextBeat < now + LOOK_AHEAD) {
@@ -175,7 +187,8 @@ function scheduleBg() {
 export function startBgTheme() {
   if (bgPlaying) return;
   bgPlaying = true;
-  bgNextBeat = getCtx().currentTime + 0.12;
+  const c = getCtx();
+  bgNextBeat = c ? c.currentTime + 0.12 : 0.12;
   bgBeatIdx  = 0;
   bgBassIdx  = 0;
   scheduleBg();
@@ -203,6 +216,7 @@ function noise(ctx, duration) {
 // Short whoosh — human is airy/bright, bot is duller/mechanical
 export function playMove(isBot = false) {
   const c = getCtx();
+  if (!c) return;
   const t = c.currentTime;
   const src = noise(c, 0.15);
   const filter = c.createBiquadFilter();
@@ -220,6 +234,7 @@ export function playMove(isBot = false) {
 // Ink-stamp thwack as territory fills in
 export function playClaim() {
   const c = getCtx();
+  if (!c) return;
   const t = c.currentTime;
   const osc = c.createOscillator();
   osc.type = 'sine';
@@ -240,6 +255,7 @@ export function playClaim() {
 // Single soft ping — gentle nudge, not a fanfare
 export function playYourTurn() {
   const c = getCtx();
+  if (!c) return;
   const t = c.currentTime;
   // Two detuned sines for warmth
   [880, 881.5].forEach(freq => {
@@ -258,6 +274,7 @@ export function playYourTurn() {
 // Short tick — urgency 0→1 raises pitch
 export function playTick(urgency = 0) {
   const c = getCtx();
+  if (!c) return;
   const t = c.currentTime;
   const osc = c.createOscillator();
   osc.type = 'square';
@@ -272,6 +289,7 @@ export function playTick(urgency = 0) {
 // Descending "wah wah wah" with reverb tail for drama
 export function playElimination() {
   const c = getCtx();
+  if (!c) return;
   const rev = makeReverb(c, 0.08, 0.28, 0.22);
   [392, 330, 220].forEach((freq, i) => {
     const t = c.currentTime + i * 0.24;
@@ -297,6 +315,7 @@ export function playElimination() {
 // Ascending double sparkle
 export function playBoost() {
   const c = getCtx();
+  if (!c) return;
   const t = c.currentTime;
   [[440, 1320, 0], [660, 1760, 0.09]].forEach(([f0, f1, delay]) => {
     const osc = c.createOscillator();
@@ -314,6 +333,7 @@ export function playBoost() {
 // Low thud + debris rattle
 export function playBomb() {
   const c = getCtx();
+  if (!c) return;
   const t = c.currentTime;
   // Main thud — two slightly detuned sines for body
   [110, 113].forEach(freq => {
@@ -342,12 +362,13 @@ export function playBomb() {
 // Crystalline ascending arpeggio with icy LFO shimmer
 export function playFreeze() {
   const c = getCtx();
+  if (!c) return;
   const lfo = c.createOscillator();
   lfo.type = 'sine';
   lfo.frequency.setValueAtTime(8, c.currentTime);
   lfo.frequency.linearRampToValueAtTime(14, c.currentTime + 0.65);
   const lfoG = c.createGain();
-  lfoG.gain.value = 20; // pitch wobble depth in cents equivalent via freq
+  lfoG.gain.value = 20;
 
   [1047, 1319, 1568, 2093, 2637].forEach((freq, i) => {
     const t = c.currentTime + i * 0.058;
@@ -370,6 +391,7 @@ export function playFreeze() {
 // LFO-warped sine — slightly sci-fi, slightly silly
 export function playPortal() {
   const c = getCtx();
+  if (!c) return;
   const t = c.currentTime;
   const osc = c.createOscillator();
   osc.type = 'sine';
@@ -393,6 +415,7 @@ export function playPortal() {
 // Rising arpeggio + held chord + triumphant second hit
 export function playWin() {
   const c = getCtx();
+  if (!c) return;
   const rev = makeReverb(c, 0.12, 0.32, 0.3);
 
   // Arpeggio
@@ -449,6 +472,7 @@ export function playWin() {
 // Two notes that just… stop
 export function playDraw() {
   const c = getCtx();
+  if (!c) return;
   [523.25, 659.25].forEach((freq, i) => {
     const t = c.currentTime + i * 0.12;
     const osc = c.createOscillator();
@@ -479,6 +503,7 @@ export function playDraw() {
 // Deep kick drum with noise transient on attack
 export function playCountdownBeat() {
   const c = getCtx();
+  if (!c) return;
   const t = c.currentTime;
   // Main kick body — two detuned sines for fatness
   [180, 184].forEach(freq => {
@@ -506,6 +531,7 @@ export function playCountdownBeat() {
 // Sharp descending whoosh + sparkle — actual teleport jump
 export function playPortalJump() {
   const c = getCtx();
+  if (!c) return;
   const t = c.currentTime;
   const osc = c.createOscillator();
   osc.type = 'sine';
@@ -535,6 +561,7 @@ export function playPortalJump() {
 // Swooshy two-note indicator — "pick someone"
 export function playSwapActivate() {
   const c = getCtx();
+  if (!c) return;
   const t = c.currentTime;
   const osc = c.createOscillator();
   osc.type = 'sine';
@@ -561,6 +588,7 @@ export function playSwapActivate() {
 // Double-whoosh zip — positions exchanged
 export function playSwap() {
   const c = getCtx();
+  if (!c) return;
   const t = c.currentTime;
   [[660, 220, 0], [220, 660, 0.12]].forEach(([f0, f1, delay]) => {
     const osc = c.createOscillator();
@@ -582,6 +610,7 @@ export function playSwap() {
 // Warm rising chord — "GO!"
 export function playCountdownGo() {
   const c = getCtx();
+  if (!c) return;
   const rev = makeReverb(c, 0.08, 0.24, 0.2);
   [392, 523.25, 659.25].forEach((freq, i) => {
     const t = c.currentTime + i * 0.07;

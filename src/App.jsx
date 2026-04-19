@@ -57,20 +57,16 @@ export default function App() {
   const prevPlayersRef = useRef(null);
   const momentTimerRef = useRef(null);
 
-  // Resume AudioContext when returning from background — iOS closes/suspends it
+  // iOS audio recovery: resume context on any user interaction after backgrounding
   useEffect(() => {
     const resume = () => sounds.resumeAudio();
-    // Small delay gives iOS time to restore its audio session before we call resume
-    const onVisible = () => { if (document.visibilityState === 'visible') setTimeout(resume, 200); };
-    document.addEventListener('visibilitychange', onVisible);
-    window.addEventListener('focus', resume);
     document.addEventListener('touchstart', resume, { passive: true });
-    document.addEventListener('click', resume);
+    document.addEventListener('touchend',   resume, { passive: true });
+    document.addEventListener('click',      resume);
     return () => {
-      document.removeEventListener('visibilitychange', onVisible);
-      window.removeEventListener('focus', resume);
       document.removeEventListener('touchstart', resume, { passive: true });
-      document.removeEventListener('click', resume);
+      document.removeEventListener('touchend',   resume, { passive: true });
+      document.removeEventListener('click',      resume);
     };
   }, []);
 
