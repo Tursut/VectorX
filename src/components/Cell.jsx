@@ -63,19 +63,6 @@ export default function Cell({ row, col, cell, isValidMove, isCurrentPlayer, pla
       {/* ── Layer 1: content (player, item, tombstone, dot) ── */}
       <div className="cell-content">
 
-        {/* Player icon — layoutId glides it across the board via LayoutGroup */}
-        {playerHere && (
-          <motion.span
-            layoutId={`player-${playerHere.id}`}
-            className="player-icon"
-            initial={{ opacity: 1, scale: 1 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ type: 'spring', stiffness: 260, damping: 26 }}
-          >
-            {playerHere.icon}
-          </motion.span>
-        )}
-
         {/* Skull — absolutely positioned so it doesn't fight the exiting player in flex layout */}
         {deathHere && !playerHere && (
           <span className="death-marker">💀</span>

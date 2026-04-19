@@ -1,4 +1,4 @@
-import { LayoutGroup } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { PLAYERS } from '../game/constants';
 import Cell from './Cell';
 
@@ -20,7 +20,7 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
   });
 
   const currentPlayer = players[currentPlayerIndex];
-  const playerColor = PLAYERS[currentPlayerIndex].color;
+  const playerColor = PLAYERS[players[currentPlayerIndex].id].color;
 
   const bombOriginKey = bombBlast ? `${bombBlast.origin.row},${bombBlast.origin.col}` : null;
   const bombClearedSet = bombBlast ? new Set(bombBlast.cleared.map(c => `${c.row},${c.col}`)) : null;
@@ -31,8 +31,7 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
     : null;
 
   return (
-    <LayoutGroup>
-    <div className="board" style={{ '--player-color': playerColor }}>
+    <div className="board" style={{ '--player-color': playerColor, position: 'relative' }}>
       {grid.map((row, ri) =>
         row.map((cell, ci) => {
           const key = `${ri},${ci}`;
@@ -60,7 +59,34 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
           );
         })
       )}
+
+      {/* ── Player icon layer — one persistent element per player, animated via layout ── */}
+      <AnimatePresence>
+        {players.filter(p => !p.isEliminated).map(p => (
+          <motion.div
+            key={`icon-${p.id}`}
+            layout
+            style={{
+              position: 'absolute',
+              left: `calc(4px + ${p.col} * (var(--cell-size) + var(--board-gap)))`,
+              top: `calc(4px + ${p.row} * (var(--cell-size) + var(--board-gap)))`,
+              width: 'var(--cell-size)',
+              height: 'var(--cell-size)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              pointerEvents: 'none',
+              zIndex: 2,
+            }}
+            initial={{ scale: 0.5, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0, opacity: 0, transition: { duration: 0.2 } }}
+            transition={{ type: 'spring', stiffness: 260, damping: 26 }}
+          >
+            <span className="player-icon">{PLAYERS[p.id].icon}</span>
+          </motion.div>
+        ))}
+      </AnimatePresence>
     </div>
-    </LayoutGroup>
   );
 }
