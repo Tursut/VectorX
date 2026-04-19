@@ -625,25 +625,46 @@ export function playSwap() {
   });
 }
 
-// Warm rising chord — "GO!"
+// Big thump — same character as countdownBeat but deeper and heavier
 export function playCountdownGo() {
   const c = getCtx();
   if (!c) return;
-  const rev = makeReverb(c, 0.08, 0.24, 0.2);
-  [392, 523.25, 659.25].forEach((freq, i) => {
-    const t = c.currentTime + i * 0.07;
+  const rev = makeReverb(c, 0.1, 0.3, 0.22);
+  const t = c.currentTime;
+
+  // Massive kick — starts lower, sweeps deeper, louder
+  [100, 104].forEach(freq => {
     const osc = c.createOscillator();
-    osc.type = 'sawtooth';
-    osc.frequency.value = freq;
-    osc.detune.value = -3;
-    const filter = c.createBiquadFilter();
-    filter.type = 'lowpass'; filter.frequency.value = 2800;
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freq, t);
+    osc.frequency.exponentialRampToValueAtTime(28, t + 0.55);
     const g = c.createGain();
-    g.gain.setValueAtTime(0.19, t);
-    g.gain.linearRampToValueAtTime(0.24, t + 0.08);
-    g.gain.exponentialRampToValueAtTime(0.001, t + 1.6);
-    osc.connect(filter); filter.connect(g);
-    g.connect(out()); g.connect(rev);
-    osc.start(t); osc.stop(t + 1.65);
+    g.gain.setValueAtTime(0.9, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.72);
+    osc.connect(g); g.connect(out()); g.connect(rev);
+    osc.start(t); osc.stop(t + 0.76);
+  });
+
+  // Harder attack transient
+  const click = noise(c, 0.04);
+  const cf = c.createBiquadFilter();
+  cf.type = 'highpass'; cf.frequency.value = 1800;
+  const cg = c.createGain();
+  cg.gain.setValueAtTime(0.35, t);
+  cg.gain.exponentialRampToValueAtTime(0.001, t + 0.045);
+  click.connect(cf); cf.connect(cg); cg.connect(out());
+  click.start(t); click.stop(t + 0.05);
+
+  // Sub-bass rumble sustain — same low register as the kick, fades slowly
+  [65, 98, 130].forEach((freq, i) => {
+    const osc = c.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    const g = c.createGain();
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.10 - i * 0.025, t + 0.05);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 1.3);
+    osc.connect(g); g.connect(out()); g.connect(rev);
+    osc.start(t); osc.stop(t + 1.35);
   });
 }
