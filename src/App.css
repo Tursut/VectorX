@@ -234,6 +234,17 @@
   to   { box-shadow: 0 0 24px 8px var(--player-color); }
 }
 
+.cell-trapped {
+  z-index: 1;
+  animation: trapPulse 0.7s ease-out forwards;
+}
+
+@keyframes trapPulse {
+  0%   { box-shadow: 0 0  0   0   rgba(231, 76, 60, 0);   }
+  20%  { box-shadow: 0 0 22px 7px rgba(231, 76, 60, 0.9); }
+  100% { box-shadow: 0 0 10px 3px rgba(231, 76, 60, 0);   }
+}
+
 .cell-swap-target {
   cursor: pointer;
   animation: swapPulse 0.55s infinite alternate ease-in-out;

@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { PLAYERS } from '../game/constants';
 import Cell from './Cell';
 
-export default function GameBoard({ grid, players, validMoveSet, onCellClick, currentPlayerIndex, items, portalActive, swapActive, isGremlinTurn, bombBlast, portalJump, swapFlash }) {
+export default function GameBoard({ grid, players, validMoveSet, onCellClick, currentPlayerIndex, items, portalActive, swapActive, isGremlinTurn, bombBlast, portalJump, swapFlash, trappedPlayers = [] }) {
   const playerPositions = {};
   const deathCells = {};
   const itemMap = {};
@@ -56,10 +56,38 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
               isPortalOrigin={portalFromKey === key}
               isPortalDest={portalToKey === key}
               isSwapFlash={swapFlashSet ? swapFlashSet.has(key) : false}
+              isTrapped={trappedPlayers.some(tp => tp.row === ri && tp.col === ci)}
             />
           );
         })
       )}
+
+      {/* ── Trapped-player dying animation layer ── */}
+      {trappedPlayers.map(tp => (
+        <motion.div
+          key={`trapped-${tp.id}`}
+          style={{
+            position: 'absolute',
+            left: `calc(4px + ${tp.col} * (var(--cell-size) + var(--board-gap)))`,
+            top:  `calc(4px + ${tp.row} * (var(--cell-size) + var(--board-gap)))`,
+            width: 'var(--cell-size)',
+            height: 'var(--cell-size)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            pointerEvents: 'none',
+            zIndex: 3,
+          }}
+          animate={{
+            rotate:  [0, -18, 18, -18, 18, -18, 360],
+            scale:   [1, 1.25, 1.25, 1.25, 1.25, 1.25, 0],
+            opacity: [1, 1,    1,    1,    1,    1,    0],
+          }}
+          transition={{ duration: 0.7, times: [0, 0.15, 0.3, 0.45, 0.58, 0.72, 1] }}
+        >
+          <span className="player-icon">{PLAYERS[tp.id].icon}</span>
+        </motion.div>
+      ))}
 
       {/* ── Player icon layer — one persistent element per player, animated via layout ── */}
       <AnimatePresence>
