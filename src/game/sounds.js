@@ -69,9 +69,8 @@ export function resumeAudio() {
         scheduleBg();
       }
     }).catch(() => {});
-  } else if (ctx.state === 'running' && bgPlaying) {
-    // Context is already running — kick the scheduler in case it silently died
-    // (e.g. an exception in the note-creation loop broke the setTimeout chain)
+  } else if (ctx.state === 'running' && bgPlaying && bgNextBeat < ctx.currentTime - 1.0) {
+    // Scheduler fell >1s behind — it silently died (e.g. exception broke the setTimeout chain)
     clearTimeout(bgTimer); bgTimer = null;
     bgNextBeat = ctx.currentTime + 0.05;
     scheduleBg();
