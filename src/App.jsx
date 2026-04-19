@@ -326,22 +326,8 @@ export default function App() {
         )
       : '';
 
-  const [audioDbg, setAudioDbg] = useState('');
-  const [bgDbg, setBgDbg] = useState(false);
-  useEffect(() => {
-    const t = setInterval(() => {
-      setAudioDbg(sounds.getAudioState());
-      setBgDbg(sounds.isBgPlaying());
-    }, 500);
-    return () => clearInterval(t);
-  }, []);
-
   return (
     <div className="app">
-      <div style={{ position:'fixed', top:4, left:4, zIndex:9999, background:'rgba(0,0,0,0.7)', color:'#0f0', fontSize:10, padding:'2px 6px', borderRadius:4, fontFamily:'monospace', pointerEvents:'none' }}>
-        audio:{audioDbg} bg:{String(bgDbg)}
-      </div>
-
       <AnimatePresence>
         {eventToast && <EventToast key={eventToast.id} toast={eventToast} />}
       </AnimatePresence>
