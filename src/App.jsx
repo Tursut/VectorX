@@ -182,7 +182,7 @@ export default function App() {
           clearTimeout(momentTimerRef.current);
           setPlayerMoment({ player: PLAYERS[last.id] });
           momentTimerRef.current = setTimeout(() => setPlayerMoment(null), 2500);
-        }, 1100);
+        }, 1800);
       }
     }
     prevPlayersRef.current = gameState.players;
