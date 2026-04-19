@@ -118,8 +118,9 @@ function scheduleBg() {
     return;
   }
   const now = c.currentTime;
-  // Resync if context was recreated (new currentTime starts at 0)
-  if (bgNextBeat > now + 5) bgNextBeat = now + 0.05;
+  // Resync if bgNextBeat is stale: either far in the future (context recreated)
+  // or in the past (AudioContext clock kept ticking while page was backgrounded)
+  if (bgNextBeat < now || bgNextBeat > now + 5) bgNextBeat = now + 0.05;
 
   while (bgNextBeat < now + LOOK_AHEAD) {
     const t    = bgNextBeat;
