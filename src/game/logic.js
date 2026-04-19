@@ -158,7 +158,7 @@ function completeTurn(state) {
   }
 
   const nextPlayer = updatedPlayers[nextIndex];
-  if (!nextPlayer.isEliminated && getValidMoves(grid, nextPlayer.row, nextPlayer.col).length === 0) {
+  if (nextIndex !== currentPlayerIndex && !nextPlayer.isEliminated && getValidMoves(grid, nextPlayer.row, nextPlayer.col).length === 0) {
     updatedPlayers = updatedPlayers.map((p) =>
       p.id === nextPlayer.id ? { ...markEliminated(p), finishTurn: turnCount } : p
     );
