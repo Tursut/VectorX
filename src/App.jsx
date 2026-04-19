@@ -175,6 +175,7 @@ export default function App() {
   // Gremlin auto-move
   useEffect(() => {
     if (!gameState || gameState.phase !== 'playing') return;
+    if (playerMoment) return; // pause bots during elimination overlay
     const gc = gameState.gremlinCount ?? 0;
     if (gc === 0) return;
     const currentPlayerId = gameState.players[gameState.currentPlayerIndex].id;
@@ -199,7 +200,7 @@ export default function App() {
     }, delay);
     return () => { cancelAnimationFrame(rafId); clearTimeout(t); setIsThinking(false); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameState?.currentPlayerIndex, gameState?.turnCount, gameState?.phase, gameState?.portalActive, gameState?.swapActive]);
+  }, [gameState?.currentPlayerIndex, gameState?.turnCount, gameState?.phase, gameState?.portalActive, gameState?.swapActive, playerMoment]);
 
   // Countdown sounds + logic
   const cdSoundRef = useRef(null);
@@ -313,7 +314,13 @@ export default function App() {
         {eventToast && <EventToast key={eventToast.id} toast={eventToast} />}
       </AnimatePresence>
       <AnimatePresence>
-        {playerMoment && <EliminationMoment key={playerMoment.player.id} player={playerMoment.player} />}
+        {playerMoment && (
+          <EliminationMoment
+            key={playerMoment.player.id}
+            player={playerMoment.player}
+            onDismiss={() => { clearTimeout(momentTimerRef.current); setPlayerMoment(null); }}
+          />
+        )}
       </AnimatePresence>
       <AnimatePresence>
         {countdown !== null && (

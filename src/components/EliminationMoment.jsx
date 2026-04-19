@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 
-export default function EliminationMoment({ player }) {
+export default function EliminationMoment({ player, onDismiss }) {
   return (
     <motion.div
       className="elim-moment-overlay"
@@ -16,6 +16,7 @@ export default function EliminationMoment({ player }) {
         exit={{ scale: 0.8, opacity: 0 }}
         transition={{ type: 'spring', stiffness: 260, damping: 20 }}
       >
+        <button className="elim-moment-close" onClick={onDismiss} aria-label="Dismiss">✕</button>
         <div className="elim-moment-icon-row">
           <div className="elim-moment-avatar" style={{ backgroundColor: player.color }}>
             {player.icon}
