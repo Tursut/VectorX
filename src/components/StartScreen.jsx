@@ -105,7 +105,7 @@ export default function StartScreen({ onStart, onSandbox, magicItems, onToggleMa
       {/* Sticky begin button — always visible at bottom */}
       <div className="start-button-bar">
         <button className="start-button" onClick={onStart}>
-          TAKE THE GRID →
+          START THE GAME →
         </button>
       </div>
     </div>

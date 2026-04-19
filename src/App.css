@@ -41,6 +41,12 @@
   align-items: flex-start;
 }
 
+.board-column {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 /* On narrow screens, player panel goes above the board */
 @media (max-width: 620px) {
   .app {

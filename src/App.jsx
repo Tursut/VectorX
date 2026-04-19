@@ -359,7 +359,7 @@ export default function App() {
                 exit={{ scale: 0.5, opacity: 0, transition: { duration: 0.18 } }}
                 transition={{ type: 'spring', stiffness: 320, damping: 22 }}
               >
-                {countdown === 0 ? 'MAY THE BEST MOVER WIN.' : countdown}
+                {countdown === 0 ? 'MAY THE BEST STRATEGY WIN.' : countdown}
               </motion.div>
             </AnimatePresence>
           </motion.div>
@@ -391,39 +391,41 @@ export default function App() {
             exit={{ opacity: 0, scale: 0.96 }}
             transition={{ duration: 0.25 }}
           >
-            <TurnIndicator
-              player={PLAYERS[gameState.currentPlayerIndex]}
-              taunt={currentTaunt}
-              timeLeft={timeLeft}
-              totalTime={TURN_TIME}
-              portalActive={gameState.portalActive}
-              swapActive={gameState.swapActive}
-              lastEvent={gameState.lastEvent}
-              isGremlin={gameState.players[gameState.currentPlayerIndex].id >= PLAYERS.length - (gameState.gremlinCount ?? 0)}
-              isThinking={isThinking}
-              soundEnabled={soundEnabled}
-              onToggleSound={toggleSound}
-            />
             <div className="game-center">
               <PlayerPanel
                 players={gameState.players}
                 currentPlayerIndex={gameState.currentPlayerIndex}
                 gremlinCount={gameState.gremlinCount ?? 0}
               />
-              <GameBoard
-                grid={gameState.grid}
-                players={gameState.players}
-                validMoveSet={validMoveSet}
-                onCellClick={handleMove}
-                currentPlayerIndex={gameState.currentPlayerIndex}
-                items={gameState.items}
-                portalActive={gameState.portalActive}
-                swapActive={gameState.swapActive}
-                isGremlinTurn={isGremlinTurn}
-                bombBlast={bombBlast}
-                portalJump={portalJump}
-                swapFlash={swapFlash}
-              />
+              <div className="board-column">
+                <TurnIndicator
+                  player={PLAYERS[gameState.currentPlayerIndex]}
+                  taunt={currentTaunt}
+                  timeLeft={timeLeft}
+                  totalTime={TURN_TIME}
+                  portalActive={gameState.portalActive}
+                  swapActive={gameState.swapActive}
+                  lastEvent={gameState.lastEvent}
+                  isGremlin={gameState.players[gameState.currentPlayerIndex].id >= PLAYERS.length - (gameState.gremlinCount ?? 0)}
+                  isThinking={isThinking}
+                  soundEnabled={soundEnabled}
+                  onToggleSound={toggleSound}
+                />
+                <GameBoard
+                  grid={gameState.grid}
+                  players={gameState.players}
+                  validMoveSet={validMoveSet}
+                  onCellClick={handleMove}
+                  currentPlayerIndex={gameState.currentPlayerIndex}
+                  items={gameState.items}
+                  portalActive={gameState.portalActive}
+                  swapActive={gameState.swapActive}
+                  isGremlinTurn={isGremlinTurn}
+                  bombBlast={bombBlast}
+                  portalJump={portalJump}
+                  swapFlash={swapFlash}
+                />
+              </div>
             </div>
           </motion.div>
         )}
