@@ -26,9 +26,9 @@ export default function GameOverScreen({ winner, players, onRestart, onMenu }) {
             <motion.div
               className="gameover-winner-icon"
               style={{ backgroundColor: winner.color }}
-              initial={{ scale: 0, rotate: -200 }}
-              animate={{ scale: 1, rotate: 0 }}
-              transition={{ type: 'spring', stiffness: 180, damping: 13 }}
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: 'spring', stiffness: 200, damping: 16 }}
             >
               {winner.icon ?? '🏆'}
             </motion.div>
