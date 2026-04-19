@@ -37,7 +37,7 @@ export default function Cell({ row, col, cell, isValidMove, isCurrentPlayer, pla
             style={{ backgroundColor: owner.color }}
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 0.85 }}
-            exit={{ scale: 1.6, opacity: 0, transition: { duration: 0.28 } }}
+            exit={{ opacity: 0, transition: { duration: 0.28 } }}
             transition={{ ...spring, delay: 0.16 }}
           />
         )}
