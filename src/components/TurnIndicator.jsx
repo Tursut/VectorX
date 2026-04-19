@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { PLAYERS } from '../game/constants';
 import { GREMLIN_THOUGHTS } from '../game/ai';
+import SoundToggle from './SoundToggle';
 
 const FREEZE_LINES = [
   (by, target) => `❄️ ${by} froze ${target}. Cold-blooded.`,
@@ -14,7 +15,7 @@ const SWAP_LINES = [
   (by, target) => `🔀 ${by} and ${target} changed places. ${target} did not consent.`,
 ];
 
-export default function TurnIndicator({ player, taunt, timeLeft, totalTime, portalActive, swapActive, lastEvent, isGremlin, isThinking }) {
+export default function TurnIndicator({ player, taunt, timeLeft, totalTime, portalActive, swapActive, lastEvent, isGremlin, isThinking, soundEnabled, onToggleSound }) {
   const pct = (timeLeft / totalTime) * 100;
   const urgent = timeLeft <= 3 && !isGremlin;
 
@@ -45,6 +46,9 @@ export default function TurnIndicator({ player, taunt, timeLeft, totalTime, port
       className={`turn-indicator-shell ${urgent ? 'turn-indicator-urgent' : ''}`}
       style={{ borderColor: player.color }}
     >
+      <div className="turn-indicator-sound">
+        <SoundToggle enabled={soundEnabled} onToggle={onToggleSound} />
+      </div>
       <AnimatePresence>
         <motion.div
           key={animKey}

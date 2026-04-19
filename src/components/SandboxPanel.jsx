@@ -1,8 +1,9 @@
 import { ITEM_TYPES } from '../game/constants';
+import SoundToggle from './SoundToggle';
 
 export default function SandboxPanel({
   currentPlayer, isThinking, portalActive, swapActive,
-  onPlaceItem, onReset, onExit,
+  onPlaceItem, onReset, onExit, soundEnabled, onToggleSound,
 }) {
   let statusText = `${currentPlayer.name}'s turn`;
   if (isThinking)   statusText = 'Bot is thinking…';
@@ -19,6 +20,7 @@ export default function SandboxPanel({
         </span>
         <span className="sandbox-status-text">{statusText}</span>
         <span className="sandbox-badge">TESTING GROUND</span>
+        <SoundToggle enabled={soundEnabled} onToggle={onToggleSound} />
       </div>
 
       <div className="sandbox-actions">

@@ -900,8 +900,6 @@
   letter-spacing: 0.5px;
   cursor: pointer;
   padding: 4px 0;
-  margin-top: 6px;
-  display: block;
   transition: color 0.15s;
 }
 .sandbox-entry-btn:hover {
@@ -1154,22 +1152,45 @@
   font-family: 'Segoe UI', sans-serif;
 }
 
-/* ── Sound toggle ── */
-.sound-toggle {
-  position: fixed;
-  top: 12px;
-  right: 14px;
-  z-index: 300;
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.13);
-  border-radius: 8px;
-  padding: 5px 9px;
-  font-size: 17px;
-  line-height: 1;
+/* ── Sound button (embedded in TurnIndicator / SandboxPanel / StartScreen) ── */
+.sound-btn {
+  background: none;
+  border: none;
+  padding: 4px 5px;
+  border-radius: 5px;
   cursor: pointer;
-  transition: background 0.15s;
+  color: rgba(255, 255, 255, 0.38);
+  line-height: 0;
+  transition: color 0.15s, background 0.15s;
+  flex-shrink: 0;
 }
-.sound-toggle:hover { background: rgba(255, 255, 255, 0.14); }
+.sound-btn:hover {
+  color: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.07);
+}
+.sound-btn-muted {
+  color: rgba(255, 255, 255, 0.18);
+}
+.sound-btn-muted:hover {
+  color: rgba(255, 255, 255, 0.52);
+}
+
+/* Position inside TurnIndicator shell */
+.turn-indicator-sound {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  z-index: 2;
+}
+
+/* Start screen bottom row: sandbox link + sound toggle side-by-side */
+.start-bottom-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 6px;
+}
 
 /* ── Countdown Overlay ── */
 .countdown-overlay {

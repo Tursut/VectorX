@@ -286,9 +286,6 @@ export default function App() {
 
   return (
     <div className="app">
-      <button className="sound-toggle" onClick={toggleSound} title={soundEnabled ? 'Mute' : 'Unmute'}>
-        {soundEnabled ? '🔊' : '🔇'}
-      </button>
 
       <AnimatePresence>
         {eventToast && <EventToast key={eventToast.id} toast={eventToast} />}
@@ -329,6 +326,8 @@ export default function App() {
               onToggleMagicItems={() => setMagicItems((v) => !v)}
               gremlinCount={gremlinCount}
               onChangeGremlinCount={setGremlinCount}
+              soundEnabled={soundEnabled}
+              onToggleSound={toggleSound}
             />
           </motion.div>
         )}
@@ -352,6 +351,8 @@ export default function App() {
               lastEvent={gameState.lastEvent}
               isGremlin={gameState.players[gameState.currentPlayerIndex].id >= PLAYERS.length - (gameState.gremlinCount ?? 0)}
               isThinking={isThinking}
+              soundEnabled={soundEnabled}
+              onToggleSound={toggleSound}
             />
             <div className="game-center">
               <PlayerPanel
@@ -404,6 +405,8 @@ export default function App() {
               onPlaceItem={(type) => dispatch({ type: 'SANDBOX_GIVE_ITEM', itemType: type })}
               onReset={handleSandboxReset}
               onExit={() => setScreen('start')}
+              soundEnabled={soundEnabled}
+              onToggleSound={toggleSound}
             />
             <div className="game-center">
               <PlayerPanel
