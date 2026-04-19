@@ -43,17 +43,23 @@ function makeReverb(c, delayTime = 0.06, feedback = 0.22, wet = 0.18) {
 
 const BG_TEMPO   = 0.34;  // seconds per beat (~176 BPM — lively and jolly)
 const BG_SCALE   = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33]; // C4 maj pentatonic + D5
-// 32-beat jolly pattern — melody stays in warm C4-D5 range (no octave boost)
+// 64-beat jolly pattern — 4 distinct phrases, ~22s before looping
 const BG_PATTERN = [
-  // Phrase A — bouncy leaps upward, bright ascending feel
+  // Phrase A — bouncy leaps, bright and ascending
   0, 3, 2, 3, 5, 3, 2, 3,
   0, 2, 3, 5, 3, 2, 0, 2,
-  // Phrase B — climbs higher for an energetic answer
+  // Phrase B — climbs to the top, energetic answer
   2, 3, 5, 6, 5, 3, 5, 3,
   2, 3, 2, 0, 2, 3, 2, 0,
+  // Phrase C — sits around A4, more playful/syncopated feel
+  4, 5, 4, 3, 4, 5, 6, 5,
+  4, 3, 4, 3, 2, 0, 2, 3,
+  // Phrase D — rises from the bottom, builds to a peak
+  0, 1, 2, 3, 4, 3, 2, 3,
+  5, 4, 3, 4, 5, 3, 2, 0,
 ];
-// Bass: C2 F2 C2 G2 — hit every 2 beats for a stronger pulse
-const BG_BASS    = [130.81, 174.61, 130.81, 196.00];
+// Bass: C2 F2 C2 G2 F2 C2 G2 C2 — 8-step cycle, changes character each phrase
+const BG_BASS    = [130.81, 174.61, 130.81, 196.00, 174.61, 130.81, 196.00, 130.81];
 const LOOK_AHEAD = 0.28;
 const SCHED_MS   = 110;
 
