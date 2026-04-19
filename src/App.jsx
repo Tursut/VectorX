@@ -43,6 +43,7 @@ export default function App() {
   const [timeLeft, setTimeLeft] = useState(TURN_TIME);
   const [bombBlast, setBombBlast] = useState(null);
   const [portalJump, setPortalJump] = useState(null);
+  const [swapFlash, setSwapFlash] = useState(null);
   const [eventToast, setEventToast] = useState(null);
   const [countdown, setCountdown] = useState(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -59,6 +60,12 @@ export default function App() {
     const t = setTimeout(() => setPortalJump(null), 800);
     return () => clearTimeout(t);
   }, [portalJump]);
+
+  useEffect(() => {
+    if (!swapFlash) return;
+    const t = setTimeout(() => setSwapFlash(null), 800);
+    return () => clearTimeout(t);
+  }, [swapFlash]);
 
   // Freeze / swap toast + sound
   useEffect(() => {
@@ -231,6 +238,11 @@ export default function App() {
       sounds.playPortalJump();
     }
 
+    if (gameState?.swapActive) {
+      const p = gameState.players[gameState.currentPlayerIndex];
+      setSwapFlash({ pos1: { row: p.row, col: p.col }, pos2: { row, col } });
+    }
+
     dispatch({ type: 'MOVE', row, col });
   }
 
@@ -335,6 +347,7 @@ export default function App() {
                 swapActive={gameState.swapActive}
                 bombBlast={bombBlast}
                 portalJump={portalJump}
+                swapFlash={swapFlash}
               />
             </div>
           </motion.div>

@@ -10,7 +10,7 @@ function badgeColor(turnsLeft) {
 
 const spring = { type: 'spring', stiffness: 380, damping: 28 };
 
-export default function Cell({ row, col, cell, isValidMove, isCurrentPlayer, playerHere, deathHere, itemHere, portalActive, swapActive, playerColor, onCellClick, isBombOrigin, isBombCleared, isPortalOrigin, isPortalDest }) {
+export default function Cell({ row, col, cell, isValidMove, isCurrentPlayer, playerHere, deathHere, itemHere, portalActive, swapActive, playerColor, onCellClick, isBombOrigin, isBombCleared, isPortalOrigin, isPortalDest, isSwapFlash }) {
   const owner = cell.owner !== null ? PLAYERS[cell.owner] : null;
 
   let className = 'cell';
@@ -129,6 +129,16 @@ export default function Cell({ row, col, cell, isValidMove, isCurrentPlayer, pla
           initial={{ scale: 0, opacity: 0.95 }}
           animate={{ scale: 2.8, opacity: 0 }}
           transition={{ duration: 0.65, ease: 'easeOut' }}
+        />
+      )}
+
+      {/* Swap flash — green ring expands from both swapped cells */}
+      {isSwapFlash && (
+        <motion.div
+          className="swap-ring"
+          initial={{ scale: 0.8, opacity: 0.9 }}
+          animate={{ scale: 2.6, opacity: 0 }}
+          transition={{ duration: 0.6, ease: 'easeOut' }}
         />
       )}
 

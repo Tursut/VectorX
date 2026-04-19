@@ -2,7 +2,7 @@ import { LayoutGroup } from 'framer-motion';
 import { PLAYERS } from '../game/constants';
 import Cell from './Cell';
 
-export default function GameBoard({ grid, players, validMoveSet, onCellClick, currentPlayerIndex, items, portalActive, swapActive, bombBlast, portalJump }) {
+export default function GameBoard({ grid, players, validMoveSet, onCellClick, currentPlayerIndex, items, portalActive, swapActive, bombBlast, portalJump, swapFlash }) {
   const playerPositions = {};
   const deathCells = {};
   const itemMap = {};
@@ -26,6 +26,9 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
   const bombClearedSet = bombBlast ? new Set(bombBlast.cleared.map(c => `${c.row},${c.col}`)) : null;
   const portalFromKey = portalJump ? `${portalJump.from.row},${portalJump.from.col}` : null;
   const portalToKey   = portalJump ? `${portalJump.to.row},${portalJump.to.col}`   : null;
+  const swapFlashSet  = swapFlash
+    ? new Set([`${swapFlash.pos1.row},${swapFlash.pos1.col}`, `${swapFlash.pos2.row},${swapFlash.pos2.col}`])
+    : null;
 
   return (
     <LayoutGroup>
@@ -52,6 +55,7 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
               isBombCleared={bombClearedSet ? bombClearedSet.has(key) : false}
               isPortalOrigin={portalFromKey === key}
               isPortalDest={portalToKey === key}
+              isSwapFlash={swapFlashSet ? swapFlashSet.has(key) : false}
             />
           );
         })

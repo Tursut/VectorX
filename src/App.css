@@ -358,6 +358,15 @@
   z-index: 5;
 }
 
+.swap-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(46, 204, 113, 0.9) 0%, rgba(46, 204, 113, 0) 68%);
+  pointer-events: none;
+  z-index: 5;
+}
+
 .bomb-origin-fx {
   position: absolute;
   top: 50%;
