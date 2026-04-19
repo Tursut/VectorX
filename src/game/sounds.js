@@ -23,6 +23,11 @@ export function setMuted(val) {
   if (masterGain) masterGain.gain.value = val ? 0 : 1;
 }
 
+// Call on any user gesture to un-suspend the AudioContext after backgrounding
+export function resumeAudio() {
+  if (ctx && ctx.state === 'suspended') ctx.resume();
+}
+
 // ── Cheap room reverb helper ──────────────────────────────────────────────────
 // A short delay + feedback loop that adds warmth without a ConvolverNode.
 function makeReverb(c, delayTime = 0.06, feedback = 0.22, wet = 0.18) {

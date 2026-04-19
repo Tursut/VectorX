@@ -57,6 +57,16 @@ export default function App() {
   const prevPlayersRef = useRef(null);
   const momentTimerRef = useRef(null);
 
+  // Resume AudioContext on any user gesture — fixes iOS Safari suspension after backgrounding
+  useEffect(() => {
+    document.addEventListener('touchstart', sounds.resumeAudio, { passive: true });
+    document.addEventListener('click', sounds.resumeAudio);
+    return () => {
+      document.removeEventListener('touchstart', sounds.resumeAudio, { passive: true });
+      document.removeEventListener('click', sounds.resumeAudio);
+    };
+  }, []);
+
   useEffect(() => {
     if (!bombBlast) return;
     const t = setTimeout(() => setBombBlast(null), 700);
