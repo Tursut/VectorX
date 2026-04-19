@@ -1038,6 +1038,44 @@
 .sandbox-reset-btn:hover { color: #f39c12; border-color: #f39c12; }
 .sandbox-exit-btn:hover  { color: #e74c3c; border-color: #e74c3c; }
 
+.sandbox-sound-section {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #1e1e3e;
+}
+
+.sandbox-sound-title {
+  font-family: 'Fredoka One', 'Segoe UI', sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: #555577;
+  margin-bottom: 8px;
+}
+
+.sandbox-sound-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.sandbox-sound-btn {
+  background: #0e0e22;
+  border: 1px solid #252545;
+  border-radius: 6px;
+  padding: 5px 9px;
+  font-size: 11px;
+  font-family: 'Fredoka One', 'Segoe UI', sans-serif;
+  color: #8888aa;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  white-space: nowrap;
+}
+.sandbox-sound-btn:hover {
+  background: #1a1a38;
+  color: #ccccee;
+  border-color: #5555aa;
+}
+
 .start-footnote {
   font-size: 11px;
   color: #666688;
