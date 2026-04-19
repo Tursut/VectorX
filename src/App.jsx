@@ -297,7 +297,9 @@ export default function App() {
     sounds.setMuted(!next);
   }
 
-  const validMoves = gameState ? getCurrentValidMoves(gameState) : [];
+  // Hide valid-move hints while the bot is thinking — human can't click anything,
+  // and the swap-target CSS animation creates a stacking context that hides the icon layer.
+  const validMoves = gameState && !isThinking ? getCurrentValidMoves(gameState) : [];
   const validMoveSet = new Set(validMoves.map((m) => `${m.row},${m.col}`));
 
   const currentTaunt =
