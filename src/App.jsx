@@ -242,7 +242,7 @@ export default function App() {
   }
 
   function handleRestart() {
-    dispatch({ type: 'START', magicItems, gremlinCount });
+    setCountdown(3);
   }
 
   function handleBackToStart() {
