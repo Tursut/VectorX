@@ -180,7 +180,9 @@ export default function App() {
     const currentPlayerId = gameState.players[gameState.currentPlayerIndex].id;
     if (currentPlayerId < PLAYERS.length - gc) return; // human turn
 
-    setIsThinking(true);
+    // Defer setIsThinking so the browser paints first — this gives Framer Motion
+    // time to snapshot layout positions before the re-render (fixes swap avatar bug)
+    const rafId = requestAnimationFrame(() => setIsThinking(true));
     const humanCount = PLAYERS.length - gc;
     const anyHumanAlive = gameState.players.some(p => !p.isEliminated && p.id < humanCount);
     const delay = gameState.sandboxMode
@@ -195,7 +197,7 @@ export default function App() {
         dispatch({ type: 'TIMEOUT', playerIndex: gameState.currentPlayerIndex });
       }
     }, delay);
-    return () => { clearTimeout(t); setIsThinking(false); };
+    return () => { cancelAnimationFrame(rafId); clearTimeout(t); setIsThinking(false); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameState?.currentPlayerIndex, gameState?.turnCount, gameState?.phase, gameState?.portalActive, gameState?.swapActive]);
 
