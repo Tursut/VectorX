@@ -49,11 +49,19 @@ export function resumeAudio() {
     const wasPlaying = bgPlaying;
     clearTimeout(bgTimer); bgTimer = null; bgPlaying = false;
     createContext();
-    if (wasPlaying) bgPlaying = true; // onstatechange will restart scheduler
-    ctx.resume().catch(() => {});
+    if (wasPlaying) {
+      bgPlaying = true;
+      ctx.resume().then(() => {
+        bgNextBeat = ctx.currentTime + 0.05;
+        clearTimeout(bgTimer); bgTimer = null;
+        scheduleBg();
+      }).catch(() => {});
+    } else {
+      ctx.resume().catch(() => {});
+    }
     return;
   }
-  if (ctx.state !== 'running') {
+  if (ctx.state === 'suspended') {
     ctx.resume().then(() => {
       if (bgPlaying) {
         clearTimeout(bgTimer); bgTimer = null;
@@ -61,6 +69,12 @@ export function resumeAudio() {
         scheduleBg();
       }
     }).catch(() => {});
+  } else if (ctx.state === 'running' && bgPlaying) {
+    // Context is already running — kick the scheduler in case it silently died
+    // (e.g. an exception in the note-creation loop broke the setTimeout chain)
+    clearTimeout(bgTimer); bgTimer = null;
+    bgNextBeat = ctx.currentTime + 0.05;
+    scheduleBg();
   }
 }
 
@@ -122,72 +136,76 @@ function scheduleBg() {
   // or in the past (AudioContext clock kept ticking while page was backgrounded)
   if (bgNextBeat < now || bgNextBeat > now + 5) bgNextBeat = now + 0.05;
 
-  while (bgNextBeat < now + LOOK_AHEAD) {
-    const t    = bgNextBeat;
-    const beat = bgBeatIdx;
+  try {
+    while (bgNextBeat < now + LOOK_AHEAD) {
+      const t    = bgNextBeat;
+      const beat = bgBeatIdx;
 
-    // Melody — triangle + detuned sawtooth, warm middle register
-    const freq = BG_SCALE[BG_PATTERN[beat % BG_PATTERN.length]];
+      // Melody — triangle + detuned sawtooth, warm middle register
+      const freq = BG_SCALE[BG_PATTERN[beat % BG_PATTERN.length]];
 
-    const osc1 = c.createOscillator();
-    osc1.type = 'triangle';
-    osc1.frequency.value = freq;
+      const osc1 = c.createOscillator();
+      osc1.type = 'triangle';
+      osc1.frequency.value = freq;
 
-    const osc2 = c.createOscillator();
-    osc2.type = 'sawtooth';
-    osc2.frequency.value = freq;
-    osc2.detune.value = 7;
+      const osc2 = c.createOscillator();
+      osc2.type = 'sawtooth';
+      osc2.frequency.value = freq;
+      osc2.detune.value = 7;
 
-    const g = c.createGain();
-    g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(0.034, t + 0.016);
-    g.gain.exponentialRampToValueAtTime(0.001, t + BG_TEMPO * 0.80);
+      const g = c.createGain();
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(0.034, t + 0.016);
+      g.gain.exponentialRampToValueAtTime(0.001, t + BG_TEMPO * 0.80);
 
-    const g2 = c.createGain();
-    g2.gain.value = 0.012;
+      const g2 = c.createGain();
+      g2.gain.value = 0.012;
 
-    osc1.connect(g); g.connect(masterGain);
-    osc2.connect(g2); g2.connect(masterGain);
-    osc1.start(t); osc1.stop(t + BG_TEMPO);
-    osc2.start(t); osc2.stop(t + BG_TEMPO);
+      osc1.connect(g); g.connect(masterGain);
+      osc2.connect(g2); g2.connect(masterGain);
+      osc1.start(t); osc1.stop(t + BG_TEMPO);
+      osc2.start(t); osc2.stop(t + BG_TEMPO);
 
-    // Bass pulse every 2 beats — louder and more present
-    if (beat % 2 === 0) {
-      const bassFreq = BG_BASS[bgBassIdx % BG_BASS.length];
-      const bosc = c.createOscillator();
-      bosc.type = 'sine';
-      bosc.frequency.value = bassFreq;
-      const bg = c.createGain();
-      bg.gain.setValueAtTime(0.10, t);
-      bg.gain.exponentialRampToValueAtTime(0.001, t + BG_TEMPO * 2.1);
-      bosc.connect(bg); bg.connect(masterGain);
-      bosc.start(t); bosc.stop(t + BG_TEMPO * 2.2);
+      // Bass pulse every 2 beats — louder and more present
+      if (beat % 2 === 0) {
+        const bassFreq = BG_BASS[bgBassIdx % BG_BASS.length];
+        const bosc = c.createOscillator();
+        bosc.type = 'sine';
+        bosc.frequency.value = bassFreq;
+        const bg = c.createGain();
+        bg.gain.setValueAtTime(0.10, t);
+        bg.gain.exponentialRampToValueAtTime(0.001, t + BG_TEMPO * 2.1);
+        bosc.connect(bg); bg.connect(masterGain);
+        bosc.start(t); bosc.stop(t + BG_TEMPO * 2.2);
 
-      // Mid-range octave double for warmth on mobile speakers
-      const bosc2 = c.createOscillator();
-      bosc2.type = 'triangle';
-      bosc2.frequency.value = bassFreq * 2;
-      const bg2 = c.createGain();
-      bg2.gain.setValueAtTime(0.04, t);
-      bg2.gain.exponentialRampToValueAtTime(0.001, t + BG_TEMPO * 1.6);
-      bosc2.connect(bg2); bg2.connect(masterGain);
-      bosc2.start(t); bosc2.stop(t + BG_TEMPO * 1.8);
+        // Mid-range octave double for warmth on mobile speakers
+        const bosc2 = c.createOscillator();
+        bosc2.type = 'triangle';
+        bosc2.frequency.value = bassFreq * 2;
+        const bg2 = c.createGain();
+        bg2.gain.setValueAtTime(0.04, t);
+        bg2.gain.exponentialRampToValueAtTime(0.001, t + BG_TEMPO * 1.6);
+        bosc2.connect(bg2); bg2.connect(masterGain);
+        bosc2.start(t); bosc2.stop(t + BG_TEMPO * 1.8);
 
-      bgBassIdx++;
+        bgBassIdx++;
+      }
+
+      // Light hi-hat every beat — rhythmic drive
+      const hat = noise(c, 0.02);
+      const hf = c.createBiquadFilter();
+      hf.type = 'highpass'; hf.frequency.value = 7000;
+      const hg = c.createGain();
+      hg.gain.setValueAtTime(beat % 2 === 0 ? 0.03 : 0.015, t);
+      hg.gain.exponentialRampToValueAtTime(0.001, t + 0.03);
+      hat.connect(hf); hf.connect(hg); hg.connect(masterGain);
+      hat.start(t); hat.stop(t + 0.04);
+
+      bgNextBeat += BG_TEMPO;
+      bgBeatIdx = (bgBeatIdx + 1) % BG_PATTERN.length;
     }
-
-    // Light hi-hat every beat — rhythmic drive
-    const hat = noise(c, 0.02);
-    const hf = c.createBiquadFilter();
-    hf.type = 'highpass'; hf.frequency.value = 7000;
-    const hg = c.createGain();
-    hg.gain.setValueAtTime(beat % 2 === 0 ? 0.03 : 0.015, t);
-    hg.gain.exponentialRampToValueAtTime(0.001, t + 0.03);
-    hat.connect(hf); hf.connect(hg); hg.connect(masterGain);
-    hat.start(t); hat.stop(t + 0.04);
-
-    bgNextBeat += BG_TEMPO;
-    bgBeatIdx = (bgBeatIdx + 1) % BG_PATTERN.length;
+  } catch (e) {
+    // Note creation failed (e.g. context invalidated mid-loop) — skip and retry next tick
   }
 
   bgTimer = setTimeout(scheduleBg, SCHED_MS);
