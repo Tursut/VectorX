@@ -41,19 +41,19 @@ function makeReverb(c, delayTime = 0.06, feedback = 0.22, wet = 0.18) {
 
 // ── Background theme ──────────────────────────────────────────────────────────
 
-const BG_TEMPO  = 0.42;  // seconds per beat (~143 BPM — upbeat and happy)
-const BG_SCALE  = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33]; // C maj pentatonic + D
-// 32-beat pattern: two 16-beat phrases with call-and-response feel
+const BG_TEMPO   = 0.34;  // seconds per beat (~176 BPM — lively and jolly)
+const BG_SCALE   = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33]; // C4 maj pentatonic + D5
+// 32-beat jolly pattern — melody stays in warm C4-D5 range (no octave boost)
 const BG_PATTERN = [
-  // Phrase A — ascending and bouncy
-  0, 2, 4, 5, 4, 2, 4, 2,
-  1, 2, 4, 2, 5, 4, 2, 0,
-  // Phrase B — higher, more energetic response
-  4, 5, 6, 5, 4, 2, 4, 5,
-  4, 2, 1, 2, 4, 2, 0, 2,
+  // Phrase A — bouncy leaps upward, bright ascending feel
+  0, 3, 2, 3, 5, 3, 2, 3,
+  0, 2, 3, 5, 3, 2, 0, 2,
+  // Phrase B — climbs higher for an energetic answer
+  2, 3, 5, 6, 5, 3, 5, 3,
+  2, 3, 2, 0, 2, 3, 2, 0,
 ];
-// Bass cycle: I-IV-I-V-I-IV-I-V (two 4-beat measures per chord pair)
-const BG_BASS   = [130.81, 174.61, 130.81, 196.00]; // C2 F2 C2 G2
+// Bass: C2 F2 C2 G2 — hit every 2 beats for a stronger pulse
+const BG_BASS    = [130.81, 174.61, 130.81, 196.00];
 const LOOK_AHEAD = 0.28;
 const SCHED_MS   = 110;
 
@@ -72,58 +72,65 @@ function scheduleBg() {
     const t    = bgNextBeat;
     const beat = bgBeatIdx;
 
-    // Arpeggio — blend triangle (main) + detuned sawtooth (warmth)
-    const freq = BG_SCALE[BG_PATTERN[beat % BG_PATTERN.length]] * 2;
+    // Melody — triangle + detuned sawtooth, warm middle register
+    const freq = BG_SCALE[BG_PATTERN[beat % BG_PATTERN.length]];
 
     const osc1 = c.createOscillator();
     osc1.type = 'triangle';
     osc1.frequency.value = freq;
-    osc1.detune.value = 0;
 
     const osc2 = c.createOscillator();
     osc2.type = 'sawtooth';
     osc2.frequency.value = freq;
-    osc2.detune.value = 7; // +7 cents for warmth
+    osc2.detune.value = 7;
 
     const g = c.createGain();
     g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(0.022, t + 0.018);
-    g.gain.exponentialRampToValueAtTime(0.001, t + BG_TEMPO * 0.82);
+    g.gain.linearRampToValueAtTime(0.034, t + 0.016);
+    g.gain.exponentialRampToValueAtTime(0.001, t + BG_TEMPO * 0.80);
 
     const g2 = c.createGain();
-    g2.gain.value = 0.008; // sawtooth is quieter
+    g2.gain.value = 0.012;
 
     osc1.connect(g); g.connect(masterGain);
     osc2.connect(g2); g2.connect(masterGain);
     osc1.start(t); osc1.stop(t + BG_TEMPO);
     osc2.start(t); osc2.stop(t + BG_TEMPO);
 
-    // Chord pad — sine waves on I-IV-I-V, one hit every 4 beats
-    if (beat % 4 === 0) {
+    // Bass pulse every 2 beats — louder and more present
+    if (beat % 2 === 0) {
       const bassFreq = BG_BASS[bgBassIdx % BG_BASS.length];
-      // Bass note
       const bosc = c.createOscillator();
       bosc.type = 'sine';
       bosc.frequency.value = bassFreq;
       const bg = c.createGain();
-      bg.gain.setValueAtTime(0.042, t);
-      bg.gain.exponentialRampToValueAtTime(0.001, t + BG_TEMPO * 4.0);
+      bg.gain.setValueAtTime(0.10, t);
+      bg.gain.exponentialRampToValueAtTime(0.001, t + BG_TEMPO * 2.1);
       bosc.connect(bg); bg.connect(masterGain);
-      bosc.start(t); bosc.stop(t + BG_TEMPO * 4.2);
+      bosc.start(t); bosc.stop(t + BG_TEMPO * 2.2);
 
-      // Pad chord (fifth above bass)
-      const padFreq = bassFreq * 1.5;
-      const posc = c.createOscillator();
-      posc.type = 'sine';
-      posc.frequency.value = padFreq;
-      const pg = c.createGain();
-      pg.gain.setValueAtTime(0.012, t + 0.02);
-      pg.gain.exponentialRampToValueAtTime(0.001, t + BG_TEMPO * 3.8);
-      posc.connect(pg); pg.connect(masterGain);
-      posc.start(t + 0.02); posc.stop(t + BG_TEMPO * 4.0);
+      // Mid-range octave double for warmth on mobile speakers
+      const bosc2 = c.createOscillator();
+      bosc2.type = 'triangle';
+      bosc2.frequency.value = bassFreq * 2;
+      const bg2 = c.createGain();
+      bg2.gain.setValueAtTime(0.04, t);
+      bg2.gain.exponentialRampToValueAtTime(0.001, t + BG_TEMPO * 1.6);
+      bosc2.connect(bg2); bg2.connect(masterGain);
+      bosc2.start(t); bosc2.stop(t + BG_TEMPO * 1.8);
 
       bgBassIdx++;
     }
+
+    // Light hi-hat every beat — rhythmic drive
+    const hat = noise(c, 0.02);
+    const hf = c.createBiquadFilter();
+    hf.type = 'highpass'; hf.frequency.value = 7000;
+    const hg = c.createGain();
+    hg.gain.setValueAtTime(beat % 2 === 0 ? 0.03 : 0.015, t);
+    hg.gain.exponentialRampToValueAtTime(0.001, t + 0.03);
+    hat.connect(hf); hf.connect(hg); hg.connect(masterGain);
+    hat.start(t); hat.stop(t + 0.04);
 
     bgNextBeat += BG_TEMPO;
     bgBeatIdx = (bgBeatIdx + 1) % BG_PATTERN.length;
