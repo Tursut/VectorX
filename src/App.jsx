@@ -172,7 +172,7 @@ export default function App() {
           }
         }
       });
-      if (newlyTrapped.length > 0) {
+      if (newlyTrapped.length > 0 && gameState.phase !== 'gameover') {
         setTrappedPlayers(newlyTrapped);
         clearTimeout(trappedTimerRef.current);
         trappedTimerRef.current = setTimeout(() => {
