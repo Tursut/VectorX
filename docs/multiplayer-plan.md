@@ -152,8 +152,15 @@ Each step is a single commit-sized unit of work. Every step ends with an automat
 
 ### Foundation (steps 1–3): can't break anything
 
-**Step 1 — Test harness + CI skeleton.** Install `vitest`, `@cloudflare/vitest-pool-workers`, `@playwright/test`. Add `npm test`, `npm run test:server`, `npm run test:e2e` scripts. Add `.github/workflows/test.yml` with three jobs. Add one trivial passing test in each suite so green = wired up.
+**Step 1 — Test harness + CI skeleton. ✅** Install `vitest`, `@cloudflare/vitest-pool-workers`, `@playwright/test`. Add `npm test`, `npm run test:server`, `npm run test:e2e` scripts. Add `.github/workflows/test.yml` with three jobs. Add one trivial passing test in each suite so green = wired up.
 - **Verify:** `npm test` → green. Push → GitHub Actions shows three green checks.
+
+**Step 1 deviations:**
+- Also installed `wrangler` (required by the Workers pool), `jsdom`, `@testing-library/react`, `@testing-library/jest-dom` (for later React component tests).
+- Vitest 4's pool API changed: the pool is wired in via `cloudflarePool({...})` (a `PoolRunnerInitializer` object) assigned to `test.pool`, not as a string path. `defineWorkersConfig` no longer exists in `@cloudflare/vitest-pool-workers@0.14`.
+- Created `server/wrangler.toml` (originally Step 4's deliverable) because the Workers pool requires it. It's minimal — `name`, `compatibility_date`, `nodejs_compat` flag. Step 4 will add a `main` entry + `/ping` route.
+- `playwright.config.ts` accepts a `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` env var to override the browser binary path — needed for sandboxed dev environments where `playwright install` can't reach the CDN. CI uses the default `npx playwright install --with-deps chromium`.
+- Test workflow triggers on pushes to `claude/multiplayer-architecture-planning-X2NrO` (the feature branch) and on all PRs. Not wired to `main` / the deploy branch.
 
 **Step 2 — Feature flag, no behavior change.** Add `VITE_ENABLE_ONLINE` env var (default `false`). No UI change yet — just the flag plumbing.
 - **Verify:** `vite build` succeeds; bundle diff against `main` is effectively zero.

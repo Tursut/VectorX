@@ -26,6 +26,9 @@ There is also a **sandbox mode** (1 human vs 1 bot, items placed by hand) for de
 - `npm run build` — production build to `dist/`
 - `npm run preview` — preview the production build
 - `npm run lint` — ESLint
+- `npm test` — client Vitest suite (jsdom)
+- `npm run test:server` — server Vitest suite (workerd via `@cloudflare/vitest-pool-workers`)
+- `npm run test:e2e` — Playwright end-to-end tests (chromium)
 
 ## Deploy
 
@@ -58,7 +61,17 @@ src/
     SoundToggle.jsx              ← tiny speaker button
     GameOverScreen.jsx           ← winner screen, restart, back to menu
 public/                          ← static assets served as-is
+server/                          ← Workers test harness (Step 1); will host the Worker + Durable Object in Step 4+
+  wrangler.toml                  ← minimal (name + compat_date + nodejs_compat); no `main` yet
+  vitest.config.ts               ← Workers-pool Vitest config
+  __tests__/smoke.test.ts        ← trivial harness-wired test
+e2e/                             ← Playwright specs
+  sanity.spec.ts                 ← trivial harness-wired test
+vitest.config.js                 ← client/jsdom Vitest config
+vitest.setup.js                  ← jest-dom matchers
+playwright.config.ts             ← Playwright config (chromium-only, executablePath override via env)
 .github/workflows/deploy.yml     ← GitHub Pages deploy (triggers on a single branch — see Deploy section)
+.github/workflows/test.yml       ← runs the three test suites on the feature branch + all PRs
 ```
 
 ## State shape (source of truth: `src/game/logic.js`)
@@ -130,9 +143,13 @@ The bot turn driver in `App.jsx` (search for "Gremlin auto-move") detects bot tu
 
 ## Testing
 
-No tests exist today. No test runner is installed. Manual QA is the only validation.
+Three suites, all wired in Step 1 with trivial "is this connected?" tests:
 
-The multiplayer plan introduces `vitest` + `@cloudflare/vitest-pool-workers` + Playwright in Step 1.
+- **Client unit/component** — Vitest + jsdom + `@testing-library/react`. Config: `vitest.config.js`. Tests live at `src/**/*.test.{js,jsx}`. Run with `npm test` (or `npm run test:watch`).
+- **Server** — Vitest running inside the Cloudflare `workerd` runtime via `@cloudflare/vitest-pool-workers` (vitest 4 `PoolRunnerInitializer` API — `cloudflarePool({ wrangler: { configPath } })`). Config: `server/vitest.config.ts`. Tests live at `server/**/*.test.ts`. Requires `server/wrangler.toml`. Run with `npm run test:server`.
+- **End-to-end** — Playwright (`@playwright/test`). Config: `playwright.config.ts`. Specs live at `e2e/**/*.spec.ts`. Chromium only for now. Run with `npm run test:e2e`. In sandboxed dev environments where `playwright install` can't reach the CDN, set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` to point at a pre-installed chromium binary.
+
+CI: `.github/workflows/test.yml` runs all three as separate jobs on pushes to the multiplayer feature branch and on all PRs.
 
 ## What's NOT here yet (framing for the multiplayer work)
 

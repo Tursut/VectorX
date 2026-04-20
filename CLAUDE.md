@@ -28,5 +28,6 @@ Online multiplayer rollout is tracked in **`docs/multiplayer-plan.md`**. Work th
 - `npm run build` — prod build to `dist/`
 - `npm run preview` — serve the prod build
 - `npm run lint` — ESLint
-
-No test runner is installed yet — Step 1 of the multiplayer plan adds one.
+- `npm test` — client Vitest suite (jsdom)
+- `npm run test:server` — server Vitest suite (workerd)
+- `npm run test:e2e` — Playwright end-to-end (set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` locally if browsers can't be downloaded)
