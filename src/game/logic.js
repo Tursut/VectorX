@@ -139,13 +139,7 @@ function completeTurn(state) {
   const { grid, players, currentPlayerIndex, turnCount, items, freezeNextPlayer } = state;
   const player = players[currentPlayerIndex];
 
-  let updatedPlayers = players.map((p) => {
-    if (p.isEliminated || p.id === player.id) return p;
-    return getValidMoves(grid, p.row, p.col).length === 0
-      ? { ...markEliminated(p), finishTurn: turnCount }
-      : p;
-  });
-
+  let updatedPlayers = players;
   let nextIndex = advanceToNextActive(updatedPlayers, currentPlayerIndex);
 
   let lastEvent = null;
@@ -157,8 +151,12 @@ function completeTurn(state) {
     nextIndex = advanceToNextActive(updatedPlayers, nextIndex);
   }
 
-  const nextPlayer = updatedPlayers[nextIndex];
-  if (nextIndex !== currentPlayerIndex && !nextPlayer.isEliminated && getValidMoves(grid, nextPlayer.row, nextPlayer.col).length === 0) {
+  // Only eliminate players whose turn is up next — others die when their turn arrives.
+  let safety = 0;
+  while (safety++ < players.length) {
+    const nextPlayer = updatedPlayers[nextIndex];
+    if (nextIndex === currentPlayerIndex || nextPlayer.isEliminated) break;
+    if (getValidMoves(grid, nextPlayer.row, nextPlayer.col).length > 0) break;
     updatedPlayers = updatedPlayers.map((p) =>
       p.id === nextPlayer.id ? { ...markEliminated(p), finishTurn: turnCount } : p
     );
