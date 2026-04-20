@@ -223,7 +223,7 @@ export default function App() {
     }, delay);
     return () => { cancelAnimationFrame(rafId); clearTimeout(t); setIsThinking(false); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameState?.currentPlayerIndex, gameState?.turnCount, gameState?.phase, gameState?.portalActive, gameState?.swapActive, playerMoment, trappedPlayers, exitConfirm]);
+  }, [gameState?.currentPlayerIndex, gameState?.turnCount, gameState?.phase, gameState?.portalActive, gameState?.swapActive, trappedPlayers, exitConfirm]);
 
   // Countdown sounds + logic
   const cdSoundRef = useRef(null);
