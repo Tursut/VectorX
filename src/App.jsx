@@ -11,7 +11,6 @@ import PlayerPanel from './components/PlayerPanel';
 import GameOverScreen from './components/GameOverScreen';
 import EventToast from './components/EventToast';
 import SandboxPanel from './components/SandboxPanel';
-import EliminationMoment from './components/EliminationMoment';
 import './App.css';
 
 function gameReducer(state, action) {
@@ -53,11 +52,9 @@ export default function App() {
   const [eventToast, setEventToast] = useState(null);
   const [countdown, setCountdown] = useState(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [playerMoment, setPlayerMoment] = useState(null);
   const [trappedPlayers, setTrappedPlayers] = useState([]);
   const [exitConfirm, setExitConfirm] = useState(false);
   const prevPlayersRef = useRef(null);
-  const momentTimerRef = useRef(null);
   const trappedTimerRef = useRef(null);
 
   // iOS audio recovery: resume context on any user interaction after backgrounding
@@ -124,7 +121,6 @@ export default function App() {
   useEffect(() => {
     if (!gameState || gameState.phase !== 'playing') return;
     if (gameState.sandboxMode) return; // no timer in sandbox
-    if (playerMoment) return; // paused during elimination overlay
     if (trappedPlayers.length > 0) return; // paused during trap animation
     if (exitConfirm) return; // paused during exit confirmation
     const playerIndex = gameState.currentPlayerIndex;
@@ -145,7 +141,7 @@ export default function App() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [gameState?.currentPlayerIndex, gameState?.phase, gameState?.portalActive, playerMoment, trappedPlayers, exitConfirm]);
+  }, [gameState?.currentPlayerIndex, gameState?.phase, gameState?.portalActive, trappedPlayers, exitConfirm]);
 
   // Your-turn chime — plays when it becomes a human's turn
   useEffect(() => {
@@ -178,10 +174,6 @@ export default function App() {
         trappedTimerRef.current = setTimeout(() => {
           setTrappedPlayers([]);
           sounds.playElimination();
-          const last = newlyTrapped[newlyTrapped.length - 1];
-          clearTimeout(momentTimerRef.current);
-          setPlayerMoment({ player: PLAYERS[last.id] });
-          momentTimerRef.current = setTimeout(() => setPlayerMoment(null), 2500);
         }, 2500);
       }
     }
@@ -204,7 +196,6 @@ export default function App() {
   // Gremlin auto-move
   useEffect(() => {
     if (!gameState || gameState.phase !== 'playing') return;
-    if (playerMoment) return; // pause bots during elimination overlay
     if (trappedPlayers.length > 0) return; // pause bots during trap animation
     if (exitConfirm) return; // pause bots during exit confirmation
     const gc = gameState.gremlinCount ?? 0;
@@ -348,15 +339,6 @@ export default function App() {
     <div className="app">
       <AnimatePresence>
         {eventToast && <EventToast key={eventToast.id} toast={eventToast} />}
-      </AnimatePresence>
-      <AnimatePresence>
-        {playerMoment && (
-          <EliminationMoment
-            key={playerMoment.player.id}
-            player={playerMoment.player}
-            onDismiss={() => { clearTimeout(momentTimerRef.current); setPlayerMoment(null); }}
-          />
-        )}
       </AnimatePresence>
       <AnimatePresence>
         {countdown !== null && (
