@@ -162,8 +162,13 @@ Each step is a single commit-sized unit of work. Every step ends with an automat
 - `playwright.config.ts` accepts a `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` env var to override the browser binary path — needed for sandboxed dev environments where `playwright install` can't reach the CDN. CI uses the default `npx playwright install --with-deps chromium`.
 - Test workflow triggers on pushes to `claude/multiplayer-architecture-planning-X2NrO` (the feature branch) and on all PRs. Not wired to `main` / the deploy branch.
 
-**Step 2 — Feature flag, no behavior change.** Add `VITE_ENABLE_ONLINE` env var (default `false`). No UI change yet — just the flag plumbing.
+**Step 2 — Feature flag, no behavior change. ✅** Add `VITE_ENABLE_ONLINE` env var (default `false`). No UI change yet — just the flag plumbing.
 - **Verify:** `vite build` succeeds; bundle diff against `main` is effectively zero.
+
+**Step 2 deviations:**
+- Committed `.env` (`VITE_ENABLE_ONLINE=false`) as the repo-wide default and `.env.example` as documentation; per-developer overrides go in `.env.local` (already covered by the `*.local` gitignore rule).
+- Added `src/config.js` exporting `ENABLE_ONLINE` so the flag has a single read site. Nothing imports it yet, so Vite tree-shakes it out — verified bundle diff vs the prior build is byte-identical (same sha256 on every file under `dist/`, including the hashed `assets/*`).
+- Flag parse is strict: `import.meta.env.VITE_ENABLE_ONLINE === 'true'`. Values like `"1"`, `"yes"`, or unset all resolve to `false`. Covered by `src/__tests__/config.test.js` using `vi.stubEnv` + `vi.resetModules`.
 
 **Step 3 — Refactor `App.jsx` into mode router, local path unchanged.** Extract current reducer logic into `src/LocalGameController.jsx`. Add stub `OnlineGameController.jsx` that renders nothing. Add `mode: 'local' | 'online'` state, default `'local'`.
 - **Verify:** `npm run dev`, play a full local game — identical behavior to `main`. Existing snapshot/component tests still pass.

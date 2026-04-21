@@ -36,6 +36,16 @@ There is also a **sandbox mode** (1 human vs 1 bot, items placed by hand) for de
 - **Trigger branch:** pushes to `claude/grid-territory-game-design-433J8` (this is the currently-deploying branch — **not** `main`). The workflow runs `npm ci && npm run build`, uploads `dist/` as a Pages artifact, and deploys via `actions/deploy-pages@v4`. There is no `gh-pages` branch.
 - **Invariant for multiplayer work:** don't push to that branch until online play is ready to go live. The multiplayer feature branch (`claude/multiplayer-architecture-planning-X2NrO`) does not trigger a deploy.
 
+## Feature flags / env vars
+
+Build-time flags use Vite's `import.meta.env.VITE_*` convention. Defaults live in a committed `.env`; `.env.example` documents each variable; per-developer overrides go in `.env.local` (gitignored via `*.local`). All reads are centralised in `src/config.js` — do not sprinkle `import.meta.env` across the codebase.
+
+| Flag | Default | Purpose |
+| --- | --- | --- |
+| `VITE_ENABLE_ONLINE` | `false` | Gates the multiplayer Create/Join UI and the network client. Production stays `false` until Step 18's preview deploy flips it on. Parse is strict-equals `'true'` — `"1"`, `"yes"`, and unset all resolve to `false`. |
+
+When no code references a flag, Vite tree-shakes the config module out of the bundle entirely — turning the flag on later costs zero bytes today.
+
 ## Directory map
 
 ```
@@ -44,6 +54,7 @@ src/
   App.jsx                        ← root: mode/screen routing, reducer, all effects (timers, sounds, animations, bot turn driver)
   App.css                        ← all app styles (global)
   index.css                      ← minimal reset / base
+  config.js                      ← build-time feature flags (currently: ENABLE_ONLINE). Single read site for `import.meta.env.VITE_*`.
   game/                          ← pure game module — no React, no DOM, no window
     constants.js                 ← GRID_SIZE, PLAYERS, DIRECTIONS, TURN_TIME, ITEM_TYPES, spawn tuning
     logic.js                     ← initGame, initSandboxGame, applyMove, completeTurn (internal), eliminateCurrentPlayer, getCurrentValidMoves, getValidMoves, placeSandboxItem
@@ -153,4 +164,4 @@ CI: `.github/workflows/test.yml` runs all three as separate jobs on pushes to th
 
 ## What's NOT here yet (framing for the multiplayer work)
 
-No network layer, no server, no WebSocket client, no room/lobby concept, no remote human players, no session/identity, no TypeScript, no test harness. Online play is currently impossible — four humans must share one device. The work in `docs/multiplayer-plan.md` adds exactly these pieces while keeping the current hotseat path byte-for-byte intact.
+No network layer, no server, no WebSocket client, no room/lobby concept, no remote human players, no session/identity, no TypeScript. Online play is currently impossible — four humans must share one device. The work in `docs/multiplayer-plan.md` adds exactly these pieces while keeping the current hotseat path byte-for-byte intact. The test harness (Step 1) and the `VITE_ENABLE_ONLINE` flag (Step 2) are already in place so later steps can ship behind a gate without disturbing production.
