@@ -168,12 +168,12 @@ export default function App() {
           }
         }
       });
-      if (newlyTrapped.length > 0 && gameState.phase !== 'gameover') {
+      if (newlyTrapped.length > 0) {
         setTrappedPlayers(newlyTrapped);
+        sounds.playElimination();
         clearTimeout(trappedTimerRef.current);
         trappedTimerRef.current = setTimeout(() => {
           setTrappedPlayers([]);
-          sounds.playElimination();
         }, 2500);
       }
     }
@@ -186,12 +186,13 @@ export default function App() {
     else sounds.stopBgTheme();
   }, [gameState?.phase]);
 
-  // Game-over sound
+  // Game-over sound — waits for any death animation to finish first
   useEffect(() => {
     if (gameState?.phase !== 'gameover') return;
+    if (trappedPlayers.length > 0) return;
     if (gameState.winner !== null) sounds.playWin();
     else sounds.playDraw();
-  }, [gameState?.phase]);
+  }, [gameState?.phase, trappedPlayers]);
 
   // Gremlin auto-move
   useEffect(() => {
@@ -222,7 +223,7 @@ export default function App() {
     }, delay);
     return () => { cancelAnimationFrame(rafId); clearTimeout(t); setIsThinking(false); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameState?.currentPlayerIndex, gameState?.turnCount, gameState?.phase, gameState?.portalActive, gameState?.swapActive, playerMoment, trappedPlayers, exitConfirm]);
+  }, [gameState?.currentPlayerIndex, gameState?.turnCount, gameState?.phase, gameState?.portalActive, gameState?.swapActive, trappedPlayers, exitConfirm]);
 
   // Countdown sounds + logic
   const cdSoundRef = useRef(null);
@@ -335,6 +336,12 @@ export default function App() {
         )
       : '';
 
+  const gc = gameState?.gremlinCount ?? 0;
+  const isHumanWin = gameState?.winner != null && gameState.winner < PLAYERS.length - gc;
+  const winnerPlayer = (trappedPlayers.length > 0 && isHumanWin)
+    ? gameState.players.find(p => p.id === gameState.winner)
+    : null;
+
   return (
     <div className="app">
       <AnimatePresence>
@@ -382,7 +389,7 @@ export default function App() {
           </motion.div>
         )}
 
-        {screen === 'game' && gameState?.phase === 'playing' && (
+        {screen === 'game' && (gameState?.phase === 'playing' || (gameState?.phase === 'gameover' && trappedPlayers.length > 0)) && (
           <motion.div
             key="playing"
             className="game-layout"
@@ -425,6 +432,7 @@ export default function App() {
                   portalJump={portalJump}
                   swapFlash={swapFlash}
                   trappedPlayers={trappedPlayers}
+                  winnerPlayer={winnerPlayer}
                 />
                 <button className="exit-game-btn" onClick={() => setExitConfirm(true)}>
                   ← Exit to menu
@@ -461,7 +469,7 @@ export default function App() {
           </motion.div>
         )}
 
-        {screen === 'game' && gameState?.phase === 'gameover' && (
+        {screen === 'game' && gameState?.phase === 'gameover' && trappedPlayers.length === 0 && (
           <motion.div key="gameover" style={{ width: '100%' }} {...fadeSlide}>
             <GameOverScreen
               winner={gameState.winner !== null ? PLAYERS[gameState.winner] : null}

@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { PLAYERS } from '../game/constants';
 import Cell from './Cell';
 
-export default function GameBoard({ grid, players, validMoveSet, onCellClick, currentPlayerIndex, items, portalActive, swapActive, isGremlinTurn, bombBlast, portalJump, swapFlash, trappedPlayers = [] }) {
+export default function GameBoard({ grid, players, validMoveSet, onCellClick, currentPlayerIndex, items, portalActive, swapActive, isGremlinTurn, bombBlast, portalJump, swapFlash, trappedPlayers = [], winnerPlayer = null }) {
   const playerPositions = {};
   const deathCells = {};
   const itemMap = {};
@@ -88,6 +88,33 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
           <span className="player-icon">{PLAYERS[tp.id].icon}</span>
         </motion.div>
       ))}
+
+      {/* ── Winner celebration layer — joyful bounce while the last bot dies ── */}
+      {winnerPlayer && (
+        <motion.div
+          key="winner-celebration"
+          style={{
+            position: 'absolute',
+            left: `calc(4px + ${winnerPlayer.col} * (var(--cell-size) + var(--board-gap)))`,
+            top:  `calc(4px + ${winnerPlayer.row} * (var(--cell-size) + var(--board-gap)))`,
+            width: 'var(--cell-size)',
+            height: 'var(--cell-size)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            pointerEvents: 'none',
+            zIndex: 4,
+          }}
+          animate={{
+            rotate: [0, -14, 14, -14, 14, -10, 10, -6,  6,  0],
+            scale:  [1,  1.3, 1.3, 1.3, 1.3, 1.35, 1.35, 1.4, 1.4, 1.45],
+            y:      [0,  -6,   0,  -6,   0,   -4,   0,   -4,  0,   0],
+          }}
+          transition={{ duration: 2.5, times: [0, 0.07, 0.16, 0.25, 0.34, 0.43, 0.52, 0.63, 0.80, 1] }}
+        >
+          <span className="player-icon">{PLAYERS[winnerPlayer.id].icon}</span>
+        </motion.div>
+      )}
 
       {/* ── Player icon layer — one persistent element per player, animated via layout ── */}
       <AnimatePresence>
