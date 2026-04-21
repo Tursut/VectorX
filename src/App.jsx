@@ -389,7 +389,7 @@ export default function App() {
           </motion.div>
         )}
 
-        {screen === 'game' && gameState?.phase === 'playing' && (
+        {screen === 'game' && (gameState?.phase === 'playing' || (gameState?.phase === 'gameover' && trappedPlayers.length > 0)) && (
           <motion.div
             key="playing"
             className="game-layout"
