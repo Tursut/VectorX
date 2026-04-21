@@ -170,8 +170,15 @@ Each step is a single commit-sized unit of work. Every step ends with an automat
 - Added `src/config.js` exporting `ENABLE_ONLINE` so the flag has a single read site. Nothing imports it yet, so Vite tree-shakes it out — verified bundle diff vs the prior build is byte-identical (same sha256 on every file under `dist/`, including the hashed `assets/*`).
 - Flag parse is strict: `import.meta.env.VITE_ENABLE_ONLINE === 'true'`. Values like `"1"`, `"yes"`, or unset all resolve to `false`. Covered by `src/__tests__/config.test.js` using `vi.stubEnv` + `vi.resetModules`.
 
-**Step 3 — Refactor `App.jsx` into mode router, local path unchanged.** Extract current reducer logic into `src/LocalGameController.jsx`. Add stub `OnlineGameController.jsx` that renders nothing. Add `mode: 'local' | 'online'` state, default `'local'`.
+**Step 3 — Refactor `App.jsx` into mode router, local path unchanged. ✅** Extract current reducer logic into `src/LocalGameController.jsx`. Add stub `OnlineGameController.jsx` that renders nothing. Add `mode: 'local' | 'online'` state, default `'local'`.
 - **Verify:** `npm run dev`, play a full local game — identical behavior to `main`. Existing snapshot/component tests still pass.
+
+**Step 3 deviations:**
+- `App.jsx` is a near-empty router (~16 lines): `const [mode] = useState('local')` plus `if (ENABLE_ONLINE && mode === 'online') return <OnlineGameController />; return <LocalGameController />`. The setter is intentionally not destructured yet — ESLint's `no-unused-vars` forbids it and nothing flips mode until Step 16's StartScreen buttons land.
+- Kept `import './App.css'` in `App.jsx` (not `LocalGameController.jsx`) so the global stylesheet loads regardless of mode — online play will reuse the same styles.
+- Copied the existing `gameReducer`, `fadeSlide`, all effects, and the entire JSX tree verbatim into `LocalGameController.jsx`. No behavior changes inside the local path — same imports, same deps arrays, same `// eslint-disable-next-line` lines. Pre-existing `react-hooks/set-state-in-effect` errors and `exhaustive-deps` warnings moved with the code (total lint count unchanged: 14 errors, 6 warnings).
+- `OnlineGameController.jsx` is a zero-dep stub returning `null`. Verified it's fully tree-shaken out of the production bundle: `grep "OnlineGameController" dist/assets/*.js` returns zero matches. Net bundle growth from the refactor is 70 bytes (the router wrapper itself).
+- Added `src/__tests__/App.test.jsx` — mocks both controllers and pins the "flag-off → LocalGameController" contract so Step 16's flip can't silently regress this. Full client suite: 8/8 passing.
 
 ### Server walking skeleton (steps 4–7): end-to-end pipe, no gameplay yet
 

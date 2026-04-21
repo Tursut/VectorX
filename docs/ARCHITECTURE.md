@@ -51,7 +51,9 @@ When no code references a flag, Vite tree-shakes the config module out of the bu
 ```
 src/
   main.jsx                       ← React entry, mounts <App />
-  App.jsx                        ← root: mode/screen routing, reducer, all effects (timers, sounds, animations, bot turn driver)
+  App.jsx                        ← thin mode router: `mode: 'local' | 'online'` state, picks LocalGameController or (behind ENABLE_ONLINE flag) OnlineGameController. Owns the global stylesheet import.
+  LocalGameController.jsx        ← the entire hotseat app: gameReducer, all effects (timers, sounds, animations, bot turn driver, iOS audio resume), start/game/sandbox/gameover screens.
+  OnlineGameController.jsx       ← stub returning null; real implementation lands in Steps 13–16. Tree-shaken out of prod bundle while ENABLE_ONLINE is false.
   App.css                        ← all app styles (global)
   index.css                      ← minimal reset / base
   config.js                      ← build-time feature flags (currently: ENABLE_ONLINE). Single read site for `import.meta.env.VITE_*`.
@@ -135,11 +137,22 @@ playwright.config.ts             ← Playwright config (chromium-only, executabl
 
 Convention: **players with `id >= PLAYERS.length - gremlinCount` are bots.** So `gremlinCount: 1` means only player 3 (Buzzilda) is a bot; `gremlinCount: 3` means players 1/2/3 are bots and player 0 (Reginald) is the lone human. The `PLAYERS` order in `constants.js` is the source of truth for seating.
 
-The bot turn driver in `App.jsx` (search for "Gremlin auto-move") detects bot turns, delays 1600–2200ms for feel (or ~150ms if no humans are alive — instant finish), calls `getGremlinMove(gameState, 1)`, and dispatches a `MOVE`.
+The bot turn driver in `LocalGameController.jsx` (search for "Gremlin auto-move") detects bot turns, delays 1600–2200ms for feel (or ~150ms if no humans are alive — instant finish), calls `getGremlinMove(gameState, 1)`, and dispatches a `MOVE`.
 
-## Effects in `App.jsx` (big list, all co-located)
+## Mode router (`App.jsx`)
 
-`App.jsx` owns: mode/screen state, countdown before start, animation triggers (`bombBlast`, `portalJump`, `swapFlash`, `eventToast`, `playerMoment`, `trappedPlayers`), the turn timer, the your-turn chime, the bot-move scheduler, the background theme, elimination sound + overlay, and the iOS audio-context-resume listeners. All driven by `useEffect` reacting to `gameState`.
+`App.jsx` is a ~16-line router. It owns one `useState('local')` mode slot and delegates to:
+
+- `LocalGameController` — the hotseat game (everything described in the rest of this doc).
+- `OnlineGameController` — stub today; real implementation lands in Steps 13–16.
+
+The online branch is gated by `ENABLE_ONLINE && mode === 'online'`. With `VITE_ENABLE_ONLINE=false` (the default), Vite substitutes `ENABLE_ONLINE` to `false` at build time and Rollup tree-shakes `OnlineGameController` out of production bundles entirely. Until Step 16 wires StartScreen buttons, the mode setter is intentionally not exposed and the router always picks `LocalGameController`.
+
+`App.jsx` also owns the global `App.css` import so the stylesheet loads regardless of which controller renders.
+
+## Effects in `LocalGameController.jsx` (big list, all co-located)
+
+`LocalGameController.jsx` owns: screen state (`start | game | sandbox`), countdown before start, animation triggers (`bombBlast`, `portalJump`, `swapFlash`, `eventToast`, `playerMoment`, `trappedPlayers`), the turn timer, the your-turn chime, the bot-move scheduler, the background theme, elimination sound + overlay, and the iOS audio-context-resume listeners. All driven by `useEffect` reacting to `gameState`. This is the file to open when a hotseat-gameplay question comes up — `App.jsx` itself has no game logic.
 
 ## Gotchas & invariants
 
