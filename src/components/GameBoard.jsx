@@ -100,29 +100,31 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
         )}
       </AnimatePresence>
 
-      {/* ── Frozen player badge — persists until frozen player's real turn ── */}
+      {/* ── Frozen player badge — top-right corner so it doesn't overlap the player icon ── */}
       <AnimatePresence>
         {frozenPlayerData && (
           <motion.div
             key={`frozen-badge-${frozenPlayerId}`}
             style={{
               position: 'absolute',
-              left: `calc(4px + ${frozenPlayerData.col} * (var(--cell-size) + var(--board-gap)))`,
+              left: `calc(4px + ${frozenPlayerData.col} * (var(--cell-size) + var(--board-gap)) + var(--cell-size) * 0.52)`,
               top:  `calc(4px + ${frozenPlayerData.row} * (var(--cell-size) + var(--board-gap)))`,
-              width: 'var(--cell-size)',
-              height: 'var(--cell-size)',
+              width: 'calc(var(--cell-size) * 0.48)',
+              height: 'calc(var(--cell-size) * 0.48)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              background: 'rgba(10, 20, 50, 0.72)',
+              borderRadius: '50%',
               pointerEvents: 'none',
-              zIndex: 5,
+              zIndex: 6,
             }}
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 2.5, opacity: 0, transition: { duration: 0.45 } }}
+            exit={{ scale: 2.2, opacity: 0, transition: { duration: 0.45 } }}
             transition={{ type: 'spring', stiffness: 300, damping: 20 }}
           >
-            <span style={{ fontSize: 'calc(var(--cell-size) * 0.38)', filter: 'drop-shadow(0 0 6px #7dd3fc)' }}>❄️</span>
+            <span style={{ fontSize: 'calc(var(--cell-size) * 0.32)', filter: 'drop-shadow(0 0 4px #7dd3fc)' }}>❄️</span>
           </motion.div>
         )}
       </AnimatePresence>
