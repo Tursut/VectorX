@@ -102,6 +102,11 @@ export default function Cell({ row, col, cell, isValidMove, isCurrentPlayer, isB
         <div className="cell-swap-label">SWAP</div>
       )}
 
+      {/* Freeze-target label */}
+      {isFreezeTarget && playerHere && (
+        <div className="cell-freeze-label">FREEZE</div>
+      )}
+
       {/* Portal origin — ring collapses inward */}
       {isPortalOrigin && (
         <motion.div

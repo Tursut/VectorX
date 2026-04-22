@@ -130,7 +130,9 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
           >
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1 }}>
               <span style={{ fontSize: 'calc(var(--cell-size) * 0.28)', filter: 'drop-shadow(0 0 4px #7dd3fc)' }}>❄️</span>
-              <span style={{ fontSize: 'calc(var(--cell-size) * 0.18)', color: '#7dd3fc', fontWeight: 'bold' }}>{frozenTurnsLeft}</span>
+              {frozenTurnsLeft > 0 && (
+                <span style={{ fontSize: 'calc(var(--cell-size) * 0.18)', color: '#7dd3fc', fontWeight: 'bold' }}>{frozenTurnsLeft}</span>
+              )}
             </div>
           </motion.div>
         )}

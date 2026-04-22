@@ -35,7 +35,7 @@ export default function PlayerPanel({ players, currentPlayerIndex, gremlinCount 
             }>
               {isCurrent && !p.isEliminated ? '← NOW' :
                p.isEliminated ? 'R.I.P.' :
-               isFrozen ? `❄️ ${frozenTurnsLeft}` :
+               isFrozen ? (frozenTurnsLeft > 0 ? `❄️ ${frozenTurnsLeft}` : '❄️') :
                isGremlin ? '👾' : ' '}
             </div>
           </motion.div>

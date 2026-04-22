@@ -158,15 +158,20 @@ function completeTurn(state) {
     nextIndex = advanceToNextActive(updatedPlayers, nextIndex);
   }
 
-  // Skip frozen player and tick down their counter
+  // Skip frozen player and tick down their counter.
+  // When turnsLeft hits 0, keep the badge alive until the player's real turn arrives.
   if (frozenPlayerId !== null) {
     const fp = updatedPlayers.find(p => p.id === frozenPlayerId);
     if (!fp || fp.isEliminated) {
       frozenPlayerId = null; frozenTurnsLeft = 0;
     } else if (updatedPlayers[nextIndex]?.id === frozenPlayerId) {
-      frozenTurnsLeft -= 1;
-      if (frozenTurnsLeft <= 0) { frozenPlayerId = null; frozenTurnsLeft = 0; }
-      nextIndex = advanceToNextActive(updatedPlayers, nextIndex);
+      if (frozenTurnsLeft > 0) {
+        frozenTurnsLeft -= 1;
+        nextIndex = advanceToNextActive(updatedPlayers, nextIndex); // skip
+      } else {
+        // All skips exhausted — real turn arrives, clear badge and let them play
+        frozenPlayerId = null;
+      }
     }
   }
 
