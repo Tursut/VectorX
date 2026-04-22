@@ -430,61 +430,69 @@ export function playPortal() {
   lfo.stop(t + 0.8); osc.stop(t + 0.8);
 }
 
-// Rising arpeggio + held chord + triumphant second hit
+// Fast run → ta-ta-DAAAA! with bell shimmer and bass punch
 export function playWin() {
   const c = getCtx();
   if (!c) return;
-  const rev = makeReverb(c, 0.12, 0.32, 0.3);
+  const t = c.currentTime;
+  const rev = makeReverb(c, 0.10, 0.38, 0.32);
 
-  // Arpeggio
-  [523.25, 659.25, 783.99, 1046.5].forEach((freq, i) => {
-    const t = c.currentTime + i * 0.1;
+  // Phase 1: rapid 8-note ascending run (C major, two octaves, triangle = bright)
+  [261.63, 329.63, 392.00, 523.25, 659.25, 783.99, 987.77, 1046.5].forEach((freq, i) => {
+    const ts = t + i * 0.065;
     const osc = c.createOscillator();
-    osc.type = 'sawtooth';
+    osc.type = 'triangle';
     osc.frequency.value = freq;
-    osc.detune.value = -3;
-    const filter = c.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(3200, t);
-    filter.frequency.exponentialRampToValueAtTime(900, t + 0.9);
     const g = c.createGain();
-    g.gain.setValueAtTime(0.17, t);
-    g.gain.linearRampToValueAtTime(0.21, t + 0.05);
-    g.gain.exponentialRampToValueAtTime(0.001, t + 1.1);
-    osc.connect(filter); filter.connect(g);
-    g.connect(out()); g.connect(rev);
-    osc.start(t); osc.stop(t + 1.15);
+    g.gain.setValueAtTime(0.24, ts);
+    g.gain.exponentialRampToValueAtTime(0.001, ts + 0.17);
+    osc.connect(g); g.connect(out()); g.connect(rev);
+    osc.start(ts); osc.stop(ts + 0.20);
   });
 
-  // Held chord
-  [523.25, 659.25, 783.99].forEach(freq => {
-    const t = c.currentTime + 0.38;
+  // Phase 2: ta-ta-DAAAA rhythm — two short hits then the big chord
+  [[0, [659.25, 783.99], false], [0.15, [659.25, 783.99], false], [0.32, [523.25, 659.25, 783.99, 1046.5], true]]
+    .forEach(([delay, freqs, isFinal]) => {
+      freqs.forEach(freq => {
+        const ts = t + 0.50 + delay;
+        const osc = c.createOscillator();
+        osc.type = 'sawtooth';
+        osc.frequency.value = freq;
+        const filter = c.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = isFinal ? 4200 : 3000;
+        const g = c.createGain();
+        g.gain.setValueAtTime(isFinal ? 0.21 : 0.15, ts);
+        g.gain.exponentialRampToValueAtTime(0.001, ts + (isFinal ? 2.1 : 0.14));
+        osc.connect(filter); filter.connect(g);
+        g.connect(out()); g.connect(rev);
+        osc.start(ts); osc.stop(ts + (isFinal ? 2.2 : 0.18));
+      });
+    });
+
+  // Phase 3: ascending bell shimmer on the big chord
+  [1046.5, 1318.5, 1568, 2093, 2637].forEach((freq, i) => {
+    const ts = t + 0.82 + i * 0.055;
     const osc = c.createOscillator();
     osc.type = 'sine';
     osc.frequency.value = freq;
     const g = c.createGain();
-    g.gain.setValueAtTime(0.11, t);
-    g.gain.exponentialRampToValueAtTime(0.001, t + 2.0);
-    osc.connect(g); g.connect(out());
-    osc.start(t); osc.stop(t + 2.1);
+    g.gain.setValueAtTime(0.10, ts);
+    g.gain.exponentialRampToValueAtTime(0.001, ts + 0.95);
+    osc.connect(g); g.connect(out()); g.connect(rev);
+    osc.start(ts); osc.stop(ts + 1.0);
   });
 
-  // Second triumphant chord hit
-  [523.25, 659.25, 783.99, 1046.5].forEach((freq, i) => {
-    const t = c.currentTime + 0.82 + i * 0.06;
-    const osc = c.createOscillator();
-    osc.type = 'sawtooth';
-    osc.frequency.value = freq;
-    const filter = c.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.value = 2800;
-    const g = c.createGain();
-    g.gain.setValueAtTime(0.14, t);
-    g.gain.exponentialRampToValueAtTime(0.001, t + 0.95);
-    osc.connect(filter); filter.connect(g);
-    g.connect(out()); g.connect(rev);
-    osc.start(t); osc.stop(t + 1.0);
-  });
+  // Bass punch for impact on the big chord
+  const bass = c.createOscillator();
+  bass.type = 'sine';
+  bass.frequency.setValueAtTime(130.81, t + 0.82);
+  bass.frequency.exponentialRampToValueAtTime(52, t + 1.1);
+  const bg = c.createGain();
+  bg.gain.setValueAtTime(0.42, t + 0.82);
+  bg.gain.exponentialRampToValueAtTime(0.001, t + 1.4);
+  bass.connect(bg); bg.connect(out()); bg.connect(rev);
+  bass.start(t + 0.82); bass.stop(t + 1.45);
 }
 
 // Two notes that just… stop

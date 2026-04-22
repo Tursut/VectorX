@@ -169,12 +169,14 @@ export default function App() {
         }
       });
       if (newlyTrapped.length > 0) {
-        setTrappedPlayers(newlyTrapped);
-        sounds.playElimination();
         clearTimeout(trappedTimerRef.current);
         trappedTimerRef.current = setTimeout(() => {
-          setTrappedPlayers([]);
-        }, 2500);
+          setTrappedPlayers(newlyTrapped);
+          sounds.playElimination();
+          trappedTimerRef.current = setTimeout(() => {
+            setTrappedPlayers([]);
+          }, 2500);
+        }, 450);
       }
     }
     prevPlayersRef.current = gameState.players;
