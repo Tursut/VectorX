@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { PLAYERS } from '../game/constants';
 import Cell from './Cell';
 
-export default function GameBoard({ grid, players, validMoveSet, onCellClick, currentPlayerIndex, items, portalActive, swapActive, isGremlinTurn, bombBlast, portalJump, swapFlash, trappedPlayers = [], winnerPlayer = null }) {
+export default function GameBoard({ grid, players, validMoveSet, onCellClick, currentPlayerIndex, items, portalActive, swapActive, isGremlinTurn, bombBlast, portalJump, swapFlash, trappedPlayers = [], winnerPlayer = null, flyingFreeze = null, frozenPlayerId = null }) {
   const playerPositions = {};
   const deathCells = {};
   const itemMap = {};
@@ -29,6 +29,11 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
   const swapFlashSet  = swapFlash
     ? new Set([`${swapFlash.pos1.row},${swapFlash.pos1.col}`, `${swapFlash.pos2.row},${swapFlash.pos2.col}`])
     : null;
+
+  const frozenPlayerData = frozenPlayerId !== null
+    ? players.find(p => p.id === frozenPlayerId && !p.isEliminated)
+    : null;
+  const frozenCellKey = frozenPlayerData ? `${frozenPlayerData.row},${frozenPlayerData.col}` : null;
 
   return (
     <div className="board" style={{ '--player-color': playerColor, position: 'relative' }}>
@@ -57,10 +62,70 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
               isPortalDest={portalToKey === key}
               isSwapFlash={swapFlashSet ? swapFlashSet.has(key) : false}
               isTrapped={trappedPlayers.some(tp => tp.row === ri && tp.col === ci)}
+              isFrozen={frozenCellKey !== null && frozenCellKey === key}
             />
           );
         })
       )}
+
+      {/* ── Flying ❄️ projectile — travels from collector to frozen player ── */}
+      <AnimatePresence>
+        {flyingFreeze && (
+          <motion.div
+            key="flying-freeze"
+            style={{
+              position: 'absolute',
+              left: `calc(4px + ${flyingFreeze.toCol} * (var(--cell-size) + var(--board-gap)))`,
+              top:  `calc(4px + ${flyingFreeze.toRow} * (var(--cell-size) + var(--board-gap)))`,
+              width: 'var(--cell-size)',
+              height: 'var(--cell-size)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              pointerEvents: 'none',
+              zIndex: 10,
+            }}
+            initial={{
+              x: `calc(${flyingFreeze.fromCol - flyingFreeze.toCol} * (var(--cell-size) + var(--board-gap)))`,
+              y: `calc(${flyingFreeze.fromRow - flyingFreeze.toRow} * (var(--cell-size) + var(--board-gap)))`,
+              scale: 0.7,
+              opacity: 0,
+            }}
+            animate={{ x: 0, y: 0, scale: 1.1, opacity: 1 }}
+            exit={{ scale: 1.4, opacity: 0 }}
+            transition={{ duration: 0.55, type: 'spring', stiffness: 180, damping: 22 }}
+          >
+            <span style={{ fontSize: 'calc(var(--cell-size) * 0.55)' }}>❄️</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Frozen player badge — persists until frozen player's real turn ── */}
+      <AnimatePresence>
+        {frozenPlayerData && (
+          <motion.div
+            key={`frozen-badge-${frozenPlayerId}`}
+            style={{
+              position: 'absolute',
+              left: `calc(4px + ${frozenPlayerData.col} * (var(--cell-size) + var(--board-gap)))`,
+              top:  `calc(4px + ${frozenPlayerData.row} * (var(--cell-size) + var(--board-gap)))`,
+              width: 'var(--cell-size)',
+              height: 'var(--cell-size)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              pointerEvents: 'none',
+              zIndex: 5,
+            }}
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 2.5, opacity: 0, transition: { duration: 0.45 } }}
+            transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+          >
+            <span style={{ fontSize: 'calc(var(--cell-size) * 0.38)', filter: 'drop-shadow(0 0 6px #7dd3fc)' }}>❄️</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── Trapped-player dying animation layer ── */}
       {trappedPlayers.map(tp => (

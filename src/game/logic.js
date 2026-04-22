@@ -34,6 +34,7 @@ export function initGame(magicItems = false, gremlinCount = 0) {
     portalActive: false,
     swapActive: false,
     freezeNextPlayer: false,
+    frozenPlayerId: null,
     lastEvent: null,
   };
 }
@@ -141,12 +142,14 @@ function completeTurn(state) {
 
   let updatedPlayers = players;
   let nextIndex = advanceToNextActive(updatedPlayers, currentPlayerIndex);
+  let frozenPlayerId = state.frozenPlayerId ?? null;
 
   let lastEvent = null;
   if (freezeNextPlayer) {
     const frozenPlayer = updatedPlayers[nextIndex];
     if (!frozenPlayer.isEliminated) {
       lastEvent = { type: 'freeze', byId: player.id, targetId: frozenPlayer.id };
+      frozenPlayerId = frozenPlayer.id;
     }
     nextIndex = advanceToNextActive(updatedPlayers, nextIndex);
   }
@@ -161,6 +164,12 @@ function completeTurn(state) {
       p.id === nextPlayer.id ? { ...markEliminated(p), finishTurn: turnCount } : p
     );
     nextIndex = advanceToNextActive(updatedPlayers, nextIndex);
+  }
+
+  // Thaw the frozen player when their real turn arrives
+  if (!freezeNextPlayer && frozenPlayerId !== null) {
+    const nextPlayer = updatedPlayers[nextIndex];
+    if (nextPlayer.id === frozenPlayerId) frozenPlayerId = null;
   }
 
   const stillAlive = updatedPlayers.filter((p) => !p.isEliminated);
@@ -182,6 +191,7 @@ function completeTurn(state) {
     portalActive: false,
     swapActive: false,
     freezeNextPlayer: false,
+    frozenPlayerId,
     lastEvent,
   };
 
@@ -338,6 +348,7 @@ export function initSandboxGame() {
     portalActive: false,
     swapActive: false,
     freezeNextPlayer: false,
+    frozenPlayerId: null,
     lastEvent: null,
     sandboxMode: true,
   };

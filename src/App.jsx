@@ -54,6 +54,7 @@ export default function App() {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [trappedPlayers, setTrappedPlayers] = useState([]);
   const [eliminationPending, setEliminationPending] = useState(false);
+  const [flyingFreeze, setFlyingFreeze] = useState(null);
   const [exitConfirm, setExitConfirm] = useState(false);
   const prevPlayersRef = useRef(null);
   const trappedTimerRef = useRef(null);
@@ -89,21 +90,17 @@ export default function App() {
     return () => clearTimeout(t);
   }, [swapFlash]);
 
-  // Freeze / swap toast + sound
+  // Freeze / swap sound and animation
   useEffect(() => {
     const ev = gameState?.lastEvent;
     if (!ev) return;
     if (ev.type === 'freeze') {
       sounds.playFreeze();
-      const gc = gameState.gremlinCount ?? 0;
-      const humanAlive = gameState.players.some(p => !p.isEliminated && p.id < PLAYERS.length - gc);
-      if (humanAlive) {
-        setEventToast({
-          id: Date.now(),
-          type: 'freeze',
-          by: PLAYERS[ev.byId],
-          target: ev.targetId != null ? PLAYERS[ev.targetId] : null,
-        });
+      const collector = gameState.players.find(p => p.id === ev.byId);
+      const frozen = gameState.players.find(p => p.id === ev.targetId);
+      if (collector && frozen) {
+        setFlyingFreeze({ fromRow: collector.row, fromCol: collector.col, toRow: frozen.row, toCol: frozen.col });
+        setTimeout(() => setFlyingFreeze(null), 800);
       }
     } else if (ev.type === 'swap') {
       sounds.playSwap();
@@ -438,6 +435,8 @@ export default function App() {
                   swapFlash={swapFlash}
                   trappedPlayers={trappedPlayers}
                   winnerPlayer={winnerPlayer}
+                  flyingFreeze={flyingFreeze}
+                  frozenPlayerId={gameState?.frozenPlayerId ?? null}
                 />
                 <button className="exit-game-btn" onClick={() => setExitConfirm(true)}>
                   ← Exit to menu
@@ -524,6 +523,8 @@ export default function App() {
                 bombBlast={bombBlast}
                 portalJump={portalJump}
                 swapFlash={swapFlash}
+                flyingFreeze={flyingFreeze}
+                frozenPlayerId={gameState?.frozenPlayerId ?? null}
               />
             </div>
           </motion.div>

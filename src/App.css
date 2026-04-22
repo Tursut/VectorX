@@ -251,6 +251,15 @@
   100% { box-shadow: 0 0  4px  1px rgba(231, 76, 60, 0.1); }
 }
 
+.cell-frozen {
+  animation: frozenPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes frozenPulse {
+  0%, 100% { box-shadow: 0 0  6px 2px rgba(125, 211, 252, 0.3); }
+  50%       { box-shadow: 0 0 18px 6px rgba(125, 211, 252, 0.9); }
+}
+
 .cell-swap-target {
   cursor: pointer;
   animation: swapPulse 0.55s infinite alternate ease-in-out;
