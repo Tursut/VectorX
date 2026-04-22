@@ -206,11 +206,11 @@ export function applyMove(state, targetRow, targetCol) {
   const { grid, players, currentPlayerIndex, items, portalActive, swapActive } = state;
   const player = players[currentPlayerIndex];
 
-  // Freeze target selection: freeze the chosen player for 3 turns
+  // Freeze target selection: freeze the chosen player for 2 turns
   if (state.freezeSelectActive) {
     const target = players.find(p => !p.isEliminated && p.id !== player.id && p.row === targetRow && p.col === targetCol);
     if (!target) return state;
-    const result = completeTurn({ ...state, frozenPlayerId: target.id, frozenTurnsLeft: 3, freezeSelectActive: false });
+    const result = completeTurn({ ...state, frozenPlayerId: target.id, frozenTurnsLeft: 2, freezeSelectActive: false });
     return { ...result, lastEvent: { type: 'freeze', byId: player.id, targetId: target.id } };
   }
 

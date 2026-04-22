@@ -92,7 +92,7 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
             exit={{ opacity: 0, transition: { duration: 0.12 } }}
             transition={{ duration: 0.55, type: 'spring', stiffness: 180, damping: 22 }}
           >
-            <span className="frozen-count-badge">❄️ 3</span>
+            <span className="frozen-count-badge">❄️ 2</span>
           </motion.div>
         )}
       </AnimatePresence>

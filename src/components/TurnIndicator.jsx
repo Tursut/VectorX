@@ -4,9 +4,9 @@ import { GREMLIN_THOUGHTS } from '../game/ai';
 import SoundToggle from './SoundToggle';
 
 const FREEZE_LINES = [
-  (by, target) => `❄️ ${by} froze ${target} for 3 turns. Ice cold.`,
+  (by, target) => `❄️ ${by} froze ${target} for 2 turns. Ice cold.`,
   (by, target) => `❄️ ${target} is on ice. ${by} chose wisely.`,
-  (by, target) => `❄️ ${by} targeted ${target} specifically. 3 turns of nothing.`,
+  (by, target) => `❄️ ${by} targeted ${target} specifically. 2 turns of nothing.`,
 ];
 
 const SWAP_LINES = [
@@ -24,7 +24,7 @@ export default function TurnIndicator({ player, taunt, timeLeft, totalTime, port
   if (isThinking) statusLine = GREMLIN_THOUGHTS[player.id] ?? 'Scheming…';
   else if (portalActive) statusLine = '🌀 PORTAL active! Pick any empty square on the board.';
   else if (swapActive) statusLine = '🎭 SWAP! Choose a player to switch places with.';
-  else if (freezeSelectActive) statusLine = '❄️ FREEZE! Choose a player to skip for 3 turns.';
+  else if (freezeSelectActive) statusLine = '❄️ FREEZE! Choose a player to skip for 2 turns.';
 
   let eventLine = null;
   if (lastEvent?.type === 'freeze') {

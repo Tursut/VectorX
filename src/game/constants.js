@@ -80,7 +80,7 @@ export const TURN_TIME = 10;
 export const ITEM_TYPES = {
   bomb:   { type: 'bomb',   icon: '💣', name: 'Bomb',   color: '#e74c3c', desc: 'Clears nearby territory!' },
   portal: { type: 'portal', icon: '🌀', name: 'Portal', color: '#9b59b6', desc: 'Teleport anywhere!' },
-  freeze: { type: 'freeze', icon: '❄️', name: 'Freeze', color: '#3498db', desc: 'Choose a player to freeze for 3 turns!' },
+  freeze: { type: 'freeze', icon: '❄️', name: 'Freeze', color: '#3498db', desc: 'Choose a player to freeze for 2 turns!' },
   swap:   { type: 'swap',   icon: '🎭', name: 'Swap',   color: '#2ecc71', desc: 'Switch places with any player!' },
 };
 
