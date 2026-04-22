@@ -33,7 +33,6 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
   const frozenPlayerData = frozenPlayerId !== null
     ? players.find(p => p.id === frozenPlayerId && !p.isEliminated)
     : null;
-  const frozenCellKey = frozenPlayerData ? `${frozenPlayerData.row},${frozenPlayerData.col}` : null;
 
   return (
     <div className="board" style={{ '--player-color': playerColor, position: 'relative' }}>
@@ -62,47 +61,48 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
               isPortalDest={portalToKey === key}
               isSwapFlash={swapFlashSet ? swapFlashSet.has(key) : false}
               isTrapped={trappedPlayers.some(tp => tp.row === ri && tp.col === ci)}
-              isFrozen={frozenCellKey !== null && frozenCellKey === key}
             />
           );
         })
       )}
 
-      {/* ── Flying ❄️ projectile — travels from collector to frozen player ── */}
+      {/* ── Flying ❄️ — travels from collector cell center to frozen player's badge corner ── */}
       <AnimatePresence>
         {flyingFreeze && (
           <motion.div
             key="flying-freeze"
             style={{
               position: 'absolute',
-              left: `calc(4px + ${flyingFreeze.toCol} * (var(--cell-size) + var(--board-gap)))`,
+              left: `calc(4px + ${flyingFreeze.toCol} * (var(--cell-size) + var(--board-gap)) + var(--cell-size) * 0.52)`,
               top:  `calc(4px + ${flyingFreeze.toRow} * (var(--cell-size) + var(--board-gap)))`,
-              width: 'var(--cell-size)',
-              height: 'var(--cell-size)',
+              width: 'calc(var(--cell-size) * 0.48)',
+              height: 'calc(var(--cell-size) * 0.48)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              background: 'rgba(10, 20, 50, 0.72)',
+              borderRadius: '50%',
               pointerEvents: 'none',
               zIndex: 10,
             }}
             initial={{
-              x: `calc(${flyingFreeze.fromCol - flyingFreeze.toCol} * (var(--cell-size) + var(--board-gap)))`,
-              y: `calc(${flyingFreeze.fromRow - flyingFreeze.toRow} * (var(--cell-size) + var(--board-gap)))`,
-              scale: 0.7,
+              x: `calc(${flyingFreeze.fromCol - flyingFreeze.toCol} * (var(--cell-size) + var(--board-gap)) - var(--cell-size) * 0.26)`,
+              y: `calc(${flyingFreeze.fromRow - flyingFreeze.toRow} * (var(--cell-size) + var(--board-gap)) + var(--cell-size) * 0.26)`,
+              scale: 1.5,
               opacity: 0,
             }}
-            animate={{ x: 0, y: 0, scale: 1.1, opacity: 1 }}
-            exit={{ scale: 1.4, opacity: 0 }}
+            animate={{ x: 0, y: 0, scale: 1, opacity: 1 }}
+            exit={{ opacity: 0, transition: { duration: 0.12 } }}
             transition={{ duration: 0.55, type: 'spring', stiffness: 180, damping: 22 }}
           >
-            <span style={{ fontSize: 'calc(var(--cell-size) * 0.55)' }}>❄️</span>
+            <span style={{ fontSize: 'calc(var(--cell-size) * 0.32)', filter: 'drop-shadow(0 0 4px #7dd3fc)' }}>❄️</span>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* ── Frozen player badge — top-right corner so it doesn't overlap the player icon ── */}
+      {/* ── Frozen player badge — appears after the flying ❄️ lands, same corner position ── */}
       <AnimatePresence>
-        {frozenPlayerData && (
+        {frozenPlayerData && !flyingFreeze && (
           <motion.div
             key={`frozen-badge-${frozenPlayerId}`}
             style={{
@@ -119,10 +119,10 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
               pointerEvents: 'none',
               zIndex: 6,
             }}
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
             exit={{ scale: 2.2, opacity: 0, transition: { duration: 0.45 } }}
-            transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+            transition={{ duration: 0.15 }}
           >
             <span style={{ fontSize: 'calc(var(--cell-size) * 0.32)', filter: 'drop-shadow(0 0 4px #7dd3fc)' }}>❄️</span>
           </motion.div>
