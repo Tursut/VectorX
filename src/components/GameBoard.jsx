@@ -61,80 +61,44 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
               isPortalDest={portalToKey === key}
               isSwapFlash={swapFlashSet ? swapFlashSet.has(key) : false}
               isTrapped={trappedPlayers.some(tp => tp.row === ri && tp.col === ci)}
-              isFreezeTarget={freezeSelectActive && players.some(p => !p.isEliminated && p.id !== players[currentPlayerIndex].id && p.row === ri && p.col === ci)}
+              isFreezeTarget={!isGremlinTurn && freezeSelectActive && players.some(p => !p.isEliminated && p.id !== players[currentPlayerIndex].id && p.row === ri && p.col === ci)}
             />
           );
         })
       )}
 
-      {/* ── Flying ❄️ — travels from collector cell center to frozen player's badge corner ── */}
+      {/* ── Flying ❄️ — travels from collector to target's top-left corner (badge landing spot) ── */}
       <AnimatePresence>
         {flyingFreeze && (
           <motion.div
             key="flying-freeze"
             style={{
               position: 'absolute',
-              left: `calc(4px + ${flyingFreeze.toCol} * (var(--cell-size) + var(--board-gap)) + var(--cell-size) * 0.52)`,
-              top:  `calc(4px + ${flyingFreeze.toRow} * (var(--cell-size) + var(--board-gap)))`,
-              width: 'calc(var(--cell-size) * 0.48)',
-              height: 'calc(var(--cell-size) * 0.48)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              background: 'rgba(10, 20, 50, 0.72)',
-              borderRadius: '50%',
+              left: `calc(4px + ${flyingFreeze.toCol} * (var(--cell-size) + var(--board-gap)) + 2px)`,
+              top:  `calc(4px + ${flyingFreeze.toRow} * (var(--cell-size) + var(--board-gap)) + 2px)`,
               pointerEvents: 'none',
               zIndex: 10,
             }}
             initial={{
-              x: `calc(${flyingFreeze.fromCol - flyingFreeze.toCol} * (var(--cell-size) + var(--board-gap)) - var(--cell-size) * 0.26)`,
-              y: `calc(${flyingFreeze.fromRow - flyingFreeze.toRow} * (var(--cell-size) + var(--board-gap)) + var(--cell-size) * 0.26)`,
-              scale: 1.5,
+              x: `calc(${flyingFreeze.fromCol - flyingFreeze.toCol} * (var(--cell-size) + var(--board-gap)) + var(--cell-size) * 0.5 - 2px)`,
+              y: `calc(${flyingFreeze.fromRow - flyingFreeze.toRow} * (var(--cell-size) + var(--board-gap)) + var(--cell-size) * 0.5 - 2px)`,
+              scale: 1.6,
               opacity: 0,
             }}
             animate={{ x: 0, y: 0, scale: 1, opacity: 1 }}
             exit={{ opacity: 0, transition: { duration: 0.12 } }}
             transition={{ duration: 0.55, type: 'spring', stiffness: 180, damping: 22 }}
           >
-            <span style={{ fontSize: 'calc(var(--cell-size) * 0.32)', filter: 'drop-shadow(0 0 4px #7dd3fc)' }}>❄️</span>
+            <span className="frozen-count-badge">❄️ 3</span>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* ── Frozen player badge — appears after the flying ❄️ lands, same corner position ── */}
+      {/* ── Frozen badge — top-left "❄️ N" pill, persists until real turn arrives ── */}
       <AnimatePresence>
         {frozenPlayerData && !flyingFreeze && (
           <motion.div
-            key={`frozen-badge-${frozenPlayerId}`}
-            style={{
-              position: 'absolute',
-              left: `calc(4px + ${frozenPlayerData.col} * (var(--cell-size) + var(--board-gap)) + var(--cell-size) * 0.52)`,
-              top:  `calc(4px + ${frozenPlayerData.row} * (var(--cell-size) + var(--board-gap)))`,
-              width: 'calc(var(--cell-size) * 0.48)',
-              height: 'calc(var(--cell-size) * 0.48)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              background: 'rgba(10, 20, 50, 0.72)',
-              borderRadius: '50%',
-              pointerEvents: 'none',
-              zIndex: 6,
-            }}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ scale: 2.2, opacity: 0, transition: { duration: 0.45 } }}
-            transition={{ duration: 0.15 }}
-          >
-            <span style={{ fontSize: 'calc(var(--cell-size) * 0.32)', filter: 'drop-shadow(0 0 4px #7dd3fc)' }}>❄️</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* ── Frozen turn counter — top-left pill, same style as item badge ── */}
-      <AnimatePresence>
-        {frozenPlayerData && !flyingFreeze && frozenTurnsLeft > 0 && (
-          <motion.div
-            key={`frozen-count-${frozenPlayerId}-${frozenTurnsLeft}`}
+            key={`frozen-badge-${frozenPlayerId}-${frozenTurnsLeft}`}
             style={{
               position: 'absolute',
               left: `calc(4px + ${frozenPlayerData.col} * (var(--cell-size) + var(--board-gap)) + 2px)`,
@@ -144,10 +108,12 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
             }}
             initial={{ scale: 0.6, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0, opacity: 0 }}
+            exit={{ scale: 2.2, opacity: 0, transition: { duration: 0.45 } }}
             transition={{ type: 'spring', stiffness: 400, damping: 22 }}
           >
-            <span className="frozen-count-badge">{frozenTurnsLeft}</span>
+            <span className="frozen-count-badge">
+              {frozenTurnsLeft > 0 ? `❄️ ${frozenTurnsLeft}` : '❄️'}
+            </span>
           </motion.div>
         )}
       </AnimatePresence>
