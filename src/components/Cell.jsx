@@ -10,7 +10,7 @@ function badgeColor(turnsLeft) {
 
 const spring = { type: 'spring', stiffness: 380, damping: 28 };
 
-export default function Cell({ row, col, cell, isValidMove, isCurrentPlayer, isBotTurn, playerHere, deathHere, itemHere, portalActive, swapActive, playerColor, onCellClick, isBombOrigin, isBombCleared, isPortalOrigin, isPortalDest, isSwapFlash, isTrapped }) {
+export default function Cell({ row, col, cell, isValidMove, isCurrentPlayer, isBotTurn, playerHere, deathHere, itemHere, portalActive, swapActive, playerColor, onCellClick, isBombOrigin, isBombCleared, isPortalOrigin, isPortalDest, isSwapFlash, isTrapped, isFreezeTarget }) {
   const owner = cell.owner !== null ? PLAYERS[cell.owner] : null;
 
   let className = 'cell';
@@ -23,6 +23,7 @@ export default function Cell({ row, col, cell, isValidMove, isCurrentPlayer, isB
   if (isBotTurn) className += ' cell-bot-thinking';
   if (isBombCleared) className += ' cell-bomb-cleared';
   if (isTrapped) className += ' cell-trapped';
+  if (isFreezeTarget) className += ' cell-freeze-target';
 
   return (
     <div

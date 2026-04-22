@@ -139,7 +139,7 @@ export default function App() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [gameState?.currentPlayerIndex, gameState?.phase, gameState?.portalActive, eliminationPending, trappedPlayers, exitConfirm]);
+  }, [gameState?.currentPlayerIndex, gameState?.phase, gameState?.portalActive, gameState?.freezeSelectActive, eliminationPending, trappedPlayers, exitConfirm]);
 
   // Your-turn chime — plays when it becomes a human's turn
   useEffect(() => {
@@ -225,7 +225,7 @@ export default function App() {
     }, delay);
     return () => { cancelAnimationFrame(rafId); clearTimeout(t); setIsThinking(false); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameState?.currentPlayerIndex, gameState?.turnCount, gameState?.phase, gameState?.portalActive, gameState?.swapActive, eliminationPending, trappedPlayers, exitConfirm]);
+  }, [gameState?.currentPlayerIndex, gameState?.turnCount, gameState?.phase, gameState?.portalActive, gameState?.swapActive, gameState?.freezeSelectActive, eliminationPending, trappedPlayers, exitConfirm]);
 
   // Countdown sounds + logic
   const cdSoundRef = useRef(null);
@@ -405,6 +405,8 @@ export default function App() {
                 players={gameState.players}
                 currentPlayerIndex={gameState.currentPlayerIndex}
                 gremlinCount={gameState.gremlinCount ?? 0}
+                frozenPlayerId={gameState?.frozenPlayerId ?? null}
+                frozenTurnsLeft={gameState?.frozenTurnsLeft ?? 0}
               />
               <div className="board-column">
                 <TurnIndicator
@@ -414,6 +416,7 @@ export default function App() {
                   totalTime={TURN_TIME}
                   portalActive={gameState.portalActive}
                   swapActive={gameState.swapActive}
+                  freezeSelectActive={gameState.freezeSelectActive}
                   lastEvent={gameState.lastEvent}
                   isGremlin={gameState.players[gameState.currentPlayerIndex].id >= PLAYERS.length - (gameState.gremlinCount ?? 0)}
                   isThinking={isThinking}
@@ -429,6 +432,7 @@ export default function App() {
                   items={gameState.items}
                   portalActive={gameState.portalActive}
                   swapActive={gameState.swapActive}
+                  freezeSelectActive={gameState.freezeSelectActive}
                   isGremlinTurn={isGremlinTurn}
                   bombBlast={bombBlast}
                   portalJump={portalJump}
@@ -437,6 +441,7 @@ export default function App() {
                   winnerPlayer={winnerPlayer}
                   flyingFreeze={flyingFreeze}
                   frozenPlayerId={gameState?.frozenPlayerId ?? null}
+                  frozenTurnsLeft={gameState?.frozenTurnsLeft ?? 0}
                 />
                 <button className="exit-game-btn" onClick={() => setExitConfirm(true)}>
                   ← Exit to menu
@@ -509,6 +514,8 @@ export default function App() {
                 players={gameState.players}
                 currentPlayerIndex={gameState.currentPlayerIndex}
                 gremlinCount={gameState.gremlinCount ?? 0}
+                frozenPlayerId={gameState?.frozenPlayerId ?? null}
+                frozenTurnsLeft={gameState?.frozenTurnsLeft ?? 0}
               />
               <GameBoard
                 grid={gameState.grid}
@@ -519,12 +526,14 @@ export default function App() {
                 items={gameState.items}
                 portalActive={gameState.portalActive}
                 swapActive={gameState.swapActive}
+                freezeSelectActive={gameState.freezeSelectActive}
                 isGremlinTurn={isGremlinTurn}
                 bombBlast={bombBlast}
                 portalJump={portalJump}
                 swapFlash={swapFlash}
                 flyingFreeze={flyingFreeze}
                 frozenPlayerId={gameState?.frozenPlayerId ?? null}
+                frozenTurnsLeft={gameState?.frozenTurnsLeft ?? 0}
               />
             </div>
           </motion.div>

@@ -1,13 +1,14 @@
 import { motion } from 'framer-motion';
 import { PLAYERS } from '../game/constants';
 
-export default function PlayerPanel({ players, currentPlayerIndex, gremlinCount = 0 }) {
+export default function PlayerPanel({ players, currentPlayerIndex, gremlinCount = 0, frozenPlayerId = null, frozenTurnsLeft = 0 }) {
   return (
     <div className="player-panel">
       {players.map((p) => {
         const config = PLAYERS[p.id];
         const isCurrent = p.id === currentPlayerIndex && !p.isEliminated;
         const isGremlin = p.id >= PLAYERS.length - gremlinCount;
+        const isFrozen = p.id === frozenPlayerId && !p.isEliminated;
         return (
           <motion.div
             key={p.id}
@@ -29,11 +30,13 @@ export default function PlayerPanel({ players, currentPlayerIndex, gremlinCount 
             <div className={
               isCurrent && !p.isEliminated ? 'player-card-turn' :
               p.isEliminated ? 'player-card-rip' :
+              isFrozen ? 'player-card-frozen' :
               isGremlin ? 'player-card-gremlin' : 'player-card-empty'
             }>
               {isCurrent && !p.isEliminated ? '← NOW' :
                p.isEliminated ? 'R.I.P.' :
-               isGremlin ? '👾' : '\u00a0'}
+               isFrozen ? `❄️ ${frozenTurnsLeft}` :
+               isGremlin ? '👾' : ' '}
             </div>
           </motion.div>
         );

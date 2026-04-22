@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { PLAYERS } from '../game/constants';
 import Cell from './Cell';
 
-export default function GameBoard({ grid, players, validMoveSet, onCellClick, currentPlayerIndex, items, portalActive, swapActive, isGremlinTurn, bombBlast, portalJump, swapFlash, trappedPlayers = [], winnerPlayer = null, flyingFreeze = null, frozenPlayerId = null }) {
+export default function GameBoard({ grid, players, validMoveSet, onCellClick, currentPlayerIndex, items, portalActive, swapActive, freezeSelectActive = false, isGremlinTurn, bombBlast, portalJump, swapFlash, trappedPlayers = [], winnerPlayer = null, flyingFreeze = null, frozenPlayerId = null, frozenTurnsLeft = 0 }) {
   const playerPositions = {};
   const deathCells = {};
   const itemMap = {};
@@ -61,6 +61,7 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
               isPortalDest={portalToKey === key}
               isSwapFlash={swapFlashSet ? swapFlashSet.has(key) : false}
               isTrapped={trappedPlayers.some(tp => tp.row === ri && tp.col === ci)}
+              isFreezeTarget={freezeSelectActive && players.some(p => !p.isEliminated && p.id !== players[currentPlayerIndex].id && p.row === ri && p.col === ci)}
             />
           );
         })
@@ -95,7 +96,10 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
             exit={{ opacity: 0, transition: { duration: 0.12 } }}
             transition={{ duration: 0.55, type: 'spring', stiffness: 180, damping: 22 }}
           >
-            <span style={{ fontSize: 'calc(var(--cell-size) * 0.32)', filter: 'drop-shadow(0 0 4px #7dd3fc)' }}>❄️</span>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1 }}>
+              <span style={{ fontSize: 'calc(var(--cell-size) * 0.28)', filter: 'drop-shadow(0 0 4px #7dd3fc)' }}>❄️</span>
+              <span style={{ fontSize: 'calc(var(--cell-size) * 0.18)', color: '#7dd3fc', fontWeight: 'bold' }}>3</span>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -124,7 +128,10 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
             exit={{ scale: 2.2, opacity: 0, transition: { duration: 0.45 } }}
             transition={{ duration: 0.15 }}
           >
-            <span style={{ fontSize: 'calc(var(--cell-size) * 0.32)', filter: 'drop-shadow(0 0 4px #7dd3fc)' }}>❄️</span>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1 }}>
+              <span style={{ fontSize: 'calc(var(--cell-size) * 0.28)', filter: 'drop-shadow(0 0 4px #7dd3fc)' }}>❄️</span>
+              <span style={{ fontSize: 'calc(var(--cell-size) * 0.18)', color: '#7dd3fc', fontWeight: 'bold' }}>{frozenTurnsLeft}</span>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

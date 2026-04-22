@@ -168,6 +168,18 @@ function pickSwapTarget(state) {
   return bestScore > -2 ? best : moves[0];
 }
 
+// Freeze: target the opponent with the most reachable space (most threatening).
+function pickFreezeTarget(state) {
+  const moves = getCurrentValidMoves(state); // opponent positions
+  if (moves.length === 0) return null;
+  let best = moves[0], bestScore = -1;
+  for (const m of moves) {
+    const score = reachable(state.grid, m.row, m.col);
+    if (score > bestScore) { bestScore = score; best = m; }
+  }
+  return best;
+}
+
 // Portal: jump to the empty cell with the most reachable open space.
 function pickPortalDest(state) {
   const moves = getCurrentValidMoves(state); // all empty cells
@@ -191,6 +203,7 @@ export function getGremlinMove(state, difficulty = 1) {
 
   // Handle special item states first at difficulty >= 1
   if (difficulty >= 1) {
+    if (state.freezeSelectActive) return pickFreezeTarget(state) ?? moves[0];
     if (state.swapActive) return pickSwapTarget(state) ?? moves[0];
     if (state.portalActive) return pickPortalDest(state) ?? moves[0];
   }

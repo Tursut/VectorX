@@ -33,8 +33,9 @@ export function initGame(magicItems = false, gremlinCount = 0) {
     nextSpawnIn: randomInt(ITEM_SPAWN_MIN, ITEM_SPAWN_MAX),
     portalActive: false,
     swapActive: false,
-    freezeNextPlayer: false,
+    freezeSelectActive: false,
     frozenPlayerId: null,
+    frozenTurnsLeft: 0,
     lastEvent: null,
   };
 }
@@ -137,22 +138,13 @@ function trySpawnItem(state) {
 
 // Completes a turn: eliminates trapped players, advances turn order, checks win, ticks items.
 function completeTurn(state) {
-  const { grid, players, currentPlayerIndex, turnCount, items, freezeNextPlayer } = state;
+  const { grid, players, currentPlayerIndex, turnCount, items } = state;
   const player = players[currentPlayerIndex];
 
   let updatedPlayers = players;
   let nextIndex = advanceToNextActive(updatedPlayers, currentPlayerIndex);
   let frozenPlayerId = state.frozenPlayerId ?? null;
-
-  let lastEvent = null;
-  if (freezeNextPlayer) {
-    const frozenPlayer = updatedPlayers[nextIndex];
-    if (!frozenPlayer.isEliminated) {
-      lastEvent = { type: 'freeze', byId: player.id, targetId: frozenPlayer.id };
-      frozenPlayerId = frozenPlayer.id;
-    }
-    nextIndex = advanceToNextActive(updatedPlayers, nextIndex);
-  }
+  let frozenTurnsLeft = state.frozenTurnsLeft ?? 0;
 
   // Only eliminate players whose turn is up next — others die when their turn arrives.
   let safety = 0;
@@ -166,10 +158,16 @@ function completeTurn(state) {
     nextIndex = advanceToNextActive(updatedPlayers, nextIndex);
   }
 
-  // Thaw the frozen player when their real turn arrives
-  if (!freezeNextPlayer && frozenPlayerId !== null) {
-    const nextPlayer = updatedPlayers[nextIndex];
-    if (nextPlayer.id === frozenPlayerId) frozenPlayerId = null;
+  // Skip frozen player and tick down their counter
+  if (frozenPlayerId !== null) {
+    const fp = updatedPlayers.find(p => p.id === frozenPlayerId);
+    if (!fp || fp.isEliminated) {
+      frozenPlayerId = null; frozenTurnsLeft = 0;
+    } else if (updatedPlayers[nextIndex]?.id === frozenPlayerId) {
+      frozenTurnsLeft -= 1;
+      if (frozenTurnsLeft <= 0) { frozenPlayerId = null; frozenTurnsLeft = 0; }
+      nextIndex = advanceToNextActive(updatedPlayers, nextIndex);
+    }
   }
 
   const stillAlive = updatedPlayers.filter((p) => !p.isEliminated);
@@ -190,9 +188,10 @@ function completeTurn(state) {
     items: tickedItems,
     portalActive: false,
     swapActive: false,
-    freezeNextPlayer: false,
+    freezeSelectActive: false,
     frozenPlayerId,
-    lastEvent,
+    frozenTurnsLeft,
+    lastEvent: null,
   };
 
   return trySpawnItem(nextState);
@@ -201,6 +200,14 @@ function completeTurn(state) {
 export function applyMove(state, targetRow, targetCol) {
   const { grid, players, currentPlayerIndex, items, portalActive, swapActive } = state;
   const player = players[currentPlayerIndex];
+
+  // Freeze target selection: freeze the chosen player for 3 turns
+  if (state.freezeSelectActive) {
+    const target = players.find(p => !p.isEliminated && p.id !== player.id && p.row === targetRow && p.col === targetCol);
+    if (!target) return state;
+    const result = completeTurn({ ...state, frozenPlayerId: target.id, frozenTurnsLeft: 3, freezeSelectActive: false });
+    return { ...result, lastEvent: { type: 'freeze', byId: player.id, targetId: target.id } };
+  }
 
   // Swap selection: exchange positions and claim the new squares
   if (swapActive) {
@@ -259,7 +266,7 @@ export function applyMove(state, targetRow, targetCol) {
       }
 
       case 'freeze':
-        return completeTurn({ ...partial, freezeNextPlayer: true });
+        return { ...partial, freezeSelectActive: true };
     }
   }
 
@@ -293,6 +300,7 @@ export function eliminateCurrentPlayer(state) {
     items: tickedItems,
     portalActive: false,
     swapActive: false,
+    freezeSelectActive: false,
     lastEvent: null,
   });
 }
@@ -301,6 +309,12 @@ export function getCurrentValidMoves(state) {
   const { grid, players, currentPlayerIndex, portalActive, swapActive } = state;
   const p = players[currentPlayerIndex];
   if (p.isEliminated) return [];
+
+  if (state.freezeSelectActive) {
+    return players
+      .filter(op => !op.isEliminated && op.id !== p.id)
+      .map(op => ({ row: op.row, col: op.col }));
+  }
 
   if (swapActive) {
     return players
@@ -347,8 +361,9 @@ export function initSandboxGame() {
     nextSpawnIn: 999,
     portalActive: false,
     swapActive: false,
-    freezeNextPlayer: false,
+    freezeSelectActive: false,
     frozenPlayerId: null,
+    frozenTurnsLeft: 0,
     lastEvent: null,
     sandboxMode: true,
   };
