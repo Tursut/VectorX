@@ -96,10 +96,7 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
             exit={{ opacity: 0, transition: { duration: 0.12 } }}
             transition={{ duration: 0.55, type: 'spring', stiffness: 180, damping: 22 }}
           >
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1 }}>
-              <span style={{ fontSize: 'calc(var(--cell-size) * 0.28)', filter: 'drop-shadow(0 0 4px #7dd3fc)' }}>❄️</span>
-              <span style={{ fontSize: 'calc(var(--cell-size) * 0.18)', color: '#7dd3fc', fontWeight: 'bold' }}>3</span>
-            </div>
+            <span style={{ fontSize: 'calc(var(--cell-size) * 0.32)', filter: 'drop-shadow(0 0 4px #7dd3fc)' }}>❄️</span>
           </motion.div>
         )}
       </AnimatePresence>
@@ -128,12 +125,29 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
             exit={{ scale: 2.2, opacity: 0, transition: { duration: 0.45 } }}
             transition={{ duration: 0.15 }}
           >
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1 }}>
-              <span style={{ fontSize: 'calc(var(--cell-size) * 0.28)', filter: 'drop-shadow(0 0 4px #7dd3fc)' }}>❄️</span>
-              {frozenTurnsLeft > 0 && (
-                <span style={{ fontSize: 'calc(var(--cell-size) * 0.18)', color: '#7dd3fc', fontWeight: 'bold' }}>{frozenTurnsLeft}</span>
-              )}
-            </div>
+            <span style={{ fontSize: 'calc(var(--cell-size) * 0.32)', filter: 'drop-shadow(0 0 4px #7dd3fc)' }}>❄️</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Frozen turn counter — top-left pill, same style as item badge ── */}
+      <AnimatePresence>
+        {frozenPlayerData && !flyingFreeze && frozenTurnsLeft > 0 && (
+          <motion.div
+            key={`frozen-count-${frozenPlayerId}-${frozenTurnsLeft}`}
+            style={{
+              position: 'absolute',
+              left: `calc(4px + ${frozenPlayerData.col} * (var(--cell-size) + var(--board-gap)) + 2px)`,
+              top:  `calc(4px + ${frozenPlayerData.row} * (var(--cell-size) + var(--board-gap)) + 2px)`,
+              pointerEvents: 'none',
+              zIndex: 6,
+            }}
+            initial={{ scale: 0.6, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 22 }}
+          >
+            <span className="frozen-count-badge">{frozenTurnsLeft}</span>
           </motion.div>
         )}
       </AnimatePresence>

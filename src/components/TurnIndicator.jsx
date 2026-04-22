@@ -4,9 +4,9 @@ import { GREMLIN_THOUGHTS } from '../game/ai';
 import SoundToggle from './SoundToggle';
 
 const FREEZE_LINES = [
-  (by, target) => `❄️ ${by} froze ${target}. Cold-blooded.`,
-  (by, target) => `❄️ ${target} is on ice. ${by} sends regards.`,
-  (by, target) => `❄️ ${by} hit ${target} with a freeze ray. Uncalled for, honestly.`,
+  (by, target) => `❄️ ${by} froze ${target} for 3 turns. Ice cold.`,
+  (by, target) => `❄️ ${target} is on ice. ${by} chose wisely.`,
+  (by, target) => `❄️ ${by} targeted ${target} specifically. 3 turns of nothing.`,
 ];
 
 const SWAP_LINES = [

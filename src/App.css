@@ -1696,6 +1696,18 @@
   line-height: 1.4;
 }
 
+.frozen-count-badge {
+  display: inline-block;
+  padding: 1px 4px;
+  border-radius: 5px;
+  background: rgba(8, 8, 24, 0.72);
+  border: 1px solid rgba(125, 211, 252, 0.4);
+  font-size: calc(var(--cell-size) * 0.21);
+  font-family: 'Fredoka One', sans-serif;
+  color: #7dd3fc;
+  line-height: 1.4;
+}
+
 /* ── Magic Items toggle ── */
 .magic-toggle {
   display: flex;
