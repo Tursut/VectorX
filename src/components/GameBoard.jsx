@@ -74,13 +74,16 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
             key="flying-freeze"
             style={{
               position: 'absolute',
-              left: `calc(4px + ${flyingFreeze.toCol} * (var(--cell-size) + var(--board-gap)) + 2px)`,
+              left: `calc(4px + ${flyingFreeze.toCol} * (var(--cell-size) + var(--board-gap)))`,
               top:  `calc(4px + ${flyingFreeze.toRow} * (var(--cell-size) + var(--board-gap)) + 2px)`,
+              width: 'var(--cell-size)',
+              display: 'flex',
+              justifyContent: 'center',
               pointerEvents: 'none',
               zIndex: 10,
             }}
             initial={{
-              x: `calc(${flyingFreeze.fromCol - flyingFreeze.toCol} * (var(--cell-size) + var(--board-gap)) + var(--cell-size) * 0.5 - 2px)`,
+              x: `calc(${flyingFreeze.fromCol - flyingFreeze.toCol} * (var(--cell-size) + var(--board-gap)))`,
               y: `calc(${flyingFreeze.fromRow - flyingFreeze.toRow} * (var(--cell-size) + var(--board-gap)) + var(--cell-size) * 0.5 - 2px)`,
               scale: 1.6,
               opacity: 0,
@@ -101,8 +104,11 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
             key={`frozen-badge-${frozenPlayerId}-${frozenTurnsLeft}`}
             style={{
               position: 'absolute',
-              left: `calc(4px + ${frozenPlayerData.col} * (var(--cell-size) + var(--board-gap)) + 2px)`,
+              left: `calc(4px + ${frozenPlayerData.col} * (var(--cell-size) + var(--board-gap)))`,
               top:  `calc(4px + ${frozenPlayerData.row} * (var(--cell-size) + var(--board-gap)) + 2px)`,
+              width: 'var(--cell-size)',
+              display: 'flex',
+              justifyContent: 'center',
               pointerEvents: 'none',
               zIndex: 6,
             }}
