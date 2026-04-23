@@ -352,8 +352,21 @@ Each step is a single commit-sized unit of work. Every step ends with an automat
 - **Tests: 22 new cases** (12 JoinScreen + 10 Lobby). 54 total client-side (was 32).
 - **CSS appended to `src/App.css`** (~100 lines under "Online: JoinScreen + Lobby"). Follows the existing global-CSS pattern rather than introducing a CSS-module split. Client CSS bundle grew +1.57 KB; JS bundle unchanged (components are tree-shaken since nothing imports them yet — Step 16 does).
 
-**Step 16 — Wire `OnlineGameController` to the hook; flag-gate Create/Join on `StartScreen`.** Behind `VITE_ENABLE_ONLINE=true` only.
+**Step 16 — Wire `OnlineGameController` to the hook; flag-gate Create/Join on `StartScreen`. ✅** Behind `VITE_ENABLE_ONLINE=true` only.
 - **Verify:** `StartScreen.test.jsx` asserts flag-off hides online buttons. Run `vite dev` with flag on, click through Create → Lobby → Start → play. One manual glance; everything else covered by tests.
+
+**Step 16 deviations:**
+- **Single "Play online" entry on StartScreen**, not two separate Create/Join buttons. The online home screen inside OnlineGameController splits into Create Room / Join Room there. Simpler StartScreen diff; same user flow in two clicks.
+- **Lazy-loaded online bundle via `React.lazy`.** Without this, the static `import OnlineGameController` pulls zod + the entire online subtree into the main bundle even when `ENABLE_ONLINE=false`, ballooning the flag-off build by ~70 KB. With `const OnlineGameController = ENABLE_ONLINE ? lazy(() => import('./OnlineGameController')) : null`, the main bundle stays lean and Vite code-splits the online module into a separate chunk that's only fetched when the flag is on AND the user clicks Play online. Flag-off production users still never pay the cost.
+- **`SERVER_URL` + `wsUrl(code)` in `src/config.js`.** Dev default `http://localhost:8787` matches `wrangler dev`. Preview/prod builds override via `VITE_SERVER_URL`. `wsUrl` converts `http://` → `ws://` and `https://` → `wss://` so the WS origin matches the HTTP origin's security posture.
+- **OnlineRoom is an inner component** of `OnlineGameController` — keeps `useNetworkGame` behind a "we have a URL now" gate so hooks rules aren't violated. Outer controller owns the state machine (`'home' | 'creating' | 'create-naming' | 'joining' | 'connected'`).
+- **Create flow reuses `JoinScreen`** with a pre-filled `defaultCode`. Avoided a separate "enter your name for a new room" form.
+- **Magic-items toggle is local to the host in-lobby.** Server defaults `lobby.magicItems` to `false` until START; the host's local toggle is sent as part of `START {magicItems}`. Non-hosts don't see the toggle at all.
+- **Game rendering in online mode skips animations for Step 16** — no bomb blast, portal jump, swap flash, flying-freeze, or elimination moment. The state-driven `GameBoard`/`PlayerPanel`/`TurnIndicator` components all render correctly; extra polish can land later without changing the protocol. Sound is also skipped online.
+- **No human-turn countdown UI** — server enforces the timer and auto-forfeits. Client doesn't show "5 seconds left" because `GAME_STATE` doesn't carry a timestamp today. Future work.
+- **GameOverScreen gets auto-chunked by Vite** into a separate ~158 KB bundle once the first `lazy()` boundary appears. Total shipped bytes to a flag-off user are essentially unchanged (~370 KB split across two chunks vs 370 KB monolithic).
+- **Tests: 10 new cases** (3 StartScreen button visibility + 7 OnlineGameController state machine). 64 total client-side.
+- **Manual verification:** started `wrangler dev` + `VITE_ENABLE_ONLINE=true VITE_SERVER_URL=http://localhost:8787 npm run dev` in the sandbox, confirmed the HTML loads, App.jsx compiles via Vite, `POST /rooms` returns a fresh code. Full click-through happens on the user's Mac.
 
 ### End-to-end validation (step 17)
 

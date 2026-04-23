@@ -207,6 +207,26 @@ const { gameState, lobby, connectionState, mySeatId, lastError,
 - **Imperative senders (`join`, `start`, `move`)** push validated messages through the client's send queue. No client-side host checks — server enforces with `UNAUTHORIZED`.
 - **Lifecycle:** `useEffect([url])` creates one client per URL; cleanup calls `client.close()` on unmount. React strict-mode's double-invoke doesn't leak sockets — the first is closed before the second is created.
 
+### Online mode (`src/OnlineGameController.jsx`, Step 16)
+
+The outer `App.jsx` is a thin mode router. When `ENABLE_ONLINE` is true and the user clicks **Play online** on `StartScreen`, `setMode('online')` mounts `OnlineGameController` under a `<Suspense>` boundary. OnlineGameController runs a small state machine:
+
+| screen | what renders |
+| --- | --- |
+| `home` | two buttons (Create Room / Join Room) + ← Menu back-link |
+| `creating` | `home` screen with a disabled "Creating…" label while `fetch('POST /rooms')` resolves |
+| `create-naming` | `JoinScreen` with the just-minted code pre-filled (user only fills in their name) |
+| `joining` | `JoinScreen` with empty defaultCode |
+| `connected` | inner `<OnlineRoom>` mounts — owns the WebSocket lifecycle |
+
+`OnlineRoom` calls `useNetworkGame({ url: wsUrl(code) })` and routes on connection state + game phase: status screen (connecting / error / reconnecting) → `Lobby` (pre-start) → game screen (`PlayerPanel` + `TurnIndicator` + `GameBoard`) → `GameOverScreen`. Cell clicks call `move(row, col)` when `mySeatId === gameState.currentPlayerIndex`.
+
+**Server URL configuration.** `src/config.js` exports `SERVER_URL` (defaults to `http://localhost:8787`, overridable via `VITE_SERVER_URL` at build time) and `wsUrl(code)` which converts `http → ws`/`https → wss` and appends `/rooms/<code>/ws`. Step 18 sets `VITE_SERVER_URL` to the preview `*.workers.dev` origin.
+
+**Lazy-load boundary.** `App.jsx` uses `ENABLE_ONLINE ? lazy(() => import('./OnlineGameController')) : null`, so the entire online subtree (OnlineGameController + useNetworkGame + createClient + zod + JoinScreen + Lobby) is in a separate Vite chunk that's only fetched when the flag is on at build time AND the user actually navigates to online mode. Flag-off builds never load the chunk.
+
+**Step 16 scope-trims** (fine to add later, no protocol change needed): no in-game animations (bomb blast, portal jump, swap flash, flying-freeze, elimination moment); no sound in online mode; no visible turn-timer countdown; no reconnect UX polish beyond `client.js`'s automatic backoff.
+
 ### Room code format
 
 - Alphabet: `23456789ABCDEFGHJKLMNPQRSTUVWXYZ` — base32 excluding visually-confusable chars (`0/O/1/I`). 32 symbols → 5 bits per char.
@@ -240,7 +260,7 @@ src/
   main.jsx                       ← React entry, mounts <App />
   App.jsx                        ← thin mode router: `mode: 'local' | 'online'` state, picks LocalGameController or (behind ENABLE_ONLINE flag) OnlineGameController. Owns the global stylesheet import.
   LocalGameController.jsx        ← the entire hotseat app: gameReducer, all effects (timers, sounds, animations, bot turn driver, iOS audio resume), start/game/sandbox/gameover screens.
-  OnlineGameController.jsx       ← stub returning null; real implementation lands in Steps 13–16. Tree-shaken out of prod bundle while ENABLE_ONLINE is false.
+  OnlineGameController.jsx       ← online multiplayer shell (Step 16). State machine home → creating → JoinScreen → connected (OnlineRoom). Inner OnlineRoom owns the WebSocket via useNetworkGame and renders Lobby / game / GameOverScreen based on phase. Lazy-loaded via App.jsx's lazy() so its subtree only ships when ENABLE_ONLINE is true at build time.
   App.css                        ← all app styles (global)
   index.css                      ← minimal reset / base
   config.js                      ← build-time feature flags (currently: ENABLE_ONLINE). Single read site for `import.meta.env.VITE_*`.
@@ -386,6 +406,8 @@ CI: `.github/workflows/test.yml` runs all three as separate jobs on pushes to th
 
 ## What's NOT here yet (framing for the multiplayer work)
 
-**Server done; client transport + hook + screens all exist — just no routing yet.** Rooms play end-to-end on the server for any human count 0–4. The client has `createClient` (Step 13), `useNetworkGame` (Step 14), and `JoinScreen`/`Lobby` components (Step 15) — but nothing renders them. Still missing: **Step 16** wires `OnlineGameController` to the hook + adds Create Room / Join Room buttons to `StartScreen` behind `VITE_ENABLE_ONLINE`. Playwright E2E (Step 17) then validates the browser flow. Online play via the real game UI is still impossible today — four humans must still share one device.
+**Online play works end-to-end in a browser.** Run `npx wrangler dev` + `VITE_ENABLE_ONLINE=true VITE_SERVER_URL=http://localhost:8787 npm run dev`, click Play online → Create Room → Alice → Start game, and a real 1h3b game plays out against the server-driven bots. Second tab with the share link joins a second human. Steps 0–16 together shipped the full stack.
 
-The test harness (Step 1), the `VITE_ENABLE_ONLINE` flag (Step 2), the client mode router + controllers (Step 3), the Worker skeleton (Step 4), `RoomDurableObject` + `POST /rooms` (Step 5), the WebSocket upgrade via the Hibernation API (Step 6), the zod-validated wire format (Step 7), the shared game module with server-side `validateMove` (Step 8), the lobby dispatcher (Step 9), the server-authoritative turn loop (Step 10), the alarm-driven bot driver (Step 11), turn-timer + disconnect=elimination (Step 12), the auto-reconnecting client WebSocket wrapper (Step 13), the `useNetworkGame` hook with the local-reducer-shape contract (Step 14), and the `JoinScreen` + `Lobby` presentational components (Step 15) are all in place so later steps can grow the online stack behind the gate without disturbing production.
+What's still missing for a real deploy: Playwright E2E tests (Step 17) validating the browser flow end-to-end; Cloudflare `wrangler deploy` + a `gh-pages-preview` branch (Step 18, first Cloudflare signup); production cutover (Step 19); abuse + hygiene hardening (Step 20). No in-game animations on the online path yet (bomb blast, portal jump, swap flash, flying-freeze, elimination moment) — they exist in LocalGameController and can port over; deferred because they require no protocol change. No sound on the online path. No visible turn-timer countdown on the client (server enforces the deadline).
+
+The test harness (Step 1), the `VITE_ENABLE_ONLINE` flag (Step 2), the client mode router + controllers (Step 3), the Worker skeleton (Step 4), `RoomDurableObject` + `POST /rooms` (Step 5), the WebSocket upgrade via the Hibernation API (Step 6), the zod-validated wire format (Step 7), the shared game module with server-side `validateMove` (Step 8), the lobby dispatcher (Step 9), the server-authoritative turn loop (Step 10), the alarm-driven bot driver (Step 11), turn-timer + disconnect=elimination (Step 12), the auto-reconnecting client WebSocket wrapper (Step 13), the `useNetworkGame` hook with the local-reducer-shape contract (Step 14), the `JoinScreen` + `Lobby` presentational components (Step 15), and the online wire-up in `OnlineGameController` with a lazy-loaded chunk + Play-online entry on StartScreen (Step 16) are all in place. The online branch ships as a separate Vite chunk that flag-off builds never fetch.

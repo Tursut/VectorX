@@ -1067,6 +1067,21 @@
 .sandbox-entry-btn:hover {
   color: #8855bb;
 }
+.online-entry-btn {
+  background: none;
+  border: none;
+  color: #4a8acc;
+  font-size: 12px;
+  font-family: 'Segoe UI', sans-serif;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  padding: 4px 0;
+  display: block;
+  transition: color 0.15s;
+}
+.online-entry-btn:hover {
+  color: #7ab8ff;
+}
 
 /* ── Sandbox Panel ── */
 .sandbox-panel {
@@ -1938,4 +1953,78 @@
   align-self: flex-start;
   padding: 6px 12px;
   font-size: 13px;
+}
+
+/* ---------- Online home + status screens (Step 16) ---------- */
+
+.online-home {
+  max-width: 420px;
+  margin: 72px auto;
+  padding: 28px;
+  color: #e8e8f4;
+  text-align: center;
+  background: rgba(20, 24, 48, 0.85);
+  border: 1px solid #3a3d66;
+  border-radius: 12px;
+}
+.online-home-title {
+  font-size: 28px;
+  letter-spacing: 0.06em;
+  margin: 16px 0 8px;
+}
+.online-home-sub {
+  color: #aaaacc;
+  font-size: 13px;
+  margin-bottom: 24px;
+}
+.online-home-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.online-home-btn {
+  padding: 14px 20px;
+  font-size: 16px;
+  font-family: inherit;
+  border-radius: 8px;
+  border: 1px solid #4a4d88;
+  background: #1d234a;
+  color: #e8e8f4;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.online-home-btn:hover:not(:disabled) {
+  background: #2a3168;
+}
+.online-home-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.online-back-btn {
+  background: none;
+  border: none;
+  color: #aaaacc;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 4px 8px;
+  align-self: flex-start;
+}
+.online-back-btn:hover {
+  color: #e8e8f4;
+}
+.online-error {
+  color: #ff8899;
+  font-size: 13px;
+  margin-top: 16px;
+}
+.online-status {
+  max-width: 420px;
+  margin: 72px auto;
+  padding: 28px;
+  color: #e8e8f4;
+  text-align: center;
+  background: rgba(20, 24, 48, 0.85);
+  border: 1px solid #3a3d66;
+  border-radius: 12px;
 }

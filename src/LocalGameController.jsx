@@ -38,7 +38,7 @@ const fadeSlide = {
   transition: { duration: 0.22 },
 };
 
-export default function LocalGameController() {
+export default function LocalGameController({ onGoOnline } = {}) {
   const [screen, setScreen] = useState('start');
   const [magicItems, setMagicItems] = useState(true);
   const [gremlinCount, setGremlinCount] = useState(3);
@@ -386,6 +386,7 @@ export default function LocalGameController() {
               onChangeGremlinCount={setGremlinCount}
               soundEnabled={soundEnabled}
               onToggleSound={toggleSound}
+              onGoOnline={onGoOnline}
             />
           </motion.div>
         )}

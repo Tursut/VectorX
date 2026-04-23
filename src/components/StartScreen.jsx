@@ -1,7 +1,7 @@
 import { PLAYERS, ITEM_TYPES } from '../game/constants';
 import SoundToggle from './SoundToggle';
 
-export default function StartScreen({ onStart, onSandbox, magicItems, onToggleMagicItems, gremlinCount, onChangeGremlinCount, soundEnabled, onToggleSound }) {
+export default function StartScreen({ onStart, onSandbox, magicItems, onToggleMagicItems, gremlinCount, onChangeGremlinCount, soundEnabled, onToggleSound, onGoOnline }) {
   const humanCount = PLAYERS.length - gremlinCount;
   const gremlinLabel =
     gremlinCount === 0 ? 'All human. May the best player win.' :
@@ -100,6 +100,11 @@ export default function StartScreen({ onStart, onSandbox, magicItems, onToggleMa
 
         <p className="start-footnote">Starting player chosen by fate (it's random).</p>
         <button className="sandbox-entry-btn" onClick={onSandbox}>🧪 testing ground</button>
+        {onGoOnline && (
+          <button className="online-entry-btn" onClick={onGoOnline}>
+            🌐 play online with friends
+          </button>
+        )}
       </div>
 
       {/* Sticky begin button — always visible at bottom */}
