@@ -326,8 +326,17 @@ Each step is a single commit-sized unit of work. Every step ends with an automat
 - **No integration with the React tree yet.** Nothing imports `client.js` yet — Step 14's `useNetworkGame` hook is the first consumer. Until then, Vite tree-shakes the module entirely; client bundle size is byte-identical to Step 12.
 - **Tests: 14 new cases** (21 total client-side). Uses a hand-written `MockWebSocket` installed via `vi.stubGlobal` and Vitest's fake timers for deterministic backoff assertions. Covers connect transitions, inbound happy-path / malformed-JSON / wrong-shape, outbound validation throw paths, queue FIFO before and across reconnects, backoff growth, backoff reset on successful open, explicit close is idempotent and non-reconnecting.
 
-**Step 14 — `useNetworkGame` hook (contract test).** Returns the exact same state shape as the existing `useReducer` path.
+**Step 14 — `useNetworkGame` hook (contract test). ✅** Returns the exact same state shape as the existing `useReducer` path.
 - **Verify:** `src/net/__tests__/useNetworkGame.test.jsx` — **contract test**: fake a server script, assert every field the local reducer produces also appears from the hook. This is the guarantee that lets existing components render online play unchanged.
+
+**Step 14 deviations:**
+- **Hook API:** returns `{ gameState, lobby, connectionState, mySeatId, lastError, join, start, move }`. `gameState` is the drop-in for `useReducer(gameReducer, null)`; the rest are online-only additions the UI can opt into.
+- **`gameState` is the GAME_STATE message minus its `type` field** — so it's a superset of `initGame()` output (has every local key plus per-player `displayName/isBot/isHost/finishTurn`). The contract test proves the superset relationship by iterating `Object.keys(initGame(false, 3))` and asserting each is present on `hook.gameState`.
+- **`mySeatId` discovery by displayName lookup** in the next LOBBY_STATE / JOIN after `join()` is called. Server rejects duplicate names so exact-match is unambiguous. A dedicated `WELCOME {seatId}` server reply would be cleaner but requires a protocol version bump — deferred unless reconnect-identity lands.
+- **`ELIMINATED` / `GAME_OVER` messages are ignored by the hook for Step 14.** The following `GAME_STATE` broadcast carries the authoritative state change; using it as the single source of truth keeps the contract simple. Future UI polish (elimination toast, winner flourish) can add a `lastEvent` field without breaking the contract.
+- **No host-only guard on `start()` client-side.** Server enforces via `UNAUTHORIZED`. Step 15's UI will grey-out the button for non-hosts.
+- **Tests: 11 new cases** (32 total client-side). Mocks `../client.js` via `vi.mock` and captures the `onMessage` + `onStateChange` callbacks. Contract tests 1 and 2 (top-level keys + per-player keys) are the load-bearing ones; others cover lobby/mySeatId/senders/error/connection-state/unmount-cleanup.
+- **Nothing consumes the hook yet** — Vite tree-shakes it out of the prod bundle. Client bundle byte-identical to Step 13.
 
 **Step 15 — `JoinScreen` + `Lobby` components.** `JoinScreen` autofocus, uppercase, URL-paste. `Lobby` shows joined players + empty seats + host-only Start.
 - **Verify:** `JoinScreen.test.jsx` and `Lobby.test.jsx` unit tests.

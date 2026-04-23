@@ -191,7 +191,21 @@ client.close();           // sticky: no reconnect after this
 Scope limits (deferred to later):
 
 - **No session identity across reconnects.** A reconnecting socket is treated by the server as a fresh connection — the caller must re-HELLO and will get a new seat assignment (or `ROOM_FULL` if their old seat was filled). Seat-sticky reconnects would require cross-origin `Set-Cookie` on the server, DO-side session→seat mapping, and a change to `webSocketClose` — out of scope for Step 13.
-- **No React wiring.** Step 14's `useNetworkGame` hook is the first consumer. Until then Vite tree-shakes the module entirely.
+
+### Hook (`src/net/useNetworkGame.js`)
+
+Step 14. React hook layered on `createClient`. The first consumer of `client.js`.
+
+```js
+const { gameState, lobby, connectionState, mySeatId, lastError,
+        join, start, move } = useNetworkGame({ url });
+```
+
+- **`gameState` is shape-compatible with `useReducer(gameReducer, null)`.** After a `GAME_STATE` broadcast arrives, it carries every field `initGame()` produces (plus per-player `displayName/isBot/isHost/finishTurn` from the server). This is the contract that lets Step 16 swap `useReducer` → `useNetworkGame` in `OnlineGameController` without touching any component.
+- **`mySeatId`** is derived from the first LOBBY_STATE / JOIN after `join(displayName)` is called — lookup by displayName in the roster. Server duplicate-name rejection makes exact-match unambiguous.
+- **`ELIMINATED` / `GAME_OVER` messages are ignored** for now. The authoritative state change arrives via the following `GAME_STATE` broadcast, so using it as the single source of truth keeps the contract simple. Future UI polish can add a `lastEvent` field without breaking it.
+- **Imperative senders (`join`, `start`, `move`)** push validated messages through the client's send queue. No client-side host checks — server enforces with `UNAUTHORIZED`.
+- **Lifecycle:** `useEffect([url])` creates one client per URL; cleanup calls `client.close()` on unmount. React strict-mode's double-invoke doesn't leak sockets — the first is closed before the second is created.
 
 ### Room code format
 
@@ -233,6 +247,8 @@ src/
   net/                           ← client-side networking (Step 13+). No React here; pure transport layer.
     client.js                    ← createClient({url,onMessage,onStateChange}) → {send,close,getState}. Zod-validated send/recv, send queue, jittered-exponential auto-reconnect, sticky explicit close. No consumer yet; Step 14's useNetworkGame wires it in.
     __tests__/client.test.js     ← 14 cases via a hand-written MockWebSocket + fake timers: connect transitions, inbound happy-path/malformed/wrong-shape, outbound validation throws, queue FIFO before-and-after reconnect, backoff growth + reset, sticky close.
+    useNetworkGame.js            ← React hook wrapping createClient. `gameState` is shape-compatible with useReducer(gameReducer, null); also exposes lobby, connectionState, mySeatId, lastError, and join/start/move senders. Step 16 wires it into OnlineGameController.
+    __tests__/useNetworkGame.test.jsx ← 11 cases. Two "contract" checks iterate Object.keys(initGame(false, 3)) and assert each key is present on hook.gameState — that's what guarantees Step 16's useReducer→useNetworkGame swap won't break any component. Other cases cover lobby/mySeatId/senders/error/connection-state/unmount-cleanup. Mocks ../client.js via vi.mock.
   game/                          ← pure game module — no React, no DOM, no window. IMPORTED BY SERVER (see Step 8).
     constants.js                 ← GRID_SIZE, PLAYERS, DIRECTIONS, TURN_TIME, ITEM_TYPES, spawn tuning
     logic.js                     ← initGame, initSandboxGame, applyMove, completeTurn (internal), eliminateCurrentPlayer, eliminatePlayer (server-side arbitrary-player elimination for disconnect), getCurrentValidMoves, getValidMoves, placeSandboxItem, validateMove (server-side security boundary)
@@ -366,6 +382,6 @@ CI: `.github/workflows/test.yml` runs all three as separate jobs on pushes to th
 
 ## What's NOT here yet (framing for the multiplayer work)
 
-**Server side is complete; client wrapper just landed.** Rooms play end-to-end on the server for any human count 0–4. The client-side WebSocket wrapper (`src/net/client.js`, Step 13) is the first piece of client-side networking — but nothing consumes it yet. Still missing: no `useNetworkGame` hook (Step 14), no Lobby / JoinScreen UI (Step 15), no wire-up from `OnlineGameController` to the wrapper (Step 16). Playwright E2E (Step 17) then validates the full browser-level flow. Online play via the real game UI is still impossible today — four humans must still share one device.
+**Server side is complete; client transport + state hook just landed.** Rooms play end-to-end on the server for any human count 0–4. The client now has `createClient` (Step 13) and `useNetworkGame` (Step 14) — but nothing renders them yet. Still missing: no Lobby / JoinScreen UI (Step 15), no wire-up from `OnlineGameController` to the hook (Step 16). Playwright E2E (Step 17) then validates the full browser-level flow. Online play via the real game UI is still impossible today — four humans must still share one device.
 
-The test harness (Step 1), the `VITE_ENABLE_ONLINE` flag (Step 2), the client mode router + controllers (Step 3), the Worker skeleton (Step 4), `RoomDurableObject` + `POST /rooms` (Step 5), the WebSocket upgrade via the Hibernation API (Step 6), the zod-validated wire format (Step 7), the shared game module with server-side `validateMove` (Step 8), the lobby dispatcher (Step 9), the server-authoritative turn loop (Step 10), the alarm-driven bot driver (Step 11), turn-timer + disconnect=elimination (Step 12), and the auto-reconnecting client WebSocket wrapper (Step 13) are all in place so later steps can grow the online stack behind the gate without disturbing production.
+The test harness (Step 1), the `VITE_ENABLE_ONLINE` flag (Step 2), the client mode router + controllers (Step 3), the Worker skeleton (Step 4), `RoomDurableObject` + `POST /rooms` (Step 5), the WebSocket upgrade via the Hibernation API (Step 6), the zod-validated wire format (Step 7), the shared game module with server-side `validateMove` (Step 8), the lobby dispatcher (Step 9), the server-authoritative turn loop (Step 10), the alarm-driven bot driver (Step 11), turn-timer + disconnect=elimination (Step 12), the auto-reconnecting client WebSocket wrapper (Step 13), and the `useNetworkGame` hook with the local-reducer-shape contract (Step 14) are all in place so later steps can grow the online stack behind the gate without disturbing production.
