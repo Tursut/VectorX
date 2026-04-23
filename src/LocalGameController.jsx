@@ -2,11 +2,11 @@ import { useReducer, useState, useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { initGame, initSandboxGame, applyMove, getCurrentValidMoves, eliminateCurrentPlayer, placeSandboxItem, getValidMoves } from './game/logic';
 import { getGremlinMove } from './game/ai';
-import { PLAYERS, TURN_TAUNTS, TURN_TIME, GRID_SIZE } from './game/constants';
+import { PLAYERS, TURN_TIME, GRID_SIZE } from './game/constants';
 import * as sounds from './game/sounds';
 import StartScreen from './components/StartScreen';
+import GameScreen from './components/GameScreen';
 import GameBoard from './components/GameBoard';
-import TurnIndicator from './components/TurnIndicator';
 import PlayerPanel from './components/PlayerPanel';
 import GameOverScreen from './components/GameOverScreen';
 import EventToast from './components/EventToast';
@@ -38,6 +38,15 @@ const fadeSlide = {
   transition: { duration: 0.22 },
 };
 
+// Seats this client controls in hotseat: every non-bot seat.
+function humanSeats(gameState) {
+  if (!gameState) return [];
+  return gameState.players
+    .map((p, i) => [p, i])
+    .filter(([p]) => p.id < PLAYERS.length - (gameState.gremlinCount ?? 0))
+    .map(([, i]) => i);
+}
+
 export default function LocalGameController({
   onCreateOnline,
   onJoinOnline,
@@ -57,25 +66,8 @@ export default function LocalGameController({
   const [eventToast, setEventToast] = useState(null);
   const [countdown, setCountdown] = useState(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [trappedPlayers, setTrappedPlayers] = useState([]);
-  const [eliminationPending, setEliminationPending] = useState(false);
   const [flyingFreeze, setFlyingFreeze] = useState(null);
   const [exitConfirm, setExitConfirm] = useState(false);
-  const prevPlayersRef = useRef(null);
-  const trappedTimerRef = useRef(null);
-
-  // iOS audio recovery: resume context on any user interaction after backgrounding
-  useEffect(() => {
-    const resume = () => sounds.resumeAudio();
-    document.addEventListener('touchstart', resume, { passive: true });
-    document.addEventListener('touchend',   resume, { passive: true });
-    document.addEventListener('click',      resume);
-    return () => {
-      document.removeEventListener('touchstart', resume, { passive: true });
-      document.removeEventListener('touchend',   resume, { passive: true });
-      document.removeEventListener('click',      resume);
-    };
-  }, []);
 
   useEffect(() => {
     if (!bombBlast) return;
@@ -95,24 +87,19 @@ export default function LocalGameController({
     return () => clearTimeout(t);
   }, [swapFlash]);
 
-  // Freeze / swap sound and animation
+  // Flying-freeze projectile animation (sound itself fires in GameScreen).
   useEffect(() => {
     const ev = gameState?.lastEvent;
-    if (!ev) return;
-    if (ev.type === 'freeze') {
-      sounds.playFreeze();
-      const collector = gameState.players.find(p => p.id === ev.byId);
-      const frozen = gameState.players.find(p => p.id === ev.targetId);
-      if (collector && frozen) {
-        setFlyingFreeze({ fromRow: collector.row, fromCol: collector.col, toRow: frozen.row, toCol: frozen.col });
-        setTimeout(() => setFlyingFreeze(null), 800);
-      }
-    } else if (ev.type === 'swap') {
-      sounds.playSwap();
+    if (!ev || ev.type !== 'freeze') return;
+    const collector = gameState.players.find(p => p.id === ev.byId);
+    const frozen = gameState.players.find(p => p.id === ev.targetId);
+    if (collector && frozen) {
+      setFlyingFreeze({ fromRow: collector.row, fromCol: collector.col, toRow: frozen.row, toCol: frozen.col });
+      setTimeout(() => setFlyingFreeze(null), 800);
     }
   }, [gameState?.lastEvent]);
 
-  // Dismiss toast after its display duration — decoupled from gameState changes
+  // Dismiss toast after its display duration.
   useEffect(() => {
     if (!eventToast) return;
     const duration = eventToast.type === 'freeze' ? 2000 : 1400;
@@ -120,12 +107,11 @@ export default function LocalGameController({
     return () => clearTimeout(t);
   }, [eventToast?.id]);
 
-  // Timer — ticks on last 3s for human turns only
+  // Turn timer — ticks on last 3s for human turns only; dispatches TIMEOUT at 0.
   useEffect(() => {
     if (!gameState || gameState.phase !== 'playing') return;
-    if (gameState.sandboxMode) return; // no timer in sandbox
-    if (eliminationPending || trappedPlayers.length > 0) return;
-    if (exitConfirm) return; // paused during exit confirmation
+    if (gameState.sandboxMode) return;
+    if (exitConfirm) return;
     const playerIndex = gameState.currentPlayerIndex;
     const gc = gameState.gremlinCount ?? 0;
     const isHuman = gameState.players[playerIndex].id < PLAYERS.length - gc;
@@ -144,75 +130,17 @@ export default function LocalGameController({
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [gameState?.currentPlayerIndex, gameState?.phase, gameState?.portalActive, gameState?.freezeSelectActive, eliminationPending, trappedPlayers, exitConfirm]);
+  }, [gameState?.currentPlayerIndex, gameState?.phase, gameState?.portalActive, gameState?.freezeSelectActive, exitConfirm]);
 
-  // Your-turn chime — plays when it becomes a human's turn
+  // Gremlin auto-move.
   useEffect(() => {
     if (!gameState || gameState.phase !== 'playing') return;
-    if (gameState.sandboxMode) return;
-    const gc = gameState.gremlinCount ?? 0;
-    const isHuman = gameState.players[gameState.currentPlayerIndex].id < PLAYERS.length - gc;
-    if (isHuman) sounds.playYourTurn();
-  }, [gameState?.currentPlayerIndex, gameState?.phase]);
-
-  // Elimination animation + sound + moment — detects the false→true transition per player
-  useEffect(() => {
-    if (!gameState?.players) { prevPlayersRef.current = null; return; }
-    if (prevPlayersRef.current) {
-      const gc = gameState.gremlinCount ?? 0;
-      const newlyTrapped = [];
-      gameState.players.forEach((p, i) => {
-        const prev = prevPlayersRef.current[i];
-        if (prev && p.isEliminated && !prev.isEliminated) {
-          const isHuman = p.id < PLAYERS.length - gc;
-          const humanAlive = gameState.players.some(q => !q.isEliminated && q.id < PLAYERS.length - gc);
-          if (isHuman || humanAlive) {
-            newlyTrapped.push({ id: p.id, row: p.deathCell?.row ?? prev.row, col: p.deathCell?.col ?? prev.col });
-          }
-        }
-      });
-      if (newlyTrapped.length > 0) {
-        setEliminationPending(true);
-        clearTimeout(trappedTimerRef.current);
-        trappedTimerRef.current = setTimeout(() => {
-          setEliminationPending(false);
-          setTrappedPlayers(newlyTrapped);
-          sounds.playElimination();
-          trappedTimerRef.current = setTimeout(() => {
-            setTrappedPlayers([]);
-          }, 2500);
-        }, 450);
-      }
-    }
-    prevPlayersRef.current = gameState.players;
-  }, [gameState?.players]);
-
-  // Background theme — starts with game, stops on game over
-  useEffect(() => {
-    if (gameState?.phase === 'playing') sounds.startBgTheme();
-    else sounds.stopBgTheme();
-  }, [gameState?.phase]);
-
-  // Game-over sound — waits for any death animation to finish first
-  useEffect(() => {
-    if (gameState?.phase !== 'gameover') return;
-    if (trappedPlayers.length > 0 || eliminationPending) return;
-    if (gameState.winner !== null) sounds.playWin();
-    else sounds.playDraw();
-  }, [gameState?.phase, trappedPlayers, eliminationPending]);
-
-  // Gremlin auto-move
-  useEffect(() => {
-    if (!gameState || gameState.phase !== 'playing') return;
-    if (eliminationPending || trappedPlayers.length > 0) return;
-    if (exitConfirm) return; // pause bots during exit confirmation
+    if (exitConfirm) return;
     const gc = gameState.gremlinCount ?? 0;
     if (gc === 0) return;
     const currentPlayerId = gameState.players[gameState.currentPlayerIndex].id;
     if (currentPlayerId < PLAYERS.length - gc) return; // human turn
 
-    // Defer setIsThinking so the browser paints first — this gives Framer Motion
-    // time to snapshot layout positions before the re-render (fixes swap avatar bug)
     const rafId = requestAnimationFrame(() => setIsThinking(true));
     const humanCount = PLAYERS.length - gc;
     const anyHumanAlive = gameState.players.some(p => !p.isEliminated && p.id < humanCount);
@@ -230,9 +158,9 @@ export default function LocalGameController({
     }, delay);
     return () => { cancelAnimationFrame(rafId); clearTimeout(t); setIsThinking(false); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameState?.currentPlayerIndex, gameState?.turnCount, gameState?.phase, gameState?.portalActive, gameState?.swapActive, gameState?.freezeSelectActive, eliminationPending, trappedPlayers, exitConfirm]);
+  }, [gameState?.currentPlayerIndex, gameState?.turnCount, gameState?.phase, gameState?.portalActive, gameState?.swapActive, gameState?.freezeSelectActive, exitConfirm]);
 
-  // Countdown sounds + logic
+  // Countdown sounds + logic.
   const cdSoundRef = useRef(null);
   useEffect(() => {
     if (countdown === null) return;
@@ -242,7 +170,6 @@ export default function LocalGameController({
       setScreen('game');
       return;
     }
-    // Delay sound ~200ms so it lands when the number peaks on screen
     cdSoundRef.current = setTimeout(() => {
       if (countdown === 0) sounds.playCountdownGo();
       else sounds.playCountdownBeat();
@@ -279,12 +206,9 @@ export default function LocalGameController({
     setScreen('start');
   }
 
+  // Pre-dispatch imperative animation computations. Sound is now fired by
+  // GameScreen on turn-change, so only the animation state setters remain.
   function handleMove(row, col) {
-    const gc = gameState?.gremlinCount ?? 0;
-    const isBot = gameState?.players[gameState.currentPlayerIndex].id >= PLAYERS.length - gc;
-    sounds.playMove(isBot);
-    setTimeout(() => sounds.playClaim(), 200);
-
     if (gameState?.magicItems) {
       const item = gameState.items.find(i => i.row === row && i.col === col);
       if (item?.type === 'bomb') {
@@ -301,11 +225,10 @@ export default function LocalGameController({
         setBombBlast({ origin: { row, col }, cleared });
         sounds.playBomb();
       } else if (item?.type === 'portal') {
-        sounds.playPortal(); // item pickup
+        sounds.playPortal();
       } else if (item?.type === 'swap') {
         sounds.playSwapActivate();
       }
-      // freeze → playFreeze() fires via lastEvent effect
     }
 
     if (gameState?.portalActive) {
@@ -328,26 +251,14 @@ export default function LocalGameController({
     sounds.setMuted(!next);
   }
 
-  // Only show valid-move hints on human turns — bots don't need them and the
-  // swap-target animation creates a stacking context that hides the icon layer.
-  const isGremlinTurn = gameState
+  const mySeats = humanSeats(gameState);
+
+  // Sandbox uses its own layout (SandboxPanel sidebar), not GameScreen.
+  const sandboxIsGremlinTurn = gameState?.sandboxMode
     ? gameState.players[gameState.currentPlayerIndex].id >= PLAYERS.length - (gameState.gremlinCount ?? 0)
     : false;
-  const validMoves = gameState && !isGremlinTurn ? getCurrentValidMoves(gameState) : [];
-  const validMoveSet = new Set(validMoves.map((m) => `${m.row},${m.col}`));
-
-  const currentTaunt =
-    gameState
-      ? TURN_TAUNTS[gameState.turnCount % TURN_TAUNTS.length](
-          PLAYERS[gameState.currentPlayerIndex].shortName
-        )
-      : '';
-
-  const gc = gameState?.gremlinCount ?? 0;
-  const isHumanWin = gameState?.winner != null && gameState.winner < PLAYERS.length - gc;
-  const winnerPlayer = ((trappedPlayers.length > 0 || eliminationPending) && isHumanWin)
-    ? gameState.players.find(p => p.id === gameState.winner)
-    : null;
+  const sandboxValidMoves = gameState?.sandboxMode && !sandboxIsGremlinTurn ? getCurrentValidMoves(gameState) : [];
+  const sandboxValidMoveSet = new Set(sandboxValidMoves.map((m) => `${m.row},${m.col}`));
 
   return (
     <div className="app">
@@ -401,64 +312,24 @@ export default function LocalGameController({
           </motion.div>
         )}
 
-        {screen === 'game' && (gameState?.phase === 'playing' || (gameState?.phase === 'gameover' && (trappedPlayers.length > 0 || eliminationPending))) && (
-          <motion.div
-            key="playing"
-            className="game-layout"
-            initial={{ opacity: 0, scale: 0.96 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.96 }}
-            transition={{ duration: 0.25 }}
-          >
-            <div className="game-center">
-              <PlayerPanel
-                players={gameState.players}
-                currentPlayerIndex={gameState.currentPlayerIndex}
-                gremlinCount={gameState.gremlinCount ?? 0}
-                frozenPlayerId={gameState?.frozenPlayerId ?? null}
-                frozenTurnsLeft={gameState?.frozenTurnsLeft ?? 0}
-              />
-              <div className="board-column">
-                <TurnIndicator
-                  player={PLAYERS[gameState.currentPlayerIndex]}
-                  taunt={currentTaunt}
-                  timeLeft={timeLeft}
-                  totalTime={TURN_TIME}
-                  portalActive={gameState.portalActive}
-                  swapActive={gameState.swapActive}
-                  freezeSelectActive={gameState.freezeSelectActive}
-                  lastEvent={gameState.lastEvent}
-                  isGremlin={gameState.players[gameState.currentPlayerIndex].id >= PLAYERS.length - (gameState.gremlinCount ?? 0)}
-                  isThinking={isThinking}
-                  soundEnabled={soundEnabled}
-                  onToggleSound={toggleSound}
-                />
-                <GameBoard
-                  grid={gameState.grid}
-                  players={gameState.players}
-                  validMoveSet={validMoveSet}
-                  onCellClick={handleMove}
-                  currentPlayerIndex={gameState.currentPlayerIndex}
-                  items={gameState.items}
-                  portalActive={gameState.portalActive}
-                  swapActive={gameState.swapActive}
-                  freezeSelectActive={gameState.freezeSelectActive}
-                  isGremlinTurn={isGremlinTurn}
-                  bombBlast={bombBlast}
-                  portalJump={portalJump}
-                  swapFlash={swapFlash}
-                  trappedPlayers={trappedPlayers}
-                  winnerPlayer={winnerPlayer}
-                  flyingFreeze={flyingFreeze}
-                  frozenPlayerId={gameState?.frozenPlayerId ?? null}
-                  frozenTurnsLeft={gameState?.frozenTurnsLeft ?? 0}
-                />
-                <button className="exit-game-btn" onClick={() => setExitConfirm(true)}>
-                  ← Exit to menu
-                </button>
-              </div>
-            </div>
-
+        {screen === 'game' && gameState && (
+          <motion.div key="game" style={{ width: '100%' }} {...fadeSlide}>
+            <GameScreen
+              gameState={gameState}
+              mySeats={mySeats}
+              onMove={handleMove}
+              onExit={() => setExitConfirm(true)}
+              onRestart={handleRestart}
+              soundEnabled={soundEnabled}
+              onToggleSound={toggleSound}
+              isThinking={isThinking}
+              timeLeft={timeLeft}
+              totalTime={TURN_TIME}
+              bombBlast={bombBlast}
+              portalJump={portalJump}
+              swapFlash={swapFlash}
+              flyingFreeze={flyingFreeze}
+            />
             <AnimatePresence>
               {exitConfirm && (
                 <motion.div
@@ -485,17 +356,6 @@ export default function LocalGameController({
                 </motion.div>
               )}
             </AnimatePresence>
-          </motion.div>
-        )}
-
-        {screen === 'game' && gameState?.phase === 'gameover' && !eliminationPending && trappedPlayers.length === 0 && (
-          <motion.div key="gameover" style={{ width: '100%' }} {...fadeSlide}>
-            <GameOverScreen
-              winner={gameState.winner !== null ? PLAYERS[gameState.winner] : null}
-              players={gameState.players}
-              onRestart={handleRestart}
-              onMenu={handleBackToStart}
-            />
           </motion.div>
         )}
 
@@ -530,14 +390,14 @@ export default function LocalGameController({
               <GameBoard
                 grid={gameState.grid}
                 players={gameState.players}
-                validMoveSet={validMoveSet}
+                validMoveSet={sandboxValidMoveSet}
                 onCellClick={handleMove}
                 currentPlayerIndex={gameState.currentPlayerIndex}
                 items={gameState.items}
                 portalActive={gameState.portalActive}
                 swapActive={gameState.swapActive}
                 freezeSelectActive={gameState.freezeSelectActive}
-                isGremlinTurn={isGremlinTurn}
+                isGremlinTurn={sandboxIsGremlinTurn}
                 bombBlast={bombBlast}
                 portalJump={portalJump}
                 swapFlash={swapFlash}
