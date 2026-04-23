@@ -84,6 +84,26 @@ Steps 7–12 will grow this into a zod-validated protocol, ported `src/game/logi
 
 Three private helpers on the class: `broadcast(msg, {excludeSeatId?})` iterates `this.ctx.getWebSockets()` and sends (skips only sockets in terminal state; one bad socket doesn't abort the loop); `buildLobbyState(code, lobby)` annotates `isHost` and assembles a `LobbyStateMsg`; `getAttachedSeatId(ws)` safely extracts the attachment.
 
+### Turn loop (Step 10)
+
+Server-authoritative gameplay. Once the host sends `START`:
+
+1. Worker loads `lobby`, verifies `phase === 'lobby'` and caller is host.
+2. Calls `initGame(msg.magicItems, 4 - lobby.players.length)` from the shared `src/game/logic.js`.
+3. Writes both `lobby` (phase → `'playing'`, magicItems locked in) and the new `game` storage key in a single atomic `storage.put({lobby, game})`.
+4. Broadcasts `GAME_STATE` to every connected socket.
+
+On `MOVE`:
+
+1. Load `lobby`, `game`, `code`. If `phase !== 'playing'` → `ERROR INVALID_MOVE "Game not started"`.
+2. Read seat from the WS attachment. No seat (socket never HELLO'd) → `ERROR UNAUTHORIZED`.
+3. Call `validateMove(game, seatId, row, col)` — the Step 8 security boundary. On reject, forward `result.reason` as the `ERROR.code` directly (reason strings were aligned with the ERROR enum in Step 8).
+4. Call `applyMove(game, row, col)`. Store the new state under `game`. Broadcast `GAME_STATE` to every connected socket.
+
+**`buildGameState(code, lobby, game)`** is the merge helper. `initGame` doesn't know display names; the lobby doesn't know row/col. The helper walks `game.players` (always 4 entries) and for each id looks up the matching lobby player for `{displayName, isBot, isHost}`. Seats missing from the lobby (bot fill in Step 11, or mid-lobby departures before START) become `{displayName: "Bot N", isBot: true}`. `finishTurn` is normalised to `null` when `initGame` doesn't populate it — the `GamePlayer` schema requires always-present-but-nullable.
+
+**No bot turn driver yet.** `gremlinCount` is passed to `initGame` for convention-compat, but if the current turn lands on an empty/bot seat the game stalls. Tests use 4 humans. Step 11 adds the driver that calls `getGremlinMove(game, 1)` after an 800–1400ms "thinking" delay.
+
 ### WebSocket Hibernation API
 
 Cloudflare's Hibernation API is the reason a hobby multiplayer game can run for $0 on the free tier: instead of keeping the DO instance alive for every open connection, the DO can hibernate between messages and the runtime re-invokes it only when inbound data arrives.
@@ -192,6 +212,7 @@ server/                          ← Cloudflare Worker + RoomDurableObject + wir
   __tests__/protocol.test.ts     ← Pure schema tests (no Worker/DO). Round-trips 9 message types; rejects version/length/enum violations + unknown keys; covers discriminated-union direction guards and parseClientMsg.
   __tests__/logic.test.ts        ← Server-side tests for the shared src/game/ module. initGame shape, applyMove/eliminateCurrentPlayer/getValidMoves/getCurrentValidMoves, and all validateMove security cases (NOT_YOUR_TURN × 2, INVALID_MOVE × 4). getGremlinMove → validateMove round-trip.
   __tests__/room-lobby.test.ts   ← 15 cases covering HELLO/START dispatch: single+second join, capacity cap, duplicate name, host/non-host START, re-START (ALREADY_STARTED), malformed JSON / unknown type / binary (BAD_PAYLOAD), idempotent re-HELLO, player-leaves-during-lobby, host-leaves-during-lobby, MOVE-in-lobby. Uses a `waitForInbox` helper — inboxes are attached at socket open so broadcasts that arrive before test-side waiters aren't lost.
+  __tests__/room-turnloop.test.ts ← 10 cases covering START → initGame → GAME_STATE broadcast and MOVE → validateMove → applyMove → GAME_STATE broadcast. Includes security rejections (NOT_YOUR_TURN, INVALID_MOVE × 2, UNAUTHORIZED), identity merge check, magicItems flow-through, storage shape check, and a 4-move cycling test. Uses `startGameWithHumans(names)` setup helper.
 e2e/                             ← Playwright specs
   sanity.spec.ts                 ← trivial harness-wired test
 vitest.config.js                 ← client/jsdom Vitest config
@@ -291,4 +312,4 @@ CI: `.github/workflows/test.yml` runs all three as separate jobs on pushes to th
 
 ## What's NOT here yet (framing for the multiplayer work)
 
-The lobby works but gameplay doesn't — `START` transitions phase but no `initGame` or `GAME_STATE` broadcast yet. No client-side WebSocket code, no bots, no remote human gameplay, no session/identity across reconnects, no TypeScript on the client. Online play is still impossible — four humans must share one device. The work in `docs/multiplayer-plan.md` adds exactly these pieces while keeping the current hotseat path byte-for-byte intact. The test harness (Step 1), the `VITE_ENABLE_ONLINE` flag (Step 2), the client mode router + controllers (Step 3), the Worker skeleton (Step 4), `RoomDurableObject` + `POST /rooms` (Step 5), the WebSocket upgrade via the Hibernation API (Step 6), the zod-validated wire format (Step 7), the shared game module with server-side `validateMove` (Step 8), and the lobby dispatcher (Step 9) are all in place so later steps can grow the online stack behind the gate without disturbing production.
+The server can now run 4-human games end-to-end over WebSocket, but no bots drive empty seats yet (so <4-human rooms stall on a bot's turn), no client-side WebSocket code, no session/identity across reconnects, no turn timer + disconnect=elimination, no TypeScript on the client. Online play via the real game UI is still impossible — four humans must still share one device. The work in `docs/multiplayer-plan.md` adds exactly these pieces while keeping the current hotseat path byte-for-byte intact. The test harness (Step 1), the `VITE_ENABLE_ONLINE` flag (Step 2), the client mode router + controllers (Step 3), the Worker skeleton (Step 4), `RoomDurableObject` + `POST /rooms` (Step 5), the WebSocket upgrade via the Hibernation API (Step 6), the zod-validated wire format (Step 7), the shared game module with server-side `validateMove` (Step 8), the lobby dispatcher (Step 9), and the server-authoritative turn loop (Step 10) are all in place so later steps can grow the online stack behind the gate without disturbing production.

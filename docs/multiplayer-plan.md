@@ -271,8 +271,19 @@ Each step is a single commit-sized unit of work. Every step ends with an automat
 - **Test-side race:** `waitForMessage` only catches FUTURE events; a listener attached after a broadcast already arrived misses it. Added `waitForInbox(inbox, predicate)` helper that scans a growing array — inboxes are attached at socket open and retained throughout each test.
 - **Server suite: 81/81 green** (+15 lobby cases + a repurposed ws test). No changes to client tests (still 7/7); client bundle byte-identical to Step 8.
 
-**Step 10 — Server-authoritative turn loop.** On `START`, call `initGame`, broadcast `GAME_STATE`. On `MOVE`, validate → `applyMove` → `completeTurn` → broadcast updated state. Reject illegal moves with a typed error.
+**Step 10 — Server-authoritative turn loop. ✅** On `START`, call `initGame`, broadcast `GAME_STATE`. On `MOVE`, validate → `applyMove` → `completeTurn` → broadcast updated state. Reject illegal moves with a typed error.
 - **Verify:** `room-turnloop.test.ts` — legal move advances state, illegal move returns error and leaves state unchanged, broadcast reaches all clients.
+
+**Step 10 deviations:**
+- **Two-halves merge via `buildGameState(code, lobby, game)`.** `initGame` produces `state.players` without display names; the lobby stores identity without row/col. The helper joins them: for each seat 0..3, take `{row, col, isEliminated, deathCell, finishTurn}` from the game state and `{displayName, isBot, isHost}` from the lobby roster. Seats missing from the lobby get `displayName: "Bot N"` + `isBot: true` — this is the proto-bot-fill shape Step 11 will drive.
+- **`finishTurn: p.finishTurn ?? null`** at merge time. `initGame` doesn't populate the field; the `GamePlayer` schema requires always-present-but-nullable. Normalising at the boundary avoids patching the shared game module.
+- **Atomic START write.** One `storage.put({lobby, game})` transitions phase and seeds the game state in a single operation, so no reader ever sees a half-started room.
+- **MOVE reuses `validateMove`'s reason strings as `ERROR.code` values directly.** Step 8 aligned the two enums on purpose. Step 10's handler forwards `NOT_YOUR_TURN` / `INVALID_MOVE` without translation.
+- **`UNAUTHORIZED` when a post-start socket without a seat sends MOVE** (new rogue socket that joined mid-game but never HELLO'd). Tests cover this path.
+- **No bot turn driver yet.** `gremlinCount = 4 - lobby.players.length` is passed to `initGame` for convention-compat with the local reducer, but the DO never calls `getGremlinMove`. If Step 10 is deployed with <4 humans and the turn lands on an empty/bot seat, the game stalls — acceptable because tests only exercise 4-human rooms; Step 11 adds the driver.
+- **No MOVE payload validation beyond zod.** `MoveMsg.row/col` are `Coord` (int 0–9). Out-of-bounds at the wire-format level returns `BAD_PAYLOAD` at `parseClientMsg` — tests use in-range-but-illegal coords (e.g. center `(4,4)` at t=0) to exercise the `INVALID_MOVE` branch.
+- **Game storage keyed `game`, typed `any`** on the server. The module boundary (logic.js is JS, no .d.ts) makes tight typing low-value; `GameStateMsg` zod schema is the typed contract on the wire.
+- **Server suite: 91/91 green** (81 prior + 10 new turn-loop). No client changes; client bundle byte-identical to Step 9.
 
 **Step 11 — Bots fill empty seats + full-bot simulation.** On `START`, fill `4-N` seats with bot records. On a bot's turn, call `getGremlinMove(state, 1)` after a 800–1400ms delay.
 - **Verify:** `room-bots.test.ts` includes an **all-bots simulation**: seed 4 bots, drive the DO's alarm forward until `GAME_OVER`, assert exactly one winner and no errors. This single test exercises the whole loop.

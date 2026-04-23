@@ -1,18 +1,26 @@
 // Cloudflare Worker + RoomDurableObject.
 // Step 4: /ping. Step 5: POST /rooms + DO init. Step 6: /rooms/:code/ws echo.
 // Step 7: zod schemas in protocol.ts. Step 8: shared game logic + validateMove.
-// Step 9: replace echo with a real lobby dispatcher (HELLO/START + LOBBY_STATE
-// broadcasts). Gameplay (initGame, GAME_STATE) arrives in Step 10.
+// Step 9: lobby dispatcher (HELLO/START/LOBBY_STATE). Step 10: server-
+// authoritative turn loop — START boots initGame and broadcasts GAME_STATE;
+// MOVE validates + applyMove + broadcasts. Illegal moves return typed ERRORs.
 
 import { DurableObject } from 'cloudflare:workers';
 import {
   parseClientMsg,
+  type GameStateMsg,
   type HelloMsg,
   type JoinMsg,
   type LobbyStateMsg,
+  type MoveMsg,
   type ServerMsg,
   type StartMsg,
 } from './protocol';
+// Shared pure game module. Imported from src/game/ — single source of truth
+// with the client. Purity invariant enforced by CLAUDE.md (no React, no DOM).
+// Types come in as `any` (no .d.ts on the .js files); we re-type via protocol.ts
+// when assembling outbound messages.
+import { initGame, applyMove, validateMove } from '../src/game/logic';
 
 interface Env {
   ROOM: DurableObjectNamespace<RoomDurableObject>;
@@ -58,6 +66,13 @@ const EMPTY_LOBBY: LobbyStorage = {
   phase: 'lobby',
   magicItems: false,
 };
+
+// Game state stored under the `game` key. Shape mirrors `initGame` output from
+// src/game/logic.js exactly (see docs/ARCHITECTURE.md "State shape"). Typed as
+// `any` here because logic.js is untyped at the boundary; the outbound
+// GAME_STATE message is zod-validated shape via protocol.ts.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type GameStorage = any;
 
 export class RoomDurableObject extends DurableObject<Env> {
   override async fetch(request: Request): Promise<Response> {
@@ -138,9 +153,7 @@ export class RoomDurableObject extends DurableObject<Env> {
         await this.handleStart(ws, msg);
         return;
       case 'MOVE':
-        // Step 10 replaces this with real validation + applyMove + broadcast.
-        // For Step 9, a MOVE is meaningless; the game hasn't started.
-        this.sendError(ws, 'INVALID_MOVE', 'Game not started');
+        await this.handleMove(ws, msg);
         return;
     }
   }
@@ -254,8 +267,9 @@ export class RoomDurableObject extends DurableObject<Env> {
   }
 
   private async handleStart(ws: WebSocket, msg: StartMsg): Promise<void> {
+    const storedCode = await this.ctx.storage.get<string>('code');
     const lobby = await this.ctx.storage.get<LobbyStorage>('lobby');
-    if (!lobby) {
+    if (!storedCode || !lobby) {
       this.sendError(ws, 'BAD_PAYLOAD');
       return;
     }
@@ -273,13 +287,59 @@ export class RoomDurableObject extends DurableObject<Env> {
       return;
     }
 
-    const updated: LobbyStorage = {
+    // gremlinCount tells initGame how many of the last seats are bots by
+    // convention. For Step 10 we assume humans fill seats 0..N-1 (tests do);
+    // Step 11 adds the bot-fill compaction + drives bot turns via
+    // getGremlinMove. isBot on each outbound GamePlayer is derived from the
+    // lobby roster (see buildGameState) — not the gremlinCount convention —
+    // so lobby gaps are still honest on the wire even today.
+    const gremlinCount = 4 - lobby.players.length;
+    const game = initGame(msg.magicItems, gremlinCount) as GameStorage;
+
+    const updatedLobby: LobbyStorage = {
       ...lobby,
       phase: 'playing',
       magicItems: msg.magicItems,
     };
-    await this.ctx.storage.put('lobby', updated);
-    // Step 10: broadcast GAME_STATE here after initGame.
+
+    // One atomic write: phase flip + fresh game state. Readers never see a
+    // half-started room.
+    await this.ctx.storage.put({ lobby: updatedLobby, game });
+
+    this.broadcast(this.buildGameState(storedCode, updatedLobby, game));
+  }
+
+  private async handleMove(ws: WebSocket, msg: MoveMsg): Promise<void> {
+    const storedCode = await this.ctx.storage.get<string>('code');
+    const lobby = await this.ctx.storage.get<LobbyStorage>('lobby');
+    const game = await this.ctx.storage.get<GameStorage>('game');
+
+    if (!storedCode || !lobby || !game || lobby.phase !== 'playing') {
+      this.sendError(ws, 'INVALID_MOVE', 'Game not started');
+      return;
+    }
+
+    const seatId = this.getAttachedSeatId(ws);
+    if (seatId === null) {
+      // Socket never HELLO'd — can't prove identity, can't move.
+      this.sendError(ws, 'UNAUTHORIZED');
+      return;
+    }
+
+    // validateMove's reason strings map 1:1 to ERROR.code values (see
+    // src/game/logic.js Step 8 comment). Forward directly.
+    const result = validateMove(game, seatId, msg.row, msg.col) as
+      | { ok: true }
+      | { ok: false; reason: 'NOT_YOUR_TURN' | 'INVALID_MOVE' };
+    if (!result.ok) {
+      this.sendError(ws, result.reason);
+      return;
+    }
+
+    const nextGame = applyMove(game, msg.row, msg.col) as GameStorage;
+    await this.ctx.storage.put('game', nextGame);
+
+    this.broadcast(this.buildGameState(storedCode, lobby, nextGame));
   }
 
   // ----- Helpers -----
@@ -318,6 +378,64 @@ export class RoomDurableObject extends DurableObject<Env> {
       })),
       hostId: lobby.hostId,
       magicItems: lobby.magicItems,
+    };
+  }
+
+  // Assemble a wire-shape GAME_STATE by merging identity (displayName,
+  // isBot, isHost) from the lobby into the game state's players array. The
+  // game module doesn't know about display names, and the lobby doesn't know
+  // about row/col/isEliminated — this helper is the single place those
+  // halves join. Seats not present in the lobby (Step 11's bot fill, or
+  // mid-lobby departures before START) are marked isBot: true with a "Bot N"
+  // display name.
+  private buildGameState(
+    code: string,
+    lobby: LobbyStorage,
+    game: GameStorage,
+  ): GameStateMsg {
+    void code; // GAME_STATE has no code field today; the param keeps the
+               // helper signature symmetric with buildLobbyState for Step 13
+               // when the client may want code on GAME_STATE too.
+    const lobbyById = new Map(lobby.players.map((p) => [p.id, p]));
+    return {
+      type: 'GAME_STATE',
+      grid: game.grid,
+      players: game.players.map((gp: {
+        id: number;
+        row: number;
+        col: number;
+        isEliminated: boolean;
+        deathCell: { row: number; col: number } | null;
+        finishTurn?: number | null;
+      }) => {
+        const lp = lobbyById.get(gp.id);
+        return {
+          id: gp.id,
+          displayName: lp?.displayName ?? `Bot ${gp.id}`,
+          isBot: lp ? lp.isBot : true,
+          isHost: gp.id === lobby.hostId,
+          row: gp.row,
+          col: gp.col,
+          isEliminated: gp.isEliminated,
+          deathCell: gp.deathCell ?? null,
+          // logic.js doesn't always set finishTurn; protocol requires
+          // always-present-but-nullable.
+          finishTurn: gp.finishTurn ?? null,
+        };
+      }),
+      currentPlayerIndex: game.currentPlayerIndex,
+      phase: game.phase,
+      winner: game.winner,
+      turnCount: game.turnCount,
+      magicItems: game.magicItems,
+      items: game.items,
+      nextSpawnIn: game.nextSpawnIn,
+      portalActive: game.portalActive,
+      swapActive: game.swapActive,
+      freezeSelectActive: game.freezeSelectActive,
+      frozenPlayerId: game.frozenPlayerId,
+      frozenTurnsLeft: game.frozenTurnsLeft,
+      lastEvent: game.lastEvent,
     };
   }
 
