@@ -58,16 +58,14 @@ describe('Lobby — rendering', () => {
 });
 
 describe('Lobby — host-only controls', () => {
-  it('renders Start and magic-items toggle only when mySeatId === hostId', () => {
+  it('renders Start button only when mySeatId === hostId', () => {
     render(<Lobby code="Q7K4N" players={fourPlayers} hostId={0} mySeatId={0} />);
     expect(screen.getByRole('button', { name: /start/i })).toBeInTheDocument();
-    expect(screen.getByLabelText(/magic items/i)).toBeInTheDocument();
   });
 
   it('hides host controls for a non-host seat', () => {
     render(<Lobby code="Q7K4N" players={fourPlayers} hostId={0} mySeatId={1} />);
     expect(screen.queryByRole('button', { name: /start/i })).toBeNull();
-    expect(screen.queryByLabelText(/magic items/i)).toBeNull();
     expect(screen.getByText(/Waiting for the host/i)).toBeInTheDocument();
   });
 
@@ -87,22 +85,6 @@ describe('Lobby — host-only controls', () => {
     expect(onStart).toHaveBeenCalled();
   });
 
-  it('toggling magic items fires onToggleMagicItems with the new value', async () => {
-    const user = userEvent.setup();
-    const onToggleMagicItems = vi.fn();
-    render(
-      <Lobby
-        code="Q7K4N"
-        players={fourPlayers}
-        hostId={0}
-        mySeatId={0}
-        magicItems={false}
-        onToggleMagicItems={onToggleMagicItems}
-      />,
-    );
-    await user.click(screen.getByLabelText(/magic items/i));
-    expect(onToggleMagicItems).toHaveBeenCalledWith(true);
-  });
 });
 
 describe('Lobby — leave', () => {

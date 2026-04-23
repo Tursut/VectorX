@@ -20,8 +20,6 @@ export default function Lobby({
   players = [],
   hostId,
   mySeatId,
-  magicItems = false,
-  onToggleMagicItems,
   onStart,
   onLeave,
 }) {
@@ -55,14 +53,6 @@ export default function Lobby({
 
       {isHost && (
         <div className="lobby-host-controls">
-          <label className="lobby-magic-toggle">
-            <input
-              type="checkbox"
-              checked={magicItems}
-              onChange={(e) => onToggleMagicItems?.(e.target.checked)}
-            />
-            Magic items
-          </label>
           <button
             type="button"
             className="lobby-start-btn"

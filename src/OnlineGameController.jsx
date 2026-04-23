@@ -112,9 +112,7 @@ export default function OnlineGameController({
       players={lobby.players}
       hostId={lobby.hostId}
       mySeatId={mySeatId}
-      magicItems={magicItems}
-      onToggleMagicItems={setMagicItems}
-      onStart={() => start(magicItems)}
+      onStart={() => { sounds.resumeAudio(); start(magicItems); }}
       onLeave={onExit}
     />
   );

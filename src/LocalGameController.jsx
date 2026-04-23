@@ -152,6 +152,7 @@ export default function LocalGameController({
   }, [countdown]);
 
   function handleStart() {
+    sounds.resumeAudio();
     setCountdown(3);
   }
 
