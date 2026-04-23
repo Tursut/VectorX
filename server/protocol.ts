@@ -175,7 +175,9 @@ export const GameStateMsg = z
     nextSpawnIn: z.number().int(),
     portalActive: z.boolean(),
     swapActive: z.boolean(),
-    freezeNextPlayer: z.boolean(),
+    freezeSelectActive: z.boolean(),
+    frozenPlayerId: PlayerId.nullable(),
+    frozenTurnsLeft: z.number().int().min(0),
     lastEvent: LastEvent,
   })
   .strict();

@@ -58,7 +58,9 @@ const validGameStateBody = {
   nextSpawnIn: 5,
   portalActive: false,
   swapActive: false,
-  freezeNextPlayer: false,
+  freezeSelectActive: false,
+  frozenPlayerId: null,
+  frozenTurnsLeft: 0,
   lastEvent: null,
 };
 
