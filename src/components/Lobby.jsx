@@ -69,7 +69,7 @@ export default function Lobby({
 
       {onLeave && (
         <button type="button" className="lobby-leave-btn" onClick={onLeave}>
-          Leave
+          ← Exit to menu
         </button>
       )}
     </section>

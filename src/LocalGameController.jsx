@@ -27,6 +27,8 @@ function gameReducer(state, action) {
       if (state.currentPlayerIndex !== action.playerIndex) return state;
       if (state.phase !== 'playing') return state;
       return eliminateCurrentPlayer(state);
+    case 'RESET':
+      return null;
     default:
       return state;
   }
@@ -173,6 +175,7 @@ export default function LocalGameController({
   function handleBackToStart() {
     setExitConfirm(false);
     setScreen('start');
+    dispatch({ type: 'RESET' });
   }
 
   function handleMove(row, col) {
@@ -309,7 +312,7 @@ export default function LocalGameController({
               swapActive={gameState.swapActive}
               onPlaceItem={(type) => dispatch({ type: 'SANDBOX_GIVE_ITEM', itemType: type })}
               onReset={handleSandboxReset}
-              onExit={() => setScreen('start')}
+              onExit={() => { setScreen('start'); dispatch({ type: 'RESET' }); }}
               soundEnabled={soundEnabled}
               onToggleSound={toggleSound}
             />

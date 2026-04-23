@@ -1954,19 +1954,16 @@
 .lobby-leave-btn {
   align-self: flex-start;
   background: none;
-  border: 1px solid #3a3d66;
-  color: #aaaacc;
-  padding: 8px 14px;
-  border-radius: 8px;
-  font-family: 'Segoe UI', sans-serif;
+  border: none;
+  color: #556;
   font-size: 13px;
+  font-family: inherit;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  padding: 2px 4px;
+  letter-spacing: 0.03em;
+  transition: color 0.15s;
 }
-.lobby-leave-btn:hover {
-  background: #14173040;
-  color: #e8e8f4;
-}
+.lobby-leave-btn:hover { color: #aab; }
 
 /* ---------- Online status screen + mode switcher + online form ---------- */
 
@@ -1988,10 +1985,8 @@
   border: 2px solid #333366;
   border-radius: 10px;
   color: #888aaa;
-  font-family: 'Segoe UI', sans-serif;
-  text-align: left;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.1s;
 }
 .mode-switcher-tile:hover {
   background: #14142e;
@@ -2000,22 +1995,24 @@
 .mode-switcher-tile-active {
   background: #14142e;
   border-color: #7a8cff;
-  box-shadow: 0 0 0 1px #7a8cff;
-  color: #e8e8f4;
+  box-shadow: 0 0 16px rgba(122, 140, 255, 0.35);
+  color: #c8caff;
 }
 .mode-switcher-icon {
   font-size: 22px;
 }
 .mode-switcher-label {
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
+  font-size: 14px;
+  font-weight: bold;
+  letter-spacing: 1px;
   font-family: 'Fredoka One', 'Segoe UI', sans-serif;
+  color: inherit;
 }
 .mode-switcher-sub {
   font-size: 11px;
   color: #aaaacc;
   font-family: 'Segoe UI', sans-serif;
+  font-style: italic;
 }
 
 /* Online form block (replaces "Who's playing?" in online mode) */

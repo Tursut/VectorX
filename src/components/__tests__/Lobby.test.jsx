@@ -100,7 +100,7 @@ describe('Lobby — leave', () => {
         onLeave={onLeave}
       />,
     );
-    await user.click(screen.getByRole('button', { name: /leave/i }));
+    await user.click(screen.getByRole('button', { name: /exit to menu/i }));
     expect(onLeave).toHaveBeenCalled();
   });
 });
