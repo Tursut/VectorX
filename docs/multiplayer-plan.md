@@ -335,13 +335,50 @@ Each step is a single commit-sized unit of work. Every step ends with an automat
 - `reconnect.spec.ts` — toggle offline/online on ctx B → session cookie restores seat.
 - **Verify:** `npm run test:e2e` → all five green. CI runs them with `wrangler dev` + `vite preview` as fixtures.
 
-### Deploy (steps 18–19)
+### Deploy + harden (steps 18–20)
 
 **Step 18 — Preview deploy.** `wrangler deploy` Worker to `*.workers.dev`. Add GitHub Actions job that deploys the feature branch to `gh-pages-preview` with `VITE_ENABLE_ONLINE=true` pointing at the preview Worker URL. `main` is untouched, still at `VITE_ENABLE_ONLINE=false`.
 - **Verify:** Open preview URL in two browsers, play a full online game. Main game URL is unchanged — verify by loading it and seeing no online buttons.
 
 **Step 19 — Production cutover.** Merge the feature branch to `main`. Flip production build env var `VITE_ENABLE_ONLINE=true`. Point client at production Worker URL.
 - **Verify:** Load the live Pages URL; online buttons appear; create a room; play a full game with a friend. CI green.
+
+**Step 20 — Abuse & hygiene hardening.** Not "enterprise security" — just the minimum so a bored stranger can't trivially grief or exhaust the server.
+
+*Categories + mitigations:*
+
+1. **Origin allow-list.** `POST /rooms` and `GET /rooms/:code/ws` reject requests whose `Origin` header isn't in an allow-list. Allowed: the production Pages URL, `http://localhost:*`, and `null` (CLI tools omit `Origin`; keep allowed for debugging). Configured via an `ALLOWED_ORIGINS` env var in `wrangler.toml`. Response: `403 Forbidden`.
+
+2. **Rate limits.** Per-client-IP (Cloudflare's `CF-Connecting-IP` header):
+   - `POST /rooms`: cap 10/min. Excess → `429 Too Many Requests`.
+   - WS handshake: cap 30/min. Excess → `429`.
+   - Per-socket message rate inside a live room: cap ~20 msg/s sustained. Excess → close with code `1008` (Policy Violation).
+   Implementation: a singleton `RateLimiterDurableObject` keyed by IP. Or Cloudflare's built-in rate-limiting binding if adopted.
+
+3. **Frame size cap.** Reject any inbound WS frame > 4 KB. Our largest legitimate client→server message is `MOVE` (tiny). Close offending socket with code `1009` (Message Too Big).
+
+4. **Room TTL + cleanup.** Prevents DO storage growing forever.
+   - On `GAME_OVER`: schedule a grace-period alarm 10 minutes out that calls `this.ctx.storage.deleteAll()`.
+   - On lobby idle 30 minutes with no activity: same.
+
+5. **Already covered by Steps 0–12, flagged here for auditability:**
+   - Server-authoritative game state (Step 10); `validateMove` rejects illegal moves (Step 8).
+   - zod strict schemas reject unknown/malformed payloads (Step 7); `HELLO.version` handshake.
+   - `ROOM_FULL`, `DUPLICATE_NAME`, `UNAUTHORIZED`, `ALREADY_STARTED` error codes (Step 9).
+   - Room codes are 5-char base32 over ~33.5 M space — guessing an active room takes millions of attempts. Not secret, but slow.
+   - Disconnect = elimination (Step 12) prevents zombie seats.
+
+6. **Explicitly NOT in scope** (out for hobby hygiene): account system, move-timing bot detection on humans, captcha/WebAuthn at room-create, encryption beyond TLS (Cloudflare handles), paid-tier DDoS.
+
+- **Verify:** `server/__tests__/security.test.ts` (new):
+  - Origin missing or not allow-listed → 403 on `POST /rooms` and WS upgrade.
+  - 11 rapid POSTs from the same IP → 10 succeed, 11th is 429.
+  - 50 messages/second on a single socket → closes with code 1008.
+  - 5 KB WS frame → closes with code 1009.
+  - Trigger `GAME_OVER`, run the grace-period alarm, assert `storage.list()` is empty.
+- **Manual:** `curl -s -X POST -H "Origin: https://evil.example.com" http://localhost:8787/rooms -w "%{http_code}\n"` → `403`.
+
+**Timing note.** Step 20 as written is *after* production cutover. For a hobby game shared by code with friends, that's fine — grief requires guessing the room code in the same minute someone's actually playing. If/when the game ever gets linked publicly (Reddit, HN, etc.), swap Step 20 with Step 18 so hardening lands before any public URL is exposed. A one-liner in a later session can handle the swap.
 
 ### Invariants that hold at every step
 
