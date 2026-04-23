@@ -298,8 +298,18 @@ Each step is a single commit-sized unit of work. Every step ends with an automat
 - **Seat recycling invariant test** added — proves that closing a mid-roster seat and rejoining reclaims the vacated slot (dense 0..N-1 seat ids), which is the precondition that makes `initGame(magicItems, 4 - N)` correctly mark empty seats as bots.
 - **Tests: 95/95 green** (91 + 4 new: identity, alarm scheduling, all-bots simulation to `GAME_OVER`, seat recycling).
 
-**Step 12 — Turn timer + disconnect=elimination.** DO alarm scheduled at `TURN_TIME_MS`; on fire, auto-forfeit current turn. WS `close` → eliminate that player, broadcast.
+**Step 12 — Turn timer + disconnect=elimination. ✅** DO alarm scheduled at `TURN_TIME_MS`; on fire, auto-forfeit current turn. WS `close` → eliminate that player, broadcast.
 - **Verify:** `room-timer.test.ts` fast-forwards the alarm and asserts forfeit. `room-disconnect.test.ts` closes a WS mid-turn and asserts elimination broadcast + game continuation.
+
+**Step 12 deviations:**
+- **One alarm channel, two meanings.** DOs have one alarm per instance, so `maybeScheduleBotTurn` was renamed to `maybeScheduleTurnAlarm` and now schedules either `800–1400ms` (bot "thinking delay") or `TURN_TIME_MS = TURN_TIME × 1000` (human timeout). The `alarm()` dispatcher branches on current-seat-is-human vs is-bot and calls `eliminateCurrentPlayer` (humans always forfeit on timeout, matching the hotseat TIMEOUT path) or `getGremlinMove` / `eliminateCurrentPlayer` (bots).
+- **New `eliminatePlayer(state, playerId)` in `src/game/logic.js`** — handles disconnect-during-someone-else's-turn. When target is the current player, delegates to existing `eliminateCurrentPlayer` (turn advance + item tick + gameover check via `completeTurn`/`trySpawnItem`). When target is not current, marks eliminated with `deathCell` + `finishTurn: turnCount` and recomputes gameover but does NOT advance turn (someone else is mid-turn). No-op if target is already eliminated or not found.
+- **Dead/eliminated current seat guard** added to `maybeScheduleTurnAlarm` — defensive: `advanceToNextActive` in logic.js should never leave an eliminated player as current, but if it somehow did the scheduler no-ops (`deleteAlarm`) instead of picking either branch.
+- **No TIMEOUT_WARNING broadcast** — plan didn't call for pre-timeout notification. Client-side ticking UI is its own thing (Step 13+).
+- **No skip-turn-without-elimination** path. Plan says "auto-forfeit", which matches the hotseat behaviour (`TIMEOUT` → `eliminateCurrentPlayer`). Picking different semantics for online vs local would be confusing.
+- **webSocketClose guard on `game.phase === 'playing'`.** Disconnects after `GAME_OVER` are no-ops: we don't broadcast, don't schedule alarms. Covered by a dedicated test.
+- **Tests split across two files** matching the plan's verify names: `room-timer.test.ts` (3 cases — alarm size on human turn, alarm-fires-forfeits, bot-to-human handoff) and `room-disconnect.test.ts` (4 cases — non-current, current, last-human-in-1h3b plays out via bots, post-gameover no-op).
+- **Server suite: 102/102 green** (95 + 7 new). Client suite unchanged (7/7); client bundle byte-identical to Step 11.
 
 ### Client networking (steps 13–16)
 

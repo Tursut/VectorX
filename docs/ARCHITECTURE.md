@@ -80,7 +80,7 @@ Steps 7–12 will grow this into a zod-validated protocol, ported `src/game/logi
 - `MOVE`: returns `ERROR INVALID_MOVE` with `"Game not started"` until Step 10 replaces this branch.
 - Parse failure / unknown type → `ERROR BAD_PAYLOAD`.
 
-`webSocketClose` during `phase: 'lobby'` removes the departing seat from `players`, reassigns `hostId` to the lowest-id remaining player if the leaver was host, and broadcasts an updated LOBBY_STATE. During `phase: 'playing'` it's a no-op — Step 12 will add the elimination path.
+`webSocketClose` during `phase: 'lobby'` removes the departing seat from `players`, reassigns `hostId` to the lowest-id remaining player if the leaver was host, and broadcasts an updated LOBBY_STATE. During `phase: 'playing'` (Step 12) it calls `eliminatePlayer(game, seatId)`, stores, broadcasts `GAME_STATE`, and reschedules the turn alarm — see **Turn alarm driver** below for the full handoff.
 
 Three private helpers on the class: `broadcast(msg, {excludeSeatId?})` iterates `this.ctx.getWebSockets()` and sends (skips only sockets in terminal state; one bad socket doesn't abort the loop); `buildLobbyState(code, lobby)` annotates `isHost` and assembles a `LobbyStateMsg`; `getAttachedSeatId(ws)` safely extracts the attachment.
 
@@ -102,21 +102,34 @@ On `MOVE`:
 
 **`buildGameState(code, lobby, game)`** is the merge helper. `initGame` doesn't know display names; the lobby doesn't know row/col. The helper walks `game.players` (always 4 entries) and for each id looks up the matching lobby player for `{displayName, isBot, isHost}`. Seats missing from the lobby (bot fill, or mid-lobby departures before START) become `{displayName: "🤖 ${PLAYERS[id].shortName}", isBot: true}` — e.g., `"🤖 Bluebot"`. Character shortnames match the hotseat-game identity; the emoji prefix keeps bots visually distinct even if a human picks a character shortName as their displayName. `finishTurn` is normalised to `null` when `initGame` doesn't populate it — the `GamePlayer` schema requires always-present-but-nullable.
 
-### Bot driver (Step 11)
+### Turn alarm driver (Steps 11 + 12)
 
 Bots live only in `game.players` (as all 4 seats from `initGame`). `lobby.players` stays human-only; `isBot` is derived at wire-build time.
 
-The driver is a single `alarm()` override on the DO class, coordinated by `maybeScheduleBotTurn(game, lobby)`:
+A single DO alarm powers two independent behaviours, coordinated by `maybeScheduleTurnAlarm(game, lobby)`:
 
-- After **every** state-transitioning broadcast (`handleStart`, `handleMove`, `alarm`), `maybeScheduleBotTurn` runs:
-  - `phase !== 'playing'` → `deleteAlarm()`.
-  - Current seat is human → `deleteAlarm()`.
-  - Current seat is a bot → `setAlarm(Date.now() + 800–1400ms)` for thinking-delay feel.
-- When the alarm fires, `alarm()` reloads state, re-checks `phase === 'playing'` and current seat is still a bot (stale-alarm guard), calls `getGremlinMove(game, 1)` (or `eliminateCurrentPlayer` if the bot has no valid moves — same path a hotseat timed-out player takes), applies, stores, broadcasts `GAME_STATE`, and tail-calls `maybeScheduleBotTurn` to chain into the next bot (or stop on human/game-over).
+- **Bot turns** — 800–1400ms "thinking delay" before the server plays for the bot.
+- **Human turn timer** — `TURN_TIME_MS` (= `TURN_TIME × 1000` = 10s) deadline; if the human hasn't moved by then, they auto-forfeit.
+
+After every state-transitioning path (`handleStart`, `handleMove`, `alarm`, `webSocketClose` in playing phase), `maybeScheduleTurnAlarm` runs:
+
+- `phase !== 'playing'` → `deleteAlarm()`.
+- Current seat is eliminated (defensive; `advanceToNextActive` shouldn't leave one current) → `deleteAlarm()`.
+- Current seat is a bot → `setAlarm(Date.now() + 800–1400ms)`.
+- Current seat is a human → `setAlarm(Date.now() + TURN_TIME_MS)`.
+
+When the alarm fires, `alarm()` reloads state, re-checks `phase === 'playing'`, and dispatches:
+
+- **Human** (current seat in lobby): `eliminateCurrentPlayer(game)` — mirrors the hotseat TIMEOUT path, advances turn + runs item/gameover logic.
+- **Bot** (current seat not in lobby): `getGremlinMove(game, 1)` → `applyMove` on a move, or `eliminateCurrentPlayer` on `null` (trapped bot).
+
+Either branch stores, broadcasts `GAME_STATE`, and tail-calls `maybeScheduleTurnAlarm` to chain into the next turn.
+
+**Disconnect = elimination** (Step 12): `webSocketClose` during `phase: 'playing'` calls `eliminatePlayer(game, seatId)` from the shared module (Step 8's port was extended in Step 12 to handle arbitrary-player elimination, not just the current one). The helper delegates to `eliminateCurrentPlayer` when the departing seat is current (full turn advance + item tick); otherwise it just marks that player eliminated (with `deathCell` at their current cell + `finishTurn: turnCount`) and checks gameover without advancing turn. Broadcasts updated `GAME_STATE` + reschedules the alarm. Skipped entirely if `game.phase !== 'playing'` (post-gameover disconnects are no-ops).
 
 DO single-threading guarantees `webSocketMessage` and `alarm()` never run concurrently on the same DO. `setAlarm` overwrites any existing alarm; `deleteAlarm` is idempotent — no read-then-write guards needed.
 
-**Seat-id invariant** (Step 11 test): humans always occupy dense seat ids `0..N-1`. Proof by construction: `lowestUnusedId` fills the lowest available slot; `webSocketClose` during lobby splices by id; any future HELLO refills the hole. This is what makes `initGame(magicItems, 4 - N)` — which marks the last 4-N seats as bots by convention — correct in all rejoin sequences.
+**Seat-id invariant** (Step 11 test): humans always occupy dense seat ids `0..N-1` **at START time**. Proof by construction: `lowestUnusedId` fills the lowest available slot; `webSocketClose` during lobby splices by id; any future HELLO refills the hole. This is what makes `initGame(magicItems, 4 - N)` — which marks the last 4-N seats as bots by convention — correct in all rejoin sequences. Note the invariant only holds up to START; mid-game disconnects leave "tombstone" seats at their original ids.
 
 ### WebSocket Hibernation API
 
@@ -198,7 +211,7 @@ src/
   config.js                      ← build-time feature flags (currently: ENABLE_ONLINE). Single read site for `import.meta.env.VITE_*`.
   game/                          ← pure game module — no React, no DOM, no window. IMPORTED BY SERVER (see Step 8).
     constants.js                 ← GRID_SIZE, PLAYERS, DIRECTIONS, TURN_TIME, ITEM_TYPES, spawn tuning
-    logic.js                     ← initGame, initSandboxGame, applyMove, completeTurn (internal), eliminateCurrentPlayer, getCurrentValidMoves, getValidMoves, placeSandboxItem, validateMove (server-side security boundary)
+    logic.js                     ← initGame, initSandboxGame, applyMove, completeTurn (internal), eliminateCurrentPlayer, eliminatePlayer (server-side arbitrary-player elimination for disconnect), getCurrentValidMoves, getValidMoves, placeSandboxItem, validateMove (server-side security boundary)
     ai.js                        ← getGremlinMove(state, difficulty) — bot move selection
     sounds.js                    ← Web Audio API synth (SFX + bg theme), resumeAudio, setMuted — client-only
   components/
@@ -228,6 +241,8 @@ server/                          ← Cloudflare Worker + RoomDurableObject + wir
   __tests__/room-lobby.test.ts   ← 15 cases covering HELLO/START dispatch: single+second join, capacity cap, duplicate name, host/non-host START, re-START (ALREADY_STARTED), malformed JSON / unknown type / binary (BAD_PAYLOAD), idempotent re-HELLO, player-leaves-during-lobby, host-leaves-during-lobby, MOVE-in-lobby. Uses a `waitForInbox` helper — inboxes are attached at socket open so broadcasts that arrive before test-side waiters aren't lost.
   __tests__/room-turnloop.test.ts ← 10 cases covering START → initGame → GAME_STATE broadcast and MOVE → validateMove → applyMove → GAME_STATE broadcast. Includes security rejections (NOT_YOUR_TURN, INVALID_MOVE × 2, UNAUTHORIZED), identity merge check, magicItems flow-through, storage shape check, and a 4-move cycling test. Uses `startGameWithHumans(names)` setup helper.
   __tests__/room-bots.test.ts    ← 4 cases covering the bot driver: identity in a 1h3b room (🤖 shortName + isBot=true), alarm scheduled after START and advances via runDurableObjectAlarm, all-bots simulation drives the game to GAME_OVER via seeded storage + alarm loop, and the seat-recycling invariant that makes `gremlinCount = 4 - N` correct.
+  __tests__/room-timer.test.ts   ← 3 cases covering the human turn timer: alarm size is ~TURN_TIME_MS when current seat is human, firing the alarm forfeits via eliminateCurrentPlayer (isEliminated + deathCell + finishTurn set; currentPlayerIndex advances), and bot-to-human handoff correctly switches the alarm size from 800–1400ms to TURN_TIME_MS.
+  __tests__/room-disconnect.test.ts ← 4 cases covering disconnect=elimination during `playing` phase: non-current player disconnect (marked eliminated, turn unchanged), current-player disconnect (eliminated + turn advances), last-human-in-1h3b disconnect (bots play out to GAME_OVER via alarms), and post-GAME_OVER disconnect (no-op, no alarm, no broadcast).
 e2e/                             ← Playwright specs
   sanity.spec.ts                 ← trivial harness-wired test
 vitest.config.js                 ← client/jsdom Vitest config
@@ -327,4 +342,6 @@ CI: `.github/workflows/test.yml` runs all three as separate jobs on pushes to th
 
 ## What's NOT here yet (framing for the multiplayer work)
 
-The server can now run rooms of any human count 0–4 end-to-end: humans move, bots fill empty seats and the alarm drives their turns until GAME_OVER. Still pending: no human turn timer + no disconnect=elimination (Step 12), no client-side WebSocket code (Step 13), no session/identity across reconnects (Step 13), no TypeScript on the client. Online play via the real game UI is still impossible — four humans must still share one device. The work in `docs/multiplayer-plan.md` adds exactly these pieces while keeping the current hotseat path byte-for-byte intact. The test harness (Step 1), the `VITE_ENABLE_ONLINE` flag (Step 2), the client mode router + controllers (Step 3), the Worker skeleton (Step 4), `RoomDurableObject` + `POST /rooms` (Step 5), the WebSocket upgrade via the Hibernation API (Step 6), the zod-validated wire format (Step 7), the shared game module with server-side `validateMove` (Step 8), the lobby dispatcher (Step 9), the server-authoritative turn loop (Step 10), and the alarm-driven bot driver (Step 11) are all in place so later steps can grow the online stack behind the gate without disturbing production.
+**The server side of the online multiplayer stack is complete.** Rooms of any human count 0–4 play end-to-end: humans move, bots fill empty seats, turn timers auto-forfeit humans, and disconnects eliminate that seat while the remaining players (human or bot) continue to GAME_OVER. What's still missing is all client-side: no WebSocket wrapper (Step 13), no `useNetworkGame` hook (Step 14), no Lobby / JoinScreen UI (Step 15), no wire-up from `OnlineGameController` to the real server (Step 16). Playwright E2E (Step 17) then validates the full browser-level flow. Online play via the real game UI is still impossible today — four humans must still share one device.
+
+The test harness (Step 1), the `VITE_ENABLE_ONLINE` flag (Step 2), the client mode router + controllers (Step 3), the Worker skeleton (Step 4), `RoomDurableObject` + `POST /rooms` (Step 5), the WebSocket upgrade via the Hibernation API (Step 6), the zod-validated wire format (Step 7), the shared game module with server-side `validateMove` (Step 8), the lobby dispatcher (Step 9), the server-authoritative turn loop (Step 10), the alarm-driven bot driver (Step 11), and turn-timer + disconnect=elimination (Step 12) are all in place so later steps can grow the online stack behind the gate without disturbing production.

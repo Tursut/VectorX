@@ -310,6 +310,43 @@ export function eliminateCurrentPlayer(state) {
   });
 }
 
+// Eliminate an arbitrary player by id. Used server-side for disconnects:
+// closing a WebSocket in-game kicks that seat without requiring it to be
+// their turn.
+//
+// Behaviour:
+//   - If the player isn't found or is already eliminated → no-op, returns
+//     `state` unchanged.
+//   - If playerId points at the current player → delegates to
+//     `eliminateCurrentPlayer` so turn advance + item tick + trySpawnItem
+//     all happen exactly as they would for a TIMEOUT on their own turn.
+//   - Otherwise → marks that player eliminated with `deathCell` at their
+//     current cell and `finishTurn: turnCount`. Turn does NOT advance
+//     (someone else is mid-turn). Recomputes gameover + winner.
+export function eliminatePlayer(state, playerId) {
+  const { players, currentPlayerIndex, turnCount } = state;
+  const target = players.find((p) => p.id === playerId);
+  if (!target || target.isEliminated) return state;
+
+  if (players[currentPlayerIndex].id === playerId) {
+    return eliminateCurrentPlayer(state);
+  }
+
+  const updatedPlayers = players.map((p) =>
+    p.id === playerId ? { ...markEliminated(p), finishTurn: turnCount } : p
+  );
+  const stillAlive = updatedPlayers.filter((p) => !p.isEliminated);
+  const isGameOver = stillAlive.length <= 1;
+  const winner = isGameOver ? stillAlive[0] ?? null : null;
+
+  return {
+    ...state,
+    players: updatedPlayers,
+    phase: isGameOver ? 'gameover' : 'playing',
+    winner: winner ? winner.id : null,
+  };
+}
+
 export function getCurrentValidMoves(state) {
   const { grid, players, currentPlayerIndex, portalActive, swapActive } = state;
   const p = players[currentPlayerIndex];

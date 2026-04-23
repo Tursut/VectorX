@@ -20,9 +20,19 @@ import {
 // with the client. Purity invariant enforced by CLAUDE.md (no React, no DOM).
 // Types come in as `any` (no .d.ts on the .js files); we re-type via protocol.ts
 // when assembling outbound messages.
-import { initGame, applyMove, validateMove, eliminateCurrentPlayer } from '../src/game/logic';
+import {
+  initGame,
+  applyMove,
+  validateMove,
+  eliminateCurrentPlayer,
+  eliminatePlayer,
+} from '../src/game/logic';
 import { getGremlinMove } from '../src/game/ai';
-import { PLAYERS } from '../src/game/constants';
+import { PLAYERS, TURN_TIME } from '../src/game/constants';
+
+// Human turn-timer budget. TURN_TIME is seconds in the shared constants; the
+// DO alarm API expects milliseconds.
+const TURN_TIME_MS = TURN_TIME * 1000;
 
 interface Env {
   ROOM: DurableObjectNamespace<RoomDurableObject>;
@@ -189,8 +199,24 @@ export class RoomDurableObject extends DurableObject<Env> {
         if (storedCode) {
           this.broadcast(this.buildLobbyState(storedCode, updated));
         }
+      } else {
+        // lobby.phase === 'playing' → disconnect = elimination (Step 12).
+        // Leave the seat's cells claimed (the tombstone), advance turn if
+        // they were current, check gameover, broadcast updated GAME_STATE.
+        // If the game is already over or the player was already eliminated,
+        // eliminatePlayer is a no-op — skip the broadcast path to avoid
+        // spurious state-unchanged broadcasts after game end.
+        const storedCode = await this.ctx.storage.get<string>('code');
+        const game = await this.ctx.storage.get<GameStorage>('game');
+        if (storedCode && game && game.phase === 'playing') {
+          const next = eliminatePlayer(game, seatId) as GameStorage;
+          if (next !== game) {
+            await this.ctx.storage.put('game', next);
+            this.broadcast(this.buildGameState(storedCode, lobby, next));
+            await this.maybeScheduleTurnAlarm(next, lobby);
+          }
+        }
       }
-      // phase === 'playing': Step 12 handles elimination + broadcast.
     } catch {
       // DO/storage may be torn down; ignore and still close the socket below.
     }
@@ -210,7 +236,7 @@ export class RoomDurableObject extends DurableObject<Env> {
   }
 
   // Bot turn driver. Runs when a scheduled alarm fires — see
-  // maybeScheduleBotTurn below for when that happens. Guards against stale
+  // maybeScheduleTurnAlarm below for when that happens. Guards against stale
   // invocations (game over, phase flipped, current player changed to a
   // human between scheduling and firing). Chains consecutive bot turns by
   // re-scheduling at the end.
@@ -228,19 +254,23 @@ export class RoomDurableObject extends DurableObject<Env> {
       return;
     }
     const currentSeatId = game.players[game.currentPlayerIndex].id;
-    if (lobby.players.some((p) => p.id === currentSeatId)) {
-      // Stale alarm — a human's turn now. Don't bot-move on their behalf.
-      return;
+    const isHuman = lobby.players.some((p) => p.id === currentSeatId);
+    if (isHuman) {
+      // Human's turn-timer elapsed → auto-forfeit. Mirrors the hotseat
+      // TIMEOUT dispatch in LocalGameController: eliminateCurrentPlayer,
+      // which advances turn + runs completeTurn's item/gameover logic.
+      game = eliminateCurrentPlayer(game) as GameStorage;
+    } else {
+      // Bot's turn. getGremlinMove returns null when it has no legal moves
+      // — same hotseat TIMEOUT path → eliminate the stuck bot.
+      const move = getGremlinMove(game, 1);
+      game = move
+        ? (applyMove(game, move.row, move.col) as GameStorage)
+        : (eliminateCurrentPlayer(game) as GameStorage);
     }
-    // getGremlinMove returns null only when the current player has no legal
-    // moves; matches the hotseat TIMEOUT path → eliminate the stuck bot.
-    const move = getGremlinMove(game, 1);
-    game = move
-      ? (applyMove(game, move.row, move.col) as GameStorage)
-      : (eliminateCurrentPlayer(game) as GameStorage);
     await this.ctx.storage.put('game', game);
     this.broadcast(this.buildGameState(code, lobby, game));
-    await this.maybeScheduleBotTurn(game, lobby);
+    await this.maybeScheduleTurnAlarm(game, lobby);
   }
 
   // ----- Handlers -----
@@ -343,7 +373,7 @@ export class RoomDurableObject extends DurableObject<Env> {
     await this.ctx.storage.put({ lobby: updatedLobby, game });
 
     this.broadcast(this.buildGameState(storedCode, updatedLobby, game));
-    await this.maybeScheduleBotTurn(game, updatedLobby);
+    await this.maybeScheduleTurnAlarm(game, updatedLobby);
   }
 
   private async handleMove(ws: WebSocket, msg: MoveMsg): Promise<void> {
@@ -377,7 +407,7 @@ export class RoomDurableObject extends DurableObject<Env> {
     await this.ctx.storage.put('game', nextGame);
 
     this.broadcast(this.buildGameState(storedCode, lobby, nextGame));
-    await this.maybeScheduleBotTurn(nextGame, lobby);
+    await this.maybeScheduleTurnAlarm(nextGame, lobby);
   }
 
   // ----- Helpers -----
@@ -412,7 +442,16 @@ export class RoomDurableObject extends DurableObject<Env> {
   //   - Current seat is a human       → no alarm (they need to move).
   //   - Current seat is a bot         → alarm scheduled 800–1400ms out.
   // setAlarm overwrites any existing alarm; deleteAlarm is idempotent.
-  private async maybeScheduleBotTurn(
+  // Called after every state-transitioning broadcast (START, MOVE, alarm,
+  // disconnect). Schedules exactly one alarm:
+  //   - Game over / non-playing phase → deleteAlarm (alarm is idempotent).
+  //   - Current seat is a bot → 800–1400ms "thinking delay" for feel.
+  //   - Current seat is a human → TURN_TIME_MS deadline for their move.
+  //   - Current seat is an eliminated ghost (shouldn't happen post-Step-8's
+  //     advanceToNextActive, but defensive) → deleteAlarm; the runtime can
+  //     recover once some other transition brings a live seat back.
+  // setAlarm overwrites any existing alarm — no read-then-write needed.
+  private async maybeScheduleTurnAlarm(
     game: GameStorage,
     lobby: LobbyStorage,
   ): Promise<void> {
@@ -420,13 +459,15 @@ export class RoomDurableObject extends DurableObject<Env> {
       await this.ctx.storage.deleteAlarm();
       return;
     }
-    const currentSeatId = game.players[game.currentPlayerIndex].id;
-    const isHuman = lobby.players.some((p) => p.id === currentSeatId);
-    if (isHuman) {
+    const currentPlayer = game.players[game.currentPlayerIndex];
+    if (currentPlayer.isEliminated) {
       await this.ctx.storage.deleteAlarm();
       return;
     }
-    const delay = 800 + Math.floor(Math.random() * 600);
+    const isHuman = lobby.players.some((p) => p.id === currentPlayer.id);
+    const delay = isHuman
+      ? TURN_TIME_MS
+      : 800 + Math.floor(Math.random() * 600);
     await this.ctx.storage.setAlarm(Date.now() + delay);
   }
 
