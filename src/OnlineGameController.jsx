@@ -1,123 +1,35 @@
-// Online multiplayer shell (Step 16). Replaces the Step-3 stub.
+// Online multiplayer game renderer.
 //
-// State machine (internal `screen`):
-//   'home'     → choose Create Room or Join Room
-//   'creating' → POST /rooms in flight
-//   'create-naming' → room code in hand, show JoinScreen with defaultCode
-//   'joining'  → JoinScreen (empty defaultCode), user types code + name
-//   'connected' → mount <OnlineRoom/>; WebSocket + useNetworkGame take over
+// Receives an already-established room (`code`) + the joining user's chosen
+// identity (`displayName` + `initialMagicItems`) from the parent (App.jsx).
+// Owns the WebSocket lifetime via useNetworkGame. Routes on connection state
+// + game phase:
 //
-// OnlineRoom is split out so React's hooks-can't-be-conditional rule doesn't
-// stop us mounting useNetworkGame only once we have a URL to connect to.
+//   connecting / waiting for HELLO → StatusScreen
+//   lobby phase (no GAME_STATE yet) → Lobby
+//   playing → PlayerPanel + TurnIndicator + GameBoard
+//   gameover → GameOverScreen
+//
+// The Step-16 "home / creating / JoinScreen" outer state machine moved to
+// StartScreen after the UX merge — this file is now just the in-room view.
 
 import { useEffect, useRef, useState } from 'react';
-import { SERVER_URL, wsUrl } from './config';
+import { wsUrl } from './config';
 import { useNetworkGame } from './net/useNetworkGame';
 import { getCurrentValidMoves } from './game/logic';
 import { PLAYERS, TURN_TIME } from './game/constants';
-import JoinScreen from './components/JoinScreen';
 import Lobby from './components/Lobby';
 import PlayerPanel from './components/PlayerPanel';
 import TurnIndicator from './components/TurnIndicator';
 import GameBoard from './components/GameBoard';
 import GameOverScreen from './components/GameOverScreen';
 
-export default function OnlineGameController({ onExit }) {
-  const [screen, setScreen] = useState('home');
-  const [roomCode, setRoomCode] = useState('');
-  const [displayName, setDisplayName] = useState('');
-  const [createError, setCreateError] = useState(null);
-
-  async function handleCreate() {
-    setCreateError(null);
-    setScreen('creating');
-    try {
-      const res = await fetch(`${SERVER_URL}/rooms`, { method: 'POST' });
-      if (!res.ok) throw new Error(`Server returned ${res.status}`);
-      const body = await res.json();
-      setRoomCode(body.code);
-      setScreen('create-naming');
-    } catch (err) {
-      setCreateError(err instanceof Error ? err.message : String(err));
-      setScreen('home');
-    }
-  }
-
-  function handleJoinSubmit({ code, displayName: name }) {
-    setRoomCode(code);
-    setDisplayName(name);
-    setScreen('connected');
-  }
-
-  function handleRoomExit() {
-    // Returning from inside a live room → back to the online home screen,
-    // not all the way to the hotseat menu. Caller can hit ← Menu again.
-    setScreen('home');
-    setRoomCode('');
-    setDisplayName('');
-  }
-
-  if (screen === 'connected') {
-    return (
-      <OnlineRoom
-        code={roomCode}
-        displayName={displayName}
-        onLeaveRoom={handleRoomExit}
-        onBackToMenu={onExit}
-      />
-    );
-  }
-
-  if (screen === 'joining' || screen === 'create-naming') {
-    return (
-      <JoinScreen
-        defaultCode={screen === 'create-naming' ? roomCode : ''}
-        onSubmit={handleJoinSubmit}
-        onCancel={() => setScreen('home')}
-      />
-    );
-  }
-
-  // screen === 'home' or 'creating'
-  return (
-    <div className="online-home">
-      <button className="online-back-btn" onClick={onExit}>← Menu</button>
-      <h1 className="online-home-title">Play online</h1>
-      <p className="online-home-sub">
-        Create a room and share the link, or paste a friend's code.
-      </p>
-
-      <div className="online-home-actions">
-        <button
-          className="online-home-btn"
-          onClick={handleCreate}
-          disabled={screen === 'creating'}
-        >
-          {screen === 'creating' ? 'Creating…' : 'Create Room'}
-        </button>
-        <button
-          className="online-home-btn"
-          onClick={() => setScreen('joining')}
-          disabled={screen === 'creating'}
-        >
-          Join Room
-        </button>
-      </div>
-
-      {createError && (
-        <p className="online-error" role="alert">
-          Couldn't create a room: {createError}
-        </p>
-      )}
-    </div>
-  );
-}
-
-// ---------- OnlineRoom ----------
-
-// Mounted only once we have a room code + displayName. Owns the WebSocket
-// connection for its entire lifetime; useNetworkGame closes it on unmount.
-function OnlineRoom({ code, displayName, onLeaveRoom, onBackToMenu }) {
+export default function OnlineGameController({
+  code,
+  displayName,
+  initialMagicItems = false,
+  onExit,
+}) {
   const url = wsUrl(code);
   const {
     gameState,
@@ -130,12 +42,11 @@ function OnlineRoom({ code, displayName, onLeaveRoom, onBackToMenu }) {
     move,
   } = useNetworkGame({ url });
 
-  // Host-local magic-items toggle. The authoritative value lives on the
-  // server post-START (in lobby.magicItems, reflected into gameState.magicItems).
-  const [magicItems, setMagicItems] = useState(false);
+  // Host-local magic-items choice. Seeded from StartScreen. Post-START the
+  // server broadcasts the authoritative value inside gameState.magicItems.
+  const [magicItems, setMagicItems] = useState(initialMagicItems);
 
-  // Send HELLO exactly once when the socket first becomes OPEN. useRef so
-  // a re-render after setState doesn't re-trigger it.
+  // Send HELLO exactly once when the socket first becomes OPEN.
   const helloSent = useRef(false);
   useEffect(() => {
     if (connectionState === 'open' && !helloSent.current) {
@@ -147,36 +58,33 @@ function OnlineRoom({ code, displayName, onLeaveRoom, onBackToMenu }) {
   // ---------- Status screens ----------
 
   if (connectionState === 'connecting' || !helloSent.current) {
-    return <StatusScreen label={`Connecting to room ${code}…`} onBack={onLeaveRoom} />;
+    return <StatusScreen label={`Connecting to room ${code}…`} onBack={onExit} />;
   }
 
   if (lastError) {
     return (
       <StatusScreen
         label={`Error: ${lastError.code}${lastError.message ? ` — ${lastError.message}` : ''}`}
-        onBack={onLeaveRoom}
+        onBack={onExit}
       />
     );
   }
 
   if (connectionState === 'closed' || connectionState === 'destroyed') {
-    return <StatusScreen label="Connection lost. Reconnecting…" onBack={onLeaveRoom} />;
+    return <StatusScreen label="Connection lost. Reconnecting…" onBack={onExit} />;
   }
 
   if (!lobby) {
-    return <StatusScreen label={`Joining room ${code}…`} onBack={onLeaveRoom} />;
+    return <StatusScreen label={`Joining room ${code}…`} onBack={onExit} />;
   }
 
   // ---------- Game phases ----------
 
-  // Playing: full game board
   if (gameState && gameState.phase === 'playing') {
     const currentSeat = gameState.currentPlayerIndex;
     const myTurn = mySeatId !== null && currentSeat === mySeatId;
     const currentIsBot = gameState.players[currentSeat]?.isBot === true;
 
-    // Valid-move hints only when it's our turn. getCurrentValidMoves handles
-    // normal-mode, portalActive, swapActive, and freezeSelectActive.
     const validMoves = myTurn ? getCurrentValidMoves(gameState) : [];
     const validMoveSet = new Set(validMoves.map((m) => `${m.row},${m.col}`));
 
@@ -221,7 +129,7 @@ function OnlineRoom({ code, displayName, onLeaveRoom, onBackToMenu }) {
               frozenPlayerId={gameState.frozenPlayerId}
               frozenTurnsLeft={gameState.frozenTurnsLeft}
             />
-            <button className="exit-game-btn" onClick={onBackToMenu}>
+            <button className="exit-game-btn" onClick={onExit}>
               ← Exit to menu
             </button>
           </div>
@@ -230,7 +138,6 @@ function OnlineRoom({ code, displayName, onLeaveRoom, onBackToMenu }) {
     );
   }
 
-  // Game over: winner screen
   if (gameState && gameState.phase === 'gameover') {
     const winnerPlayer =
       gameState.winner !== null ? PLAYERS[gameState.winner] : null;
@@ -239,12 +146,12 @@ function OnlineRoom({ code, displayName, onLeaveRoom, onBackToMenu }) {
         winner={winnerPlayer}
         players={gameState.players}
         onRestart={null /* rematch is a future feature */}
-        onMenu={onBackToMenu}
+        onMenu={onExit}
       />
     );
   }
 
-  // Lobby phase (no GAME_STATE yet)
+  // Lobby phase (pre-START)
   return (
     <Lobby
       code={code}
@@ -254,7 +161,7 @@ function OnlineRoom({ code, displayName, onLeaveRoom, onBackToMenu }) {
       magicItems={magicItems}
       onToggleMagicItems={setMagicItems}
       onStart={() => start(magicItems)}
-      onLeave={onBackToMenu}
+      onLeave={onExit}
     />
   );
 }
