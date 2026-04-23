@@ -82,6 +82,35 @@ Three invariants, all on `RoomDurableObject`:
 
 Today `webSocketMessage` just echoes the message (Step 6). Step 9 will parse the payload as a zod-validated protocol message and dispatch to lobby/game handlers. `webSocketError` closes the socket cleanly on any workerd-reported fault — without it, the test isolate noisily logs unhandled errors on every abnormal close.
 
+### Protocol (`server/protocol.ts`)
+
+All WebSocket traffic is JSON. Every message has a literal `type` field that discriminates the shape. Schemas live in `server/protocol.ts` as **zod 4** schemas, built strict (unknown keys reject) and round-trip-safe (schemas never mutate input — `DisplayName` rejects whitespace-bounded strings rather than trimming).
+
+**Messages:**
+
+| Direction | `type` | Purpose |
+| --- | --- | --- |
+| C → S | `HELLO` | Handshake on socket open. Carries `version: PROTOCOL_VERSION` and `displayName`. |
+| C → S | `START` | Host-only request to start the game (and lock the `magicItems` choice). |
+| C → S | `MOVE` | `{row, col}` move. |
+| S → C | `JOIN` | Broadcast: a new `LobbyPlayer` joined the room. |
+| S → C | `LOBBY_STATE` | Full lobby snapshot — `code`, `players[]`, `magicItems`, `hostId`. |
+| S → C | `GAME_STATE` | Full game snapshot — grid (10×10 enforced), players (4 enforced), current turn, items, winner, `lastEvent` (freeze/swap discriminated union). Mirrors `src/game/logic.js` byte-for-byte. |
+| S → C | `ELIMINATED` | A player was eliminated. `reason: trapped | timeout | disconnect`. |
+| S → C | `GAME_OVER` | Game ended. `winner` (or null for draw) + final `players[]`. |
+| S → C | `ERROR` | Typed rejection. `code` enum covers `NOT_YOUR_TURN`, `INVALID_MOVE`, `ROOM_FULL`, `DUPLICATE_NAME`, `UNAUTHORIZED`, `BAD_PAYLOAD`, `ALREADY_STARTED`. |
+
+Discriminated unions `ClientMsg` and `ServerMsg` (both on `type`) exhaustively cover the two directions. The sole server-side helper is `parseClientMsg(raw) → {ok:true,msg} | {ok:false,code:'BAD_PAYLOAD'}`; the DO handler (Step 9) uses it as a single entry point.
+
+**`PROTOCOL_VERSION = 1`** is stamped into `HELLO` and rejected on mismatch. Bump when the wire format changes incompatibly — cheap defence against cached-client-vs-new-server skew once we deploy.
+
+**Player identity is intentionally split** into two schemas:
+
+- `LobbyPlayer` — `id, displayName, isBot, isHost`. Used in `LOBBY_STATE` and `JOIN`.
+- `GamePlayer` — adds `row, col, isEliminated, deathCell: {row,col}|null, finishTurn: number|null`. Used in `GAME_STATE` and `GAME_OVER`. The nullable-but-always-present shape matches `logic.js` exactly, so the Step 14 `useNetworkGame` contract test stays trivial.
+
+Nothing imports `protocol.ts` yet — Step 9 wires the DO handler against it; Step 13 imports it into `src/net/client.js` for client-side validation. Until then it's a typed contract on disk with its own test suite.
+
 ### Room code format
 
 - Alphabet: `23456789ABCDEFGHJKLMNPQRSTUVWXYZ` — base32 excluding visually-confusable chars (`0/O/1/I`). 32 symbols → 5 bits per char.
@@ -124,8 +153,9 @@ src/
     SoundToggle.jsx              ← tiny speaker button
     GameOverScreen.jsx           ← winner screen, restart, back to menu
 public/                          ← static assets served as-is
-server/                          ← Cloudflare Worker + RoomDurableObject (Steps 4–6). Protocol + gameplay arrive in Steps 7–12.
+server/                          ← Cloudflare Worker + RoomDurableObject + wire protocol (Steps 4–7). Gameplay arrives in Steps 8–12.
   index.ts                       ← Worker entry + `RoomDurableObject` class. Module-default-export format. Routes: GET /ping, POST /rooms, GET /rooms/:code/ws (WebSocket upgrade); 400/404/405/426 otherwise.
+  protocol.ts                    ← zod 4 schemas for every message. Split LobbyPlayer/GamePlayer, strict objects, PROTOCOL_VERSION stamp, parseClientMsg helper. No runtime imports yet — Step 9 wires it.
   wrangler.toml                  ← name, main, compat_date, nodejs_compat, `[[durable_objects.bindings]] ROOM`, `[[migrations]] v1 new_classes=[RoomDurableObject]`.
   tsconfig.json                  ← server-only tsconfig. Pulls in @cloudflare/workers-types + @cloudflare/vitest-pool-workers. noEmit.
   vitest.config.ts               ← Workers-pool Vitest config — `plugins: [cloudflareTest({ wrangler: { configPath } })]`.
@@ -133,6 +163,7 @@ server/                          ← Cloudflare Worker + RoomDurableObject (Step
   __tests__/ping.test.ts         ← uses SELF.fetch from `cloudflare:test` to hit the `/ping` handler
   __tests__/room-create.test.ts  ← POST /rooms: code format, 200-create uniqueness, DO storage inspection via runInDurableObject, persistence, method guards
   __tests__/room-ws.test.ts      ← GET /rooms/:code/ws: happy-path echo through hibernation, 404 on uninitialised room, 426 without Upgrade header, 400 on malformed code, 405 on wrong method. afterEach drains open sockets.
+  __tests__/protocol.test.ts     ← Pure schema tests (no Worker/DO). Round-trips 9 message types; rejects version/length/enum violations + unknown keys; covers discriminated-union direction guards and parseClientMsg.
 e2e/                             ← Playwright specs
   sanity.spec.ts                 ← trivial harness-wired test
 vitest.config.js                 ← client/jsdom Vitest config
@@ -232,4 +263,4 @@ CI: `.github/workflows/test.yml` runs all three as separate jobs on pushes to th
 
 ## What's NOT here yet (framing for the multiplayer work)
 
-No protocol yet — the WS endpoint just echoes. No client-side WebSocket code, no lobby roster, no remote human players, no session/identity, no shared game logic on the server, no TypeScript on the client. Online play is still impossible — four humans must share one device. The work in `docs/multiplayer-plan.md` adds exactly these pieces while keeping the current hotseat path byte-for-byte intact. The test harness (Step 1), the `VITE_ENABLE_ONLINE` flag (Step 2), the client mode router + controllers (Step 3), the Worker skeleton (Step 4), `RoomDurableObject` + `POST /rooms` (Step 5), and the WebSocket upgrade at `GET /rooms/:code/ws` via the Hibernation API (Step 6) are all in place so later steps can grow the online stack behind the gate without disturbing production.
+Protocol schemas exist but nothing reads them yet — the WS endpoint still echoes. No client-side WebSocket code, no lobby roster, no remote human players, no session/identity, no shared game logic on the server, no TypeScript on the client. Online play is still impossible — four humans must share one device. The work in `docs/multiplayer-plan.md` adds exactly these pieces while keeping the current hotseat path byte-for-byte intact. The test harness (Step 1), the `VITE_ENABLE_ONLINE` flag (Step 2), the client mode router + controllers (Step 3), the Worker skeleton (Step 4), `RoomDurableObject` + `POST /rooms` (Step 5), the WebSocket upgrade via the Hibernation API (Step 6), and the zod-validated wire format (Step 7) are all in place so later steps can grow the online stack behind the gate without disturbing production.

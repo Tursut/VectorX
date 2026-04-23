@@ -220,8 +220,23 @@ Each step is a single commit-sized unit of work. Every step ends with an automat
 - **Manual probe prerequisites on Mac:** plain `curl` hangs on 101 (it's a half-done upgrade with no real client to continue). Use `curl --max-time 2 -o /dev/null -w "%{http_code}"` to just check the status, or `brew install websocat` for an interactive REPL.
 - **Server suite: 15/15 green** (2 smoke + 2 ping + 6 room-create + 5 room-ws).
 
-**Step 7 — `protocol.ts` with zod schemas.** Define `HELLO`, `JOIN`, `LOBBY_STATE`, `START`, `MOVE`, `GAME_STATE`, `ELIMINATED`, `GAME_OVER` schemas. No handlers wired yet — just the types.
+**Step 7 — `protocol.ts` with zod schemas. ✅** Define `HELLO`, `JOIN`, `LOBBY_STATE`, `START`, `MOVE`, `GAME_STATE`, `ELIMINATED`, `GAME_OVER` schemas. No handlers wired yet — just the types.
 - **Verify:** `server/__tests__/protocol.test.ts` round-trips every valid message and asserts rejection of malformed ones.
+
+**Step 7 deviations:**
+- **zod 4.3.6**, not 3.x as an earlier note implied. The hoisted copy (transitive via `@cloudflare/vitest-pool-workers`) is already 4.3.6; adding it as a direct dep at `^4.3.6` matches reality.
+- **`.strict()` on every `z.object`** — client and server ship together; unknown keys are bugs, not forward-compat. Rejection covered by two tests.
+- **PlayerInfo split into `LobbyPlayer` and `GamePlayer`** — one optional-everything schema would break Step 14's `useNetworkGame` contract test, which needs `GAME_STATE.players[]` to match `logic.js`'s `Player` shape byte-for-byte. `deathCell` and `finishTurn` are always-present-but-nullable (no `.optional()`) for the same reason.
+- **Added `ERROR` schema** — plan listed 8 message names but not `ERROR`. Step 10 ("typed error for illegal moves") needs it. Codes: `NOT_YOUR_TURN`, `INVALID_MOVE`, `ROOM_FULL`, `DUPLICATE_NAME`, `UNAUTHORIZED`, `BAD_PAYLOAD`, `ALREADY_STARTED`.
+- **Added `PROTOCOL_VERSION` stamp** (HELLO.version) — cheap insurance against cached-client-vs-new-server skew post-Step-19. Bump when wire format changes incompatibly.
+- **Grid locked at 10×10 at schema level** (`.length(10)` on both axes). Silent regressions are the point of a wire contract.
+- **`DisplayName` rejects whitespace-bounded strings** via regex rather than trimming — schemas mutating input breaks the round-trip equality invariant we test.
+- **`LOBBY_STATE.players.max(4)`** at the schema level (plan only called out handler-level capacity cap).
+- **`gremlinCount` omitted from GAME_STATE** — server is authoritative over seat composition; client derives bot-ness from `players[].isBot`.
+- **`lastEvent` as a proper discriminated union** (`{type: 'freeze'}` vs `{type: 'swap'}`), mirroring `logic.js` exactly.
+- **`parseClientMsg` helper** exported for Step 9's DO handler — one entry point, returns `{ok:true,msg} | {ok:false,code:'BAD_PAYLOAD'}`. No `parseServerMsg` — DO trusts its own outputs.
+- **No runtime effect yet.** `server/index.ts` still runs the Step 6 echo loop. `protocol.ts` is dead code until Step 9 imports it.
+- **Server suite: 43/43 green** (2 smoke + 2 ping + 6 room-create + 5 room-ws + 28 protocol; more than the ~20 planned because rejection cases expanded during authoring).
 
 ### Shared game logic on the server (step 8)
 
