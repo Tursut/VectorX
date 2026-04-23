@@ -614,7 +614,14 @@ export default {
         if (initRes.status === 204) {
           return new Response(JSON.stringify({ code }), {
             status: 201,
-            headers: { 'content-type': 'application/json' },
+            headers: {
+              'content-type': 'application/json',
+              // Permissive CORS so the browser can read the response from
+              // whatever origin the client is running on (GitHub Pages,
+              // localhost, preview). Step 20 replaces `*` with a tight
+              // allow-list against the `Origin` header.
+              'access-control-allow-origin': '*',
+            },
           });
         }
         if (initRes.status !== 409) {
