@@ -209,23 +209,26 @@ const { gameState, lobby, connectionState, mySeatId, lastError,
 
 ### Online mode (`src/OnlineGameController.jsx`, Step 16)
 
-The outer `App.jsx` is a thin mode router. When `ENABLE_ONLINE` is true and the user clicks **Play online** on `StartScreen`, `setMode('online')` mounts `OnlineGameController` under a `<Suspense>` boundary. OnlineGameController runs a small state machine:
+Online is a thin socket + lobby shell that reuses the in-game renderer. After the Step-16 UX merge, entry lives on `StartScreen` (mode switcher → Name + Code inputs). Once the user submits, `App.jsx` mounts `OnlineGameController` under a `<Suspense>` boundary.
 
-| screen | what renders |
+`OnlineGameController` calls `useNetworkGame({ url: wsUrl(code) })` and routes on connection state + game phase:
+
+| state | what renders |
 | --- | --- |
-| `home` | two buttons (Create Room / Join Room) + ← Menu back-link |
-| `creating` | `home` screen with a disabled "Creating…" label while `fetch('POST /rooms')` resolves |
-| `create-naming` | `JoinScreen` with the just-minted code pre-filled (user only fills in their name) |
-| `joining` | `JoinScreen` with empty defaultCode |
-| `connected` | inner `<OnlineRoom>` mounts — owns the WebSocket lifecycle |
+| `connecting` / waiting for HELLO | `<StatusScreen>` |
+| error / closed / destroyed | `<StatusScreen>` with label |
+| lobby (no GAME_STATE yet) | `<Lobby>` |
+| `playing` or `gameover` | `<GameScreen>` (shared with local) |
 
-`OnlineRoom` calls `useNetworkGame({ url: wsUrl(code) })` and routes on connection state + game phase: status screen (connecting / error / reconnecting) → `Lobby` (pre-start) → game screen (`PlayerPanel` + `TurnIndicator` + `GameBoard`) → `GameOverScreen`. Cell clicks call `move(row, col)` when `mySeatId === gameState.currentPlayerIndex`.
+**Shared in-game surface.** `<GameScreen>` (`src/components/GameScreen.jsx`) owns everything that only depends on `gameState` + "which seats I control" — rendering (`PlayerPanel` + `TurnIndicator` + `GameBoard` + `GameOverScreen`), every in-game sound, the trap/death animation chain, win/draw gating. Both controllers mount it and pass a `mySeats` prop (local: all non-bot seats; online: `[mySeatId]`). Any future in-game polish change lands there and both modes inherit it.
+
+**Animation derivation.** `src/game/useDerivedAnimations.js` is a hook both controllers call. It diffs the current `gameState` against the previous one to produce `{bombBlast, portalJump, swapFlash, flyingFreeze}` + fire item-pickup sounds (`playBomb`, `playPortal`, `playSwapActivate`, `playPortalJump`). No imperative pre-dispatch is needed; the hook runs identically in local (reducer output) and online (wire broadcast) because both produce the same `gameState` shape.
 
 **Server URL configuration.** `src/config.js` exports `SERVER_URL` (defaults to `http://localhost:8787`, overridable via `VITE_SERVER_URL` at build time) and `wsUrl(code)` which converts `http → ws`/`https → wss` and appends `/rooms/<code>/ws`. Step 18 sets `VITE_SERVER_URL` to the preview `*.workers.dev` origin.
 
-**Lazy-load boundary.** `App.jsx` uses `ENABLE_ONLINE ? lazy(() => import('./OnlineGameController')) : null`, so the entire online subtree (OnlineGameController + useNetworkGame + createClient + zod + JoinScreen + Lobby) is in a separate Vite chunk that's only fetched when the flag is on at build time AND the user actually navigates to online mode. Flag-off builds never load the chunk.
+**Lazy-load boundary.** `App.jsx` uses `ENABLE_ONLINE ? lazy(() => import('./OnlineGameController')) : null`. Vite auto-extracts `GameScreen` + `useDerivedAnimations` into a shared chunk between the main bundle and the online chunk.
 
-**Step 16 scope-trims** (fine to add later, no protocol change needed): no in-game animations (bomb blast, portal jump, swap flash, flying-freeze, elimination moment); no sound in online mode; no visible turn-timer countdown; no reconnect UX polish beyond `client.js`'s automatic backoff.
+**Still missing from online** (not required for shipping): visible turn-timer countdown (server enforces the deadline but client shows a static bar); reconnect UX polish beyond `client.js`'s automatic backoff.
 
 ### Room code format
 
@@ -259,8 +262,8 @@ Server-side TS imports these `.js` files via a relative path (`../../src/game/lo
 src/
   main.jsx                       ← React entry, mounts <App />
   App.jsx                        ← thin mode router: `mode: 'local' | 'online'` state, picks LocalGameController or (behind ENABLE_ONLINE flag) OnlineGameController. Owns the global stylesheet import.
-  LocalGameController.jsx        ← the entire hotseat app: gameReducer, all effects (timers, sounds, animations, bot turn driver, iOS audio resume), start/game/sandbox/gameover screens.
-  OnlineGameController.jsx       ← online multiplayer shell (Step 16). State machine home → creating → JoinScreen → connected (OnlineRoom). Inner OnlineRoom owns the WebSocket via useNetworkGame and renders Lobby / game / GameOverScreen based on phase. Lazy-loaded via App.jsx's lazy() so its subtree only ships when ENABLE_ONLINE is true at build time.
+  LocalGameController.jsx        ← hotseat outer shell: gameReducer, screen nav (start/game/sandbox), turn timer, gremlin bot driver, pre-game countdown, exit-confirm modal, StartScreen + SandboxPanel layouts. In-game rendering delegates to <GameScreen>.
+  OnlineGameController.jsx       ← online multiplayer shell: useNetworkGame socket lifecycle, HELLO handshake, status/lobby screens. In-game rendering delegates to <GameScreen>. Lazy-loaded via App.jsx so its subtree only ships when ENABLE_ONLINE is true at build time.
   App.css                        ← all app styles (global)
   index.css                      ← minimal reset / base
   config.js                      ← build-time feature flags (currently: ENABLE_ONLINE). Single read site for `import.meta.env.VITE_*`.
@@ -274,6 +277,7 @@ src/
     logic.js                     ← initGame, initSandboxGame, applyMove, completeTurn (internal), eliminateCurrentPlayer, eliminatePlayer (server-side arbitrary-player elimination for disconnect), getCurrentValidMoves, getValidMoves, placeSandboxItem, validateMove (server-side security boundary)
     ai.js                        ← getGremlinMove(state, difficulty) — bot move selection
     sounds.js                    ← Web Audio API synth (SFX + bg theme), resumeAudio, setMuted — client-only
+    useDerivedAnimations.js      ← React hook: diffs (prev → current) gameState to produce {bombBlast, portalJump, swapFlash, flyingFreeze} overlays + fire item-pickup sounds. Called once per controller; works identically in local and online.
   components/
     StartScreen.jsx              ← menu: start game, sandbox, toggle magic items, pick gremlin count, sound toggle
     GameBoard.jsx                ← 10×10 grid rendering + cell animations
@@ -285,9 +289,8 @@ src/
     SandboxPanel.jsx             ← sandbox mode controls (place items on demand, reset)
     SoundToggle.jsx              ← tiny speaker button
     GameOverScreen.jsx           ← winner screen, restart, back to menu
-    JoinScreen.jsx               ← online: form for joining a room by 5-char code. Uppercase-coerced, alphabet-filtered, URL-paste-extracts-code. Emits {code, displayName} via onSubmit. (Step 15)
+    GameScreen.jsx               ← shared in-game renderer used by both controllers: PlayerPanel + TurnIndicator + GameBoard + GameOverScreen, all in-game sounds, trap/death animation chain, win/draw gating. Takes a `mySeats` prop + an `onMove(row, col)` callback. Any polish change to the in-game UX goes here.
     Lobby.jsx                    ← online: waiting-room. Shows code + share link + roster (with 👑 on host and "(you)" on self) + empty-seat placeholders. Host-only: magic-items toggle + Start button. (Step 15)
-    __tests__/JoinScreen.test.jsx ← 12 cases: autofocus, code filtering/clamping, URL paste extraction (prefers /r/ shape), submit gating, onSubmit/onCancel callbacks.
     __tests__/Lobby.test.jsx     ← 10 cases: code rendered, player names, host badge, (you) badge, empty-seat placeholders, host-only controls hidden for non-hosts, Start/Leave/magic-toggle callbacks.
 public/                          ← static assets served as-is
 server/                          ← Cloudflare Worker + RoomDurableObject + wire protocol (Steps 4–7). Gameplay arrives in Steps 8–12.
@@ -379,9 +382,17 @@ The online branch is gated by `ENABLE_ONLINE && mode === 'online'`. With `VITE_E
 
 `App.jsx` also owns the global `App.css` import so the stylesheet loads regardless of which controller renders.
 
-## Effects in `LocalGameController.jsx` (big list, all co-located)
+## Where in-game effects live
 
-`LocalGameController.jsx` owns: screen state (`start | game | sandbox`), countdown before start, animation triggers (`bombBlast`, `portalJump`, `swapFlash`, `eventToast`, `playerMoment`, `trappedPlayers`), the turn timer, the your-turn chime, the bot-move scheduler, the background theme, elimination sound + overlay, and the iOS audio-context-resume listeners. All driven by `useEffect` reacting to `gameState`. This is the file to open when a hotseat-gameplay question comes up — `App.jsx` itself has no game logic.
+Post-unification, the split is:
+
+**`GameScreen.jsx`** — iOS audio-context resume, background theme, move + claim + your-turn chime on turn change, freeze/swap event sounds, elimination detection (the 450ms wind-up → trap animation → 2.5s settle → elimination sound chain), win/draw sound gated on the trap animation completing, and the GameOverScreen gating. One place to add or tune any observational in-game effect.
+
+**`useDerivedAnimations.js`** — the four transient animation overlays (`bombBlast`, `portalJump`, `swapFlash`, `flyingFreeze`) + their item-pickup sounds (`playBomb`, `playPortal`, `playSwapActivate`, `playPortalJump`). Called from each controller once; feeds into GameScreen as props.
+
+**`LocalGameController.jsx`** — screen state (`start | game | sandbox`), pre-game countdown (3-2-1-GO + sounds), the turn timer (setInterval + `playTick` on last 3s, dispatches `TIMEOUT`), the gremlin auto-move scheduler, and the exit-confirm modal. Specific to hotseat because server owns these concerns online.
+
+**`OnlineGameController.jsx`** — socket lifecycle (`useNetworkGame`), HELLO handshake, connection-state screens, lobby rendering.
 
 ## Gotchas & invariants
 
@@ -408,6 +419,8 @@ CI: `.github/workflows/test.yml` runs all three as separate jobs on pushes to th
 
 **Online play works end-to-end in a browser.** Run `npx wrangler dev` + `VITE_ENABLE_ONLINE=true VITE_SERVER_URL=http://localhost:8787 npm run dev`, click Play online → Create Room → Alice → Start game, and a real 1h3b game plays out against the server-driven bots. Second tab with the share link joins a second human. Steps 0–16 together shipped the full stack.
 
-What's still missing for a real deploy: Playwright E2E tests (Step 17) validating the browser flow end-to-end; Cloudflare `wrangler deploy` + a `gh-pages-preview` branch (Step 18, first Cloudflare signup); production cutover (Step 19); abuse + hygiene hardening (Step 20). No in-game animations on the online path yet (bomb blast, portal jump, swap flash, flying-freeze, elimination moment) — they exist in LocalGameController and can port over; deferred because they require no protocol change. No sound on the online path. No visible turn-timer countdown on the client (server enforces the deadline).
+What's still missing for a real deploy: Playwright E2E tests (Step 17) validating the browser flow end-to-end; Cloudflare `wrangler deploy` + a `gh-pages-preview` branch (Step 18, first Cloudflare signup); production cutover (Step 19); abuse + hygiene hardening (Step 20). No visible turn-timer countdown on the client (server enforces the deadline).
+
+The in-game surface is now unified between local and online: both mount the shared `<GameScreen>` and call `useDerivedAnimations`, so sounds, bomb/portal/swap flashes, flying-freeze, and the trap/death animation chain all fire identically in both modes without a protocol change.
 
 The test harness (Step 1), the `VITE_ENABLE_ONLINE` flag (Step 2), the client mode router + controllers (Step 3), the Worker skeleton (Step 4), `RoomDurableObject` + `POST /rooms` (Step 5), the WebSocket upgrade via the Hibernation API (Step 6), the zod-validated wire format (Step 7), the shared game module with server-side `validateMove` (Step 8), the lobby dispatcher (Step 9), the server-authoritative turn loop (Step 10), the alarm-driven bot driver (Step 11), turn-timer + disconnect=elimination (Step 12), the auto-reconnecting client WebSocket wrapper (Step 13), the `useNetworkGame` hook with the local-reducer-shape contract (Step 14), the `JoinScreen` + `Lobby` presentational components (Step 15), and the online wire-up in `OnlineGameController` with a lazy-loaded chunk + Play-online entry on StartScreen (Step 16) are all in place. The online branch ships as a separate Vite chunk that flag-off builds never fetch.
