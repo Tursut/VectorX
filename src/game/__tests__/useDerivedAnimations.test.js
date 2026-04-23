@@ -12,6 +12,7 @@ vi.mock('../sounds', () => ({
   playPortal: vi.fn(),
   playSwapActivate: vi.fn(),
   playPortalJump: vi.fn(),
+  playFreeze: vi.fn(),
 }));
 
 // Import AFTER the mock is in place.
@@ -188,6 +189,26 @@ describe('useDerivedAnimations — item pickup sounds', () => {
     );
     rerender({ gameState: next });
     expect(sounds.playSwapActivate).toHaveBeenCalledOnce();
+  });
+
+  it('fires playFreeze when player lands on a freeze item (turnCount unchanged)', () => {
+    const prev = {
+      ...baseState(),
+      items: [{ id: 'f1', type: 'freeze', row: 0, col: 1 }],
+    };
+    const next = {
+      ...prev,
+      players: prev.players.map((p, i) => i === 0 ? { ...p, row: 0, col: 1 } : p),
+      items: [],
+      freezeSelectActive: true,
+      // turnCount deliberately NOT incremented
+    };
+    const { rerender } = renderHook(
+      ({ gameState }) => useDerivedAnimations(gameState),
+      { initialProps: { gameState: prev } },
+    );
+    rerender({ gameState: next });
+    expect(sounds.playFreeze).toHaveBeenCalledOnce();
   });
 
   it('does not fire pickup sounds when the item is still there', () => {

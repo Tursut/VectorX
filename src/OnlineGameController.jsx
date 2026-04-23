@@ -16,6 +16,7 @@ import { useEffect, useRef, useState } from 'react';
 import { wsUrl } from './config';
 import { useNetworkGame } from './net/useNetworkGame';
 import { useDerivedAnimations } from './game/useDerivedAnimations';
+import { useGameplaySounds } from './game/useGameplaySounds';
 import * as sounds from './game/sounds';
 import Lobby from './components/Lobby';
 import GameScreen from './components/GameScreen';
@@ -43,6 +44,12 @@ export default function OnlineGameController({
 
   // Derived animation overlays + item-pickup sounds; fed to GameScreen.
   const { bombBlast, portalJump, swapFlash, flyingFreeze } = useDerivedAnimations(gameState);
+
+  // Gameplay sound effects (bg theme, move/claim/your-turn chime, freeze/swap).
+  useGameplaySounds(
+    gameState,
+    mySeatId !== null && mySeatId !== undefined ? [mySeatId] : [],
+  );
 
   // Send HELLO exactly once when the socket first becomes OPEN.
   const helloSent = useRef(false);

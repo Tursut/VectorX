@@ -168,24 +168,16 @@ describe('GameScreen — callbacks', () => {
 });
 
 // ---------- Sound effects ----------
+//
+// NOTE: Most gameplay sounds (bg theme, move/claim, your-turn chime,
+// freeze/swap event sounds) now live in useGameplaySounds and are called
+// from the outer controllers, not from GameScreen. They are tested in
+// src/game/__tests__/useGameplaySounds.test.js.
+//
+// GameScreen still owns win/draw (gated on the trap animation state it owns)
+// so those tests stay here.
 
 describe('GameScreen — sound effects', () => {
-  it('starts bg theme on phase="playing" and stops on gameover', () => {
-    const { rerender } = render(
-      <GameScreen gameState={baseState()} mySeats={[0]} onMove={() => {}} />,
-    );
-    expect(sounds.startBgTheme).toHaveBeenCalled();
-
-    rerender(
-      <GameScreen
-        gameState={baseState({ phase: 'gameover', winner: 0 })}
-        mySeats={[0]}
-        onMove={() => {}}
-      />,
-    );
-    expect(sounds.stopBgTheme).toHaveBeenCalled();
-  });
-
   it('plays the win sound on gameover with a winner', () => {
     const state = baseState({ phase: 'gameover', winner: 0 });
     render(<GameScreen gameState={state} mySeats={[0]} onMove={() => {}} />);
@@ -198,30 +190,6 @@ describe('GameScreen — sound effects', () => {
     render(<GameScreen gameState={state} mySeats={[0]} onMove={() => {}} />);
     expect(sounds.playDraw).toHaveBeenCalledOnce();
     expect(sounds.playWin).not.toHaveBeenCalled();
-  });
-
-  it('fires move + claim on turn-index change', () => {
-    const { rerender } = render(
-      <GameScreen gameState={baseState()} mySeats={[0]} onMove={() => {}} />,
-    );
-    expect(sounds.playMove).not.toHaveBeenCalled();
-
-    rerender(
-      <GameScreen
-        gameState={baseState({ currentPlayerIndex: 1, turnCount: 1 })}
-        mySeats={[0]}
-        onMove={() => {}}
-      />,
-    );
-    expect(sounds.playMove).toHaveBeenCalledOnce();
-    act(() => { vi.advanceTimersByTime(200); });
-    expect(sounds.playClaim).toHaveBeenCalledOnce();
-  });
-
-  it('fires your-turn chime when currentPlayerIndex is in mySeats', () => {
-    // Fresh mount: currentPlayerIndex=0 IS in mySeats → chime plays on mount.
-    render(<GameScreen gameState={baseState()} mySeats={[0]} onMove={() => {}} />);
-    expect(sounds.playYourTurn).toHaveBeenCalledOnce();
   });
 
   it('does NOT fire your-turn chime when currentPlayerIndex is not in mySeats', () => {

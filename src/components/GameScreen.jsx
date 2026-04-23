@@ -3,9 +3,13 @@
 // gameState + a "which seats do I control" concept:
 //
 //   - Rendering: PlayerPanel, TurnIndicator, GameBoard, GameOverScreen
-//   - Sound effects driven by state transitions
 //   - The trapped/death animation chain + its elimination sound
 //   - Win/draw sound (gated on trap animation finishing)
+//
+// The simpler gameplay sounds (bg theme, move/claim, your-turn chime,
+// freeze/swap event sounds) live in useGameplaySounds and are called from
+// each controller directly, so sandbox mode (which doesn't mount GameScreen)
+// gets them too.
 //
 // Mode-specific concerns (start screen, lobby, pre-game countdown, turn timer,
 // bot driving, sandbox panel, connection status, exit-confirm modal) stay in
@@ -53,53 +57,7 @@ export default function GameScreen({
   const [trappedPlayers, setTrappedPlayers] = useState([]);
   const [eliminationPending, setEliminationPending] = useState(false);
   const prevPlayersRef = useRef(null);
-  const prevTurnRef = useRef(null);
   const trappedTimerRef = useRef(null);
-
-  // iOS audio recovery: resume context on any user interaction.
-  useEffect(() => {
-    const resume = () => sounds.resumeAudio();
-    document.addEventListener('touchstart', resume, { passive: true });
-    document.addEventListener('touchend',   resume, { passive: true });
-    document.addEventListener('click',      resume);
-    return () => {
-      document.removeEventListener('touchstart', resume, { passive: true });
-      document.removeEventListener('touchend',   resume, { passive: true });
-      document.removeEventListener('click',      resume);
-    };
-  }, []);
-
-  // Background theme — also stop on unmount (e.g. exit to menu nulls gameState
-  // and unmounts GameScreen, so the else branch wouldn't otherwise fire).
-  useEffect(() => {
-    if (gameState?.phase === 'playing') sounds.startBgTheme();
-    else sounds.stopBgTheme();
-    return () => sounds.stopBgTheme();
-  }, [gameState?.phase]);
-
-  // Freeze / swap sound on event. (The flying-freeze projectile animation is
-  // driven by useDerivedAnimations; the sound itself lives here to stay next
-  // to the other observational sounds.)
-  useEffect(() => {
-    const ev = gameState?.lastEvent;
-    if (!ev) return;
-    if (ev.type === 'freeze') sounds.playFreeze();
-    else if (ev.type === 'swap') sounds.playSwap();
-  }, [gameState?.lastEvent]);
-
-  // Move + claim on turn change; your-turn chime when a seat I control is up.
-  useEffect(() => {
-    if (!gameState || gameState.phase !== 'playing') return;
-    const seat = gameState.currentPlayerIndex;
-    if (prevTurnRef.current !== null && prevTurnRef.current !== seat) {
-      const prevPlayer = gameState.players[prevTurnRef.current];
-      sounds.playMove(isBotPlayer(gameState, prevPlayer));
-      setTimeout(() => sounds.playClaim(), 200);
-    }
-    prevTurnRef.current = seat;
-    if (mySeats.includes(seat)) sounds.playYourTurn();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameState?.currentPlayerIndex, gameState?.phase]);
 
   // Trap / death animation chain: detect false→true transitions on
   // isEliminated, wait 450ms, set `trappedPlayers` (drives GameBoard animation)

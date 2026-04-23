@@ -194,7 +194,7 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
               alignItems: 'center',
               justifyContent: 'center',
               pointerEvents: 'none',
-              zIndex: 2,
+              zIndex: 5,
             }}
             initial={{ scale: 0.5, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}

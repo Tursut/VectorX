@@ -4,6 +4,7 @@ import { initGame, initSandboxGame, applyMove, getCurrentValidMoves, eliminateCu
 import { getGremlinMove } from './game/ai';
 import { PLAYERS, TURN_TIME } from './game/constants';
 import { useDerivedAnimations } from './game/useDerivedAnimations';
+import { useGameplaySounds } from './game/useGameplaySounds';
 import * as sounds from './game/sounds';
 import StartScreen from './components/StartScreen';
 import GameScreen from './components/GameScreen';
@@ -189,6 +190,11 @@ export default function LocalGameController({
   }
 
   const mySeats = humanSeats(gameState);
+
+  // Gameplay sound effects — called at controller level so sandbox mode (which
+  // doesn't mount GameScreen) gets bg theme, move/claim, your-turn chime, and
+  // freeze/swap event sounds.
+  useGameplaySounds(gameState, mySeats);
 
   // Sandbox uses its own layout (SandboxPanel sidebar), not GameScreen.
   const sandboxIsGremlinTurn = gameState?.sandboxMode

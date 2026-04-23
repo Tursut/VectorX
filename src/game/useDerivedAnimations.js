@@ -107,8 +107,9 @@ export function useDerivedAnimations(gameState) {
         sounds.playPortal();
       } else if (pickedUp.type === 'swap') {
         sounds.playSwapActivate();
+      } else if (pickedUp.type === 'freeze') {
+        sounds.playFreeze();
       }
-      // freeze pickup has no dedicated sound — fires on lastEvent instead.
     }
 
     // Portal jump: prev.portalActive → false, mover moved >1 cell (Chebyshev).
