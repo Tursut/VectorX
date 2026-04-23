@@ -43,7 +43,8 @@ export default function GameScreen({
   isThinking = false,
   timeLeft = TURN_TIME,
   totalTime = TURN_TIME,
-  // Animation props — still owned by local for now (Phase 2 will move them here).
+  // Animation overlays — produced by useDerivedAnimations(gameState) in the
+  // parent controller and passed here so each controller fires the hook once.
   bombBlast = null,
   portalJump = null,
   swapFlash = null,
@@ -74,7 +75,9 @@ export default function GameScreen({
     else sounds.stopBgTheme();
   }, [gameState?.phase]);
 
-  // Freeze / swap sound on event.
+  // Freeze / swap sound on event. (The flying-freeze projectile animation is
+  // driven by useDerivedAnimations; the sound itself lives here to stay next
+  // to the other observational sounds.)
   useEffect(() => {
     const ev = gameState?.lastEvent;
     if (!ev) return;

@@ -15,6 +15,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { wsUrl } from './config';
 import { useNetworkGame } from './net/useNetworkGame';
+import { useDerivedAnimations } from './game/useDerivedAnimations';
 import * as sounds from './game/sounds';
 import Lobby from './components/Lobby';
 import GameScreen from './components/GameScreen';
@@ -39,6 +40,9 @@ export default function OnlineGameController({
 
   const [magicItems, setMagicItems] = useState(initialMagicItems);
   const [soundEnabled, setSoundEnabled] = useState(true);
+
+  // Derived animation overlays + item-pickup sounds; fed to GameScreen.
+  const { bombBlast, portalJump, swapFlash, flyingFreeze } = useDerivedAnimations(gameState);
 
   // Send HELLO exactly once when the socket first becomes OPEN.
   const helloSent = useRef(false);
@@ -91,6 +95,10 @@ export default function OnlineGameController({
           onExit={onExit}
           soundEnabled={soundEnabled}
           onToggleSound={toggleSound}
+          bombBlast={bombBlast}
+          portalJump={portalJump}
+          swapFlash={swapFlash}
+          flyingFreeze={flyingFreeze}
         />
       </div>
     );

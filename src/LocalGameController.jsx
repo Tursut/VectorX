@@ -2,7 +2,8 @@ import { useReducer, useState, useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { initGame, initSandboxGame, applyMove, getCurrentValidMoves, eliminateCurrentPlayer, placeSandboxItem, getValidMoves } from './game/logic';
 import { getGremlinMove } from './game/ai';
-import { PLAYERS, TURN_TIME, GRID_SIZE } from './game/constants';
+import { PLAYERS, TURN_TIME } from './game/constants';
+import { useDerivedAnimations } from './game/useDerivedAnimations';
 import * as sounds from './game/sounds';
 import StartScreen from './components/StartScreen';
 import GameScreen from './components/GameScreen';
@@ -60,44 +61,14 @@ export default function LocalGameController({
   const [isThinking, setIsThinking] = useState(false);
   const [gameState, dispatch] = useReducer(gameReducer, null);
   const [timeLeft, setTimeLeft] = useState(TURN_TIME);
-  const [bombBlast, setBombBlast] = useState(null);
-  const [portalJump, setPortalJump] = useState(null);
-  const [swapFlash, setSwapFlash] = useState(null);
   const [eventToast, setEventToast] = useState(null);
   const [countdown, setCountdown] = useState(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [flyingFreeze, setFlyingFreeze] = useState(null);
   const [exitConfirm, setExitConfirm] = useState(false);
 
-  useEffect(() => {
-    if (!bombBlast) return;
-    const t = setTimeout(() => setBombBlast(null), 700);
-    return () => clearTimeout(t);
-  }, [bombBlast]);
-
-  useEffect(() => {
-    if (!portalJump) return;
-    const t = setTimeout(() => setPortalJump(null), 800);
-    return () => clearTimeout(t);
-  }, [portalJump]);
-
-  useEffect(() => {
-    if (!swapFlash) return;
-    const t = setTimeout(() => setSwapFlash(null), 800);
-    return () => clearTimeout(t);
-  }, [swapFlash]);
-
-  // Flying-freeze projectile animation (sound itself fires in GameScreen).
-  useEffect(() => {
-    const ev = gameState?.lastEvent;
-    if (!ev || ev.type !== 'freeze') return;
-    const collector = gameState.players.find(p => p.id === ev.byId);
-    const frozen = gameState.players.find(p => p.id === ev.targetId);
-    if (collector && frozen) {
-      setFlyingFreeze({ fromRow: collector.row, fromCol: collector.col, toRow: frozen.row, toCol: frozen.col });
-      setTimeout(() => setFlyingFreeze(null), 800);
-    }
-  }, [gameState?.lastEvent]);
+  // Animation overlays derived from gameState diffs (also fires item-pickup
+  // sounds). Passed down to GameScreen / sandbox GameBoard.
+  const { bombBlast, portalJump, swapFlash, flyingFreeze } = useDerivedAnimations(gameState);
 
   // Dismiss toast after its display duration.
   useEffect(() => {
@@ -191,9 +162,6 @@ export default function LocalGameController({
 
   function handleSandboxReset() {
     dispatch({ type: 'SANDBOX_START' });
-    setBombBlast(null);
-    setPortalJump(null);
-    setSwapFlash(null);
     setEventToast(null);
   }
 
@@ -206,42 +174,7 @@ export default function LocalGameController({
     setScreen('start');
   }
 
-  // Pre-dispatch imperative animation computations. Sound is now fired by
-  // GameScreen on turn-change, so only the animation state setters remain.
   function handleMove(row, col) {
-    if (gameState?.magicItems) {
-      const item = gameState.items.find(i => i.row === row && i.col === col);
-      if (item?.type === 'bomb') {
-        const cleared = [];
-        for (let dr = -1; dr <= 1; dr++) {
-          for (let dc = -1; dc <= 1; dc++) {
-            if (dr === 0 && dc === 0) continue;
-            const nr = row + dr, nc = col + dc;
-            if (nr >= 0 && nr < GRID_SIZE && nc >= 0 && nc < GRID_SIZE) {
-              cleared.push({ row: nr, col: nc });
-            }
-          }
-        }
-        setBombBlast({ origin: { row, col }, cleared });
-        sounds.playBomb();
-      } else if (item?.type === 'portal') {
-        sounds.playPortal();
-      } else if (item?.type === 'swap') {
-        sounds.playSwapActivate();
-      }
-    }
-
-    if (gameState?.portalActive) {
-      const p = gameState.players[gameState.currentPlayerIndex];
-      setPortalJump({ from: { row: p.row, col: p.col }, to: { row, col } });
-      sounds.playPortalJump();
-    }
-
-    if (gameState?.swapActive) {
-      const p = gameState.players[gameState.currentPlayerIndex];
-      setSwapFlash({ pos1: { row: p.row, col: p.col }, pos2: { row, col } });
-    }
-
     dispatch({ type: 'MOVE', row, col });
   }
 
