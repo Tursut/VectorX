@@ -27,6 +27,8 @@ function gameReducer(state, action) {
       if (state.currentPlayerIndex !== action.playerIndex) return state;
       if (state.phase !== 'playing') return state;
       return eliminateCurrentPlayer(state);
+    case 'RESET':
+      return null;
     default:
       return state;
   }
@@ -270,7 +272,19 @@ export default function App() {
   }
 
   function handleBackToStart() {
+    if (trappedTimerRef.current) clearTimeout(trappedTimerRef.current);
+    dispatch({ type: 'RESET' });
     setExitConfirm(false);
+    setTrappedPlayers([]);
+    setEliminationPending(false);
+    setFlyingFreeze(null);
+    setBombBlast(null);
+    setPortalJump(null);
+    setSwapFlash(null);
+    setEventToast(null);
+    setIsThinking(false);
+    setTimeLeft(TURN_TIME);
+    sounds.stopBgTheme();
     setScreen('start');
   }
 
