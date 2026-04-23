@@ -1832,13 +1832,13 @@
   flex-direction: column;
   gap: 6px;
   font-size: 14px;
-  font-family: 'Segoe UI', sans-serif;
+  font-family: 'Fredoka One', 'Segoe UI', sans-serif;
 }
 
 .join-field input {
   padding: 10px 12px;
   font-size: 16px;
-  font-family: inherit;
+  font-family: 'Segoe UI', sans-serif;
   border-radius: 6px;
   border: 1px solid #4a4d88;
   background: #141830;
@@ -1894,17 +1894,45 @@
 }
 
 .lobby-share {
-  font-size: 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
   color: #aaaacc;
-  word-break: break-all;
-  font-family: 'Segoe UI', sans-serif;
 }
-.lobby-share a {
+.lobby-share-link {
+  flex: 1;
+  word-break: break-all;
+}
+.lobby-share-link a {
   color: #ffcc66;
   text-decoration: underline;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
 }
-.lobby-share a:hover {
+.lobby-share-link a:hover {
   color: #ffe0a0;
+}
+.lobby-copy-btn {
+  flex-shrink: 0;
+  background: none;
+  border: 1px solid #3a3d66;
+  border-radius: 6px;
+  color: #aaaacc;
+  font-size: 14px;
+  padding: 2px 8px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+.lobby-copy-btn:hover {
+  background: #1d1d3a;
+  color: #e8e8f4;
+  border-color: #6666aa;
+}
+.lobby-copy-btn-done {
+  border-color: #44aa66;
+  color: #44cc88;
 }
 
 .lobby-players {
@@ -2040,11 +2068,7 @@
   background: #0f0f23;
   border: 1px solid #333366;
   border-radius: 10px;
-  font-family: 'Segoe UI', sans-serif;
-}
-.online-section input,
-.online-section label {
-  font-family: 'Segoe UI', sans-serif;
+  font-family: 'Fredoka One', 'Segoe UI', sans-serif;
 }
 .join-subhint {
   font-weight: 400;

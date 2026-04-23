@@ -1,11 +1,4 @@
-// Lobby — pure presentational waiting-room. Step 15.
-//
-// Renders the room code (with a shareable link), the current roster,
-// empty-seat placeholders that will be filled by bots at START, and — for
-// the host only — a magic-items toggle and a Start button.
-//
-// No network code. The parent (Step 16's OnlineGameController) feeds props
-// from useNetworkGame.lobby and wires callbacks to `start(magicItems)` etc.
+import { useState } from 'react';
 
 const MAX_PLAYERS = 4;
 
@@ -26,14 +19,32 @@ export default function Lobby({
   const isHost = mySeatId !== null && mySeatId !== undefined && mySeatId === hostId;
   const emptySeats = Math.max(0, MAX_PLAYERS - players.length);
   const shareLink = buildShareLink(code);
+  const [copied, setCopied] = useState(false);
+
+  function copyLink() {
+    navigator.clipboard.writeText(shareLink).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {});
+  }
 
   return (
     <section className="lobby" aria-label="Waiting room">
       <header className="lobby-header">
         <h2>Room <span className="lobby-code">{code}</span></h2>
-        <p className="lobby-share">
-          Share this link to invite friends: <a href={shareLink}>{shareLink}</a>
-        </p>
+        <div className="lobby-share">
+          <span className="lobby-share-link">
+            Share to invite friends: <a href={shareLink}>{shareLink}</a>
+          </span>
+          <button
+            type="button"
+            className={`lobby-copy-btn${copied ? ' lobby-copy-btn-done' : ''}`}
+            onClick={copyLink}
+            aria-label="Copy invite link"
+          >
+            {copied ? '✓ Copied!' : '📋 Copy'}
+          </button>
+        </div>
       </header>
 
       <ul className="lobby-players" aria-label="Players">
