@@ -1922,22 +1922,49 @@
 }
 
 .lobby-start-btn {
-  padding: 10px 20px;
-  font-size: 15px;
-  border-radius: 6px;
+  background: linear-gradient(135deg, #e74c3c, #f39c12);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  padding: 12px 28px;
+  font-size: 18px;
+  font-family: 'Fredoka One', 'Segoe UI', sans-serif;
+  font-weight: bold;
+  letter-spacing: 2px;
   cursor: pointer;
+  box-shadow: 0 6px 20px rgba(231, 76, 60, 0.4);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.lobby-start-btn:hover {
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: 0 10px 30px rgba(231, 76, 60, 0.6);
+}
+.lobby-start-btn:active {
+  transform: translateY(0) scale(0.98);
 }
 
 .lobby-wait-note {
   font-size: 13px;
   color: #aaaacc;
   font-style: italic;
+  font-family: 'Segoe UI', sans-serif;
 }
 
 .lobby-leave-btn {
   align-self: flex-start;
-  padding: 6px 12px;
+  background: none;
+  border: 1px solid #3a3d66;
+  color: #aaaacc;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-family: 'Segoe UI', sans-serif;
   font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.lobby-leave-btn:hover {
+  background: #14173040;
+  color: #e8e8f4;
 }
 
 /* ---------- Online status screen + mode switcher + online form ---------- */
@@ -1947,9 +1974,8 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
-  margin: 16px auto 20px;
-  max-width: 680px;
-  padding: 0 12px;
+  margin: 16px 0 20px;
+  width: 100%;
 }
 .mode-switcher-tile {
   display: flex;
@@ -1961,7 +1987,7 @@
   border: 2px solid #333355;
   border-radius: 10px;
   color: #e8e8f4;
-  font-family: inherit;
+  font-family: 'Segoe UI', sans-serif;
   text-align: left;
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s, transform 0.1s;
@@ -1982,6 +2008,7 @@
   font-size: 15px;
   font-weight: 700;
   letter-spacing: 0.02em;
+  font-family: 'Fredoka One', 'Segoe UI', sans-serif;
 }
 .mode-switcher-sub {
   font-size: 11px;
@@ -2000,12 +2027,18 @@
   background: #14173040;
   border: 1px solid #3a3d66;
   border-radius: 10px;
+  font-family: 'Segoe UI', sans-serif;
+}
+.online-section input,
+.online-section label {
+  font-family: 'Segoe UI', sans-serif;
 }
 .join-subhint {
   font-weight: 400;
   color: #8a8aac;
   font-size: 11px;
   margin-left: 4px;
+  font-family: 'Segoe UI', sans-serif;
 }
 
 /* Shown to joiners once they've typed a code — the host owns the toggle. */

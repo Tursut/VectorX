@@ -100,7 +100,10 @@ export default function OnlineGameController({
           />
           <div className="board-column">
             <TurnIndicator
-              player={PLAYERS[currentSeat]}
+              player={{
+                ...PLAYERS[currentSeat],
+                name: gameState.players[currentSeat]?.displayName ?? PLAYERS[currentSeat].name,
+              }}
               taunt={''}
               timeLeft={TURN_TIME}
               totalTime={TURN_TIME}
