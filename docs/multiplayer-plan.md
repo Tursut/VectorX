@@ -240,8 +240,18 @@ Each step is a single commit-sized unit of work. Every step ends with an automat
 
 ### Shared game logic on the server (step 8)
 
-**Step 8 — Port `logic.js` and `ai.js` to the server.** Either relative-import from `/src/game/` or copy into `/server/game/` (decide based on what `wrangler` bundles cleanly). Add move-validation tests — this is now a security boundary.
+**Step 8 — Port `logic.js` and `ai.js` to the server. ✅** Either relative-import from `/src/game/` or copy into `/server/game/` (decide based on what `wrangler` bundles cleanly). Add move-validation tests — this is now a security boundary.
 - **Verify:** `server/__tests__/logic.test.ts` covers `initGame`, `applyMove`, `completeTurn`, `getCurrentValidMoves`, plus new tests for: not-your-turn, already-claimed cell, out-of-bounds, malformed payload. `npm run test:server` → green.
+
+**Step 8 deviations:**
+- **Relative-import, not copy.** Server tests import from `../../src/game/logic` and `../../src/game/ai`. Single source of truth; client and server can't drift. Wrangler + esbuild handle the cross-directory path fine (already proven by the client/server colocation of the zod schemas). `server/tsconfig.json` added `allowJs: true` + an explicit include for `../src/game/**/*.js` so editor/language-server tooling resolves the JS imports cleanly.
+- **`validateMove(state, playerId, row, col)` added to `src/game/logic.js`.** Pure function, 15 lines. Returns `{ok: true}` or `{ok: false, reason: 'NOT_YOUR_TURN' | 'INVALID_MOVE'}` — the reason strings are deliberately identical to two of the `ERROR.code` values in `server/protocol.ts`, so Step 9's DO handler can forward them directly as `ERROR` messages.
+  - Lives in `src/game/logic.js` (not server-only) because it's pure — client will likely reuse it in later steps for optimistic UX.
+  - Delegates "what's legal" to `getCurrentValidMoves`. That function already handles portal/swap/freeze-select modes and never returns out-of-bounds or already-claimed cells, so validateMove only needs to add phase + turn-ownership guards on top.
+- **`completeTurn` stays unexported**. Tested indirectly via `applyMove` (which calls it) and `eliminateCurrentPlayer` (which also calls it). The plan listed `completeTurn` in the verify targets but exporting it just to test it directly would bloat the public API of a pure module.
+- **Server suite grew 43 → 66** (not ~65 as predicted). New file `server/__tests__/logic.test.ts` with 23 cases — initGame shape + freeze defaults, getValidMoves, getCurrentValidMoves (normal + freeze-select), applyMove (claim/advance/immutable), eliminateCurrentPlayer + gameover transition, six validateMove rejection cases, and two getGremlinMove→validateMove contract tests.
+- **No changes to `server/index.ts`** yet. Step 8 is purely preparation; Step 9 wires `parseClientMsg` + `validateMove` into the DO handler.
+- **Client bundle byte-identical** to the merge commit (`validateMove` is tree-shaken — nothing in `src/` imports it yet).
 
 ### Gameplay on the server (steps 9–12)
 

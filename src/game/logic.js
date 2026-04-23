@@ -400,3 +400,27 @@ export function placeSandboxItem(state, type) {
     items: [...filtered, { id: `sb-${type}-${Date.now()}`, type, row: cell.row, col: cell.col, turnsLeft: 99 }],
   };
 }
+
+// Server-side security boundary for MOVE messages.
+// Returns { ok: true } when the given player may legally move to (row, col)
+// in the current state, or { ok: false, reason } otherwise. `reason` values
+// map 1:1 to the ERROR.code enum in server/protocol.ts so a DO handler can
+// forward them directly as ERROR messages.
+//
+// Delegates the "what's legal" question to `getCurrentValidMoves`, which
+// already knows how to handle portal/swap/freeze-select modes and returns
+// only in-bounds, empty-or-valid-target cells. So bounds and already-claimed
+// checks come for free — we only add phase + turn-ownership guards on top.
+export function validateMove(state, playerId, row, col) {
+  if (state.phase !== 'playing') {
+    return { ok: false, reason: 'NOT_YOUR_TURN' };
+  }
+  if (state.players[state.currentPlayerIndex].id !== playerId) {
+    return { ok: false, reason: 'NOT_YOUR_TURN' };
+  }
+  const moves = getCurrentValidMoves(state);
+  if (!moves.some((m) => m.row === row && m.col === col)) {
+    return { ok: false, reason: 'INVALID_MOVE' };
+  }
+  return { ok: true };
+}

@@ -117,12 +117,24 @@ Nothing imports `protocol.ts` yet — Step 9 wires the DO handler against it; St
 - 5-char codes → 32⁵ ≈ 33.5M combinations.
 - Generated via `crypto.getRandomValues(new Uint8Array(5))` + `byte & 0x1F` lookup (unbiased — 5 bits out of 8 independently uniform).
 
+### Shared game module (`src/game/`)
+
+The server imports the existing pure game module directly — no copy. Single source of truth; client and server can never drift.
+
+- **`src/game/logic.js`** — `initGame`, `applyMove`, `eliminateCurrentPlayer`, `getCurrentValidMoves`, `getValidMoves`, `validateMove`, plus sandbox helpers.
+- **`src/game/ai.js`** — `getGremlinMove(state, difficulty)`.
+- **`src/game/constants.js`** — `GRID_SIZE`, `PLAYERS`, `DIRECTIONS`, `ITEM_TYPES`, `TURN_TIME`, etc.
+
+**Security boundary: `validateMove(state, playerId, row, col)`.** Added in Step 8. Returns `{ok: true}` or `{ok: false, reason: 'NOT_YOUR_TURN' | 'INVALID_MOVE'}`. The reason strings match two of the `ERROR.code` values in `server/protocol.ts`, so Step 9's DO handler can forward them as `ERROR` messages without a translation layer. Delegates legality to `getCurrentValidMoves` (which already rules out out-of-bounds, already-claimed, and non-adjacent targets across all the portal/swap/freeze-select modes), then adds a phase + turn-ownership guard on top.
+
+Server-side TS imports these `.js` files via a relative path (`../../src/game/logic` from test files, `../src/game/...` from server sources). `server/tsconfig.json` enables `allowJs` and includes `../src/game/**/*.js` so editor tooling resolves them. Esbuild (Vitest + wrangler) handles the cross-directory path without extra config.
+
 ### Local dev, tests, deploy
 
 - **Local dev:** `npx wrangler dev --config server/wrangler.toml` → Worker on `http://localhost:8787`. Hot-reloads on save.
-- **Tests:** `npm run test:server` runs the full suite inside the real `workerd` runtime via `@cloudflare/vitest-pool-workers`. The pool is registered in `server/vitest.config.ts` as `plugins: [cloudflareTest({...})]`; test files hit the Worker via `import { SELF } from 'cloudflare:test'`, and DO state is inspected via `runInDurableObject(stub, (instance, state) => {…})`.
+- **Tests:** `npm run test:server` runs the full suite inside the real `workerd` runtime via `@cloudflare/vitest-pool-workers`. The pool is registered in `server/vitest.config.ts` as `plugins: [cloudflareTest({...})]`; test files hit the Worker via `import { SELF } from 'cloudflare:test'`, and DO state is inspected via `runInDurableObject(stub, (instance, state) => {…})`. Pure-logic tests (e.g. `logic.test.ts`) don't touch `SELF` or `env` — they just import the shared game module and assert.
 - **DO binding discovery:** `wrangler.toml` declares `[[durable_objects.bindings]] name = "ROOM" class_name = "RoomDurableObject"` plus a `[[migrations]] tag = "v1" new_classes = ["RoomDurableObject"]` block (required the first time a DO class is introduced). `wrangler dev` and the Vitest pool both read these from the same toml.
-- **TypeScript:** `server/tsconfig.json` extends `@cloudflare/workers-types` and `@cloudflare/vitest-pool-workers` types (no DOM). `noEmit: true` — types are for editors + type-aware tooling only; runtime transpilation goes through esbuild (Vitest) and wrangler.
+- **TypeScript:** `server/tsconfig.json` extends `@cloudflare/workers-types` and `@cloudflare/vitest-pool-workers` types (no DOM). `allowJs: true` + `include: ["**/*.ts", "../src/game/**/*.js"]` for the shared game module. `noEmit: true` — types are for editors + type-aware tooling only; runtime transpilation goes through esbuild (Vitest) and wrangler.
 - **Deploy:** not wired yet. Step 18 adds `wrangler deploy` → `*.workers.dev`; Step 19 points the production client at it.
 
 ## Directory map
@@ -136,11 +148,11 @@ src/
   App.css                        ← all app styles (global)
   index.css                      ← minimal reset / base
   config.js                      ← build-time feature flags (currently: ENABLE_ONLINE). Single read site for `import.meta.env.VITE_*`.
-  game/                          ← pure game module — no React, no DOM, no window
+  game/                          ← pure game module — no React, no DOM, no window. IMPORTED BY SERVER (see Step 8).
     constants.js                 ← GRID_SIZE, PLAYERS, DIRECTIONS, TURN_TIME, ITEM_TYPES, spawn tuning
-    logic.js                     ← initGame, initSandboxGame, applyMove, completeTurn (internal), eliminateCurrentPlayer, getCurrentValidMoves, getValidMoves, placeSandboxItem
+    logic.js                     ← initGame, initSandboxGame, applyMove, completeTurn (internal), eliminateCurrentPlayer, getCurrentValidMoves, getValidMoves, placeSandboxItem, validateMove (server-side security boundary)
     ai.js                        ← getGremlinMove(state, difficulty) — bot move selection
-    sounds.js                    ← Web Audio API synth (SFX + bg theme), resumeAudio, setMuted
+    sounds.js                    ← Web Audio API synth (SFX + bg theme), resumeAudio, setMuted — client-only
   components/
     StartScreen.jsx              ← menu: start game, sandbox, toggle magic items, pick gremlin count, sound toggle
     GameBoard.jsx                ← 10×10 grid rendering + cell animations
@@ -164,6 +176,7 @@ server/                          ← Cloudflare Worker + RoomDurableObject + wir
   __tests__/room-create.test.ts  ← POST /rooms: code format, 200-create uniqueness, DO storage inspection via runInDurableObject, persistence, method guards
   __tests__/room-ws.test.ts      ← GET /rooms/:code/ws: happy-path echo through hibernation, 404 on uninitialised room, 426 without Upgrade header, 400 on malformed code, 405 on wrong method. afterEach drains open sockets.
   __tests__/protocol.test.ts     ← Pure schema tests (no Worker/DO). Round-trips 9 message types; rejects version/length/enum violations + unknown keys; covers discriminated-union direction guards and parseClientMsg.
+  __tests__/logic.test.ts        ← Server-side tests for the shared src/game/ module. initGame shape, applyMove/eliminateCurrentPlayer/getValidMoves/getCurrentValidMoves, and all validateMove security cases (NOT_YOUR_TURN × 2, INVALID_MOVE × 4). getGremlinMove → validateMove round-trip.
 e2e/                             ← Playwright specs
   sanity.spec.ts                 ← trivial harness-wired test
 vitest.config.js                 ← client/jsdom Vitest config
@@ -263,4 +276,4 @@ CI: `.github/workflows/test.yml` runs all three as separate jobs on pushes to th
 
 ## What's NOT here yet (framing for the multiplayer work)
 
-Protocol schemas exist but nothing reads them yet — the WS endpoint still echoes. No client-side WebSocket code, no lobby roster, no remote human players, no session/identity, no shared game logic on the server, no TypeScript on the client. Online play is still impossible — four humans must share one device. The work in `docs/multiplayer-plan.md` adds exactly these pieces while keeping the current hotseat path byte-for-byte intact. The test harness (Step 1), the `VITE_ENABLE_ONLINE` flag (Step 2), the client mode router + controllers (Step 3), the Worker skeleton (Step 4), `RoomDurableObject` + `POST /rooms` (Step 5), the WebSocket upgrade via the Hibernation API (Step 6), and the zod-validated wire format (Step 7) are all in place so later steps can grow the online stack behind the gate without disturbing production.
+Protocol schemas and game logic are on the server, but no handler reads them — the WS endpoint still echoes. No client-side WebSocket code, no lobby roster, no remote human players, no session/identity, no TypeScript on the client. Online play is still impossible — four humans must share one device. The work in `docs/multiplayer-plan.md` adds exactly these pieces while keeping the current hotseat path byte-for-byte intact. The test harness (Step 1), the `VITE_ENABLE_ONLINE` flag (Step 2), the client mode router + controllers (Step 3), the Worker skeleton (Step 4), `RoomDurableObject` + `POST /rooms` (Step 5), the WebSocket upgrade via the Hibernation API (Step 6), the zod-validated wire format (Step 7), and the shared game module with server-side `validateMove` (Step 8) are all in place so later steps can grow the online stack behind the gate without disturbing production.
