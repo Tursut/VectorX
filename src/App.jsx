@@ -208,6 +208,14 @@ export default function App() {
     const currentPlayerId = gameState.players[gameState.currentPlayerIndex].id;
     if (currentPlayerId < PLAYERS.length - gc) return; // human turn
 
+    // If the bot has no valid moves, eliminate immediately — no fake thinking delay.
+    if (getCurrentValidMoves(gameState).length === 0) {
+      const t = setTimeout(() => {
+        dispatch({ type: 'TIMEOUT', playerIndex: gameState.currentPlayerIndex });
+      }, 80);
+      return () => clearTimeout(t);
+    }
+
     // Defer setIsThinking so the browser paints first — this gives Framer Motion
     // time to snapshot layout positions before the re-render (fixes swap avatar bug)
     const rafId = requestAnimationFrame(() => setIsThinking(true));
@@ -353,8 +361,7 @@ export default function App() {
       : '';
 
   const gc = gameState?.gremlinCount ?? 0;
-  const isHumanWin = gameState?.winner != null && gameState.winner < PLAYERS.length - gc;
-  const winnerPlayer = ((trappedPlayers.length > 0 || eliminationPending) && isHumanWin)
+  const winnerPlayer = (trappedPlayers.length > 0 || eliminationPending) && gameState?.winner != null
     ? gameState.players.find(p => p.id === gameState.winner)
     : null;
 
