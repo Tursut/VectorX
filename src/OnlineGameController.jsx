@@ -18,6 +18,7 @@ import { wsUrl } from './config';
 import { useNetworkGame } from './net/useNetworkGame';
 import { getCurrentValidMoves } from './game/logic';
 import { PLAYERS, TURN_TIME } from './game/constants';
+import * as sounds from './game/sounds';
 import Lobby from './components/Lobby';
 import PlayerPanel from './components/PlayerPanel';
 import TurnIndicator from './components/TurnIndicator';
@@ -45,6 +46,7 @@ export default function OnlineGameController({
   // Host-local magic-items choice. Seeded from StartScreen. Post-START the
   // server broadcasts the authoritative value inside gameState.magicItems.
   const [magicItems, setMagicItems] = useState(initialMagicItems);
+  const [soundEnabled, setSoundEnabled] = useState(true);
 
   // Send HELLO exactly once when the socket first becomes OPEN.
   const helloSent = useRef(false);
@@ -54,6 +56,73 @@ export default function OnlineGameController({
       join(displayName);
     }
   }, [connectionState, displayName, join]);
+
+  // iOS audio recovery: resume context on any user interaction.
+  useEffect(() => {
+    const resume = () => sounds.resumeAudio();
+    document.addEventListener('touchstart', resume, { passive: true });
+    document.addEventListener('touchend',   resume, { passive: true });
+    document.addEventListener('click',      resume);
+    return () => {
+      document.removeEventListener('touchstart', resume, { passive: true });
+      document.removeEventListener('touchend',   resume, { passive: true });
+      document.removeEventListener('click',      resume);
+    };
+  }, []);
+
+  // Background theme — starts when game is playing, stops otherwise.
+  useEffect(() => {
+    if (gameState?.phase === 'playing') sounds.startBgTheme();
+    else sounds.stopBgTheme();
+  }, [gameState?.phase]);
+
+  // Freeze / swap sounds — fire whenever lastEvent changes to a new event.
+  useEffect(() => {
+    const ev = gameState?.lastEvent;
+    if (!ev) return;
+    if (ev.type === 'freeze') sounds.playFreeze();
+    else if (ev.type === 'swap') sounds.playSwap();
+  }, [gameState?.lastEvent]);
+
+  // Move + your-turn sounds — fire on each turn change.
+  const prevTurnRef = useRef(null);
+  useEffect(() => {
+    if (!gameState || gameState.phase !== 'playing') return;
+    const seat = gameState.currentPlayerIndex;
+    if (prevTurnRef.current !== null && prevTurnRef.current !== seat) {
+      const prevIsBot = gameState.players[prevTurnRef.current]?.isBot === true;
+      sounds.playMove(prevIsBot);
+      setTimeout(() => sounds.playClaim(), 200);
+    }
+    prevTurnRef.current = seat;
+    if (mySeatId !== null && seat === mySeatId) sounds.playYourTurn();
+  }, [gameState?.currentPlayerIndex, gameState?.phase, mySeatId]);
+
+  // Elimination sound — fires when any player transitions to eliminated.
+  const prevPlayersRef = useRef(null);
+  useEffect(() => {
+    if (!gameState?.players) { prevPlayersRef.current = null; return; }
+    if (prevPlayersRef.current) {
+      const newlyEliminated = gameState.players.some(
+        (p, i) => p.isEliminated && !prevPlayersRef.current[i]?.isEliminated,
+      );
+      if (newlyEliminated) sounds.playElimination();
+    }
+    prevPlayersRef.current = gameState.players;
+  }, [gameState?.players]);
+
+  // Game-over sound.
+  useEffect(() => {
+    if (gameState?.phase !== 'gameover') return;
+    if (gameState.winner !== null) sounds.playWin();
+    else sounds.playDraw();
+  }, [gameState?.phase]);
+
+  function toggleSound() {
+    const next = !soundEnabled;
+    setSoundEnabled(next);
+    sounds.setMuted(!next);
+  }
 
   // ---------- Status screens ----------
 
@@ -113,8 +182,8 @@ export default function OnlineGameController({
               lastEvent={gameState.lastEvent}
               isGremlin={currentIsBot}
               isThinking={false}
-              soundEnabled={true}
-              onToggleSound={() => {}}
+              soundEnabled={soundEnabled}
+              onToggleSound={toggleSound}
             />
             <GameBoard
               grid={gameState.grid}
