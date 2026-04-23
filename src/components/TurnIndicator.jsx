@@ -4,9 +4,9 @@ import { GREMLIN_THOUGHTS } from '../game/ai';
 import SoundToggle from './SoundToggle';
 
 const FREEZE_LINES = [
-  (by, target) => `❄️ ${by} froze ${target}. Cold-blooded.`,
-  (by, target) => `❄️ ${target} is on ice. ${by} sends regards.`,
-  (by, target) => `❄️ ${by} hit ${target} with a freeze ray. Uncalled for, honestly.`,
+  (by, target) => `❄️ ${by} froze ${target} for 3 turns. Ice cold.`,
+  (by, target) => `❄️ ${target} is on ice. ${by} chose wisely.`,
+  (by, target) => `❄️ ${by} targeted ${target} specifically. 3 turns of nothing.`,
 ];
 
 const SWAP_LINES = [
@@ -15,7 +15,7 @@ const SWAP_LINES = [
   (by, target) => `🎭 ${by} and ${target} changed places. ${target} did not consent.`,
 ];
 
-export default function TurnIndicator({ player, taunt, timeLeft, totalTime, portalActive, swapActive, lastEvent, isGremlin, isThinking, soundEnabled, onToggleSound }) {
+export default function TurnIndicator({ player, taunt, timeLeft, totalTime, portalActive, swapActive, freezeSelectActive, lastEvent, isGremlin, isThinking, soundEnabled, onToggleSound }) {
   const pct = (timeLeft / totalTime) * 100;
   const urgent = timeLeft <= 3 && !isGremlin;
   const isReset = timeLeft === totalTime;
@@ -24,6 +24,7 @@ export default function TurnIndicator({ player, taunt, timeLeft, totalTime, port
   if (isThinking) statusLine = GREMLIN_THOUGHTS[player.id] ?? 'Scheming…';
   else if (portalActive) statusLine = '🌀 PORTAL active! Pick any empty square on the board.';
   else if (swapActive) statusLine = '🎭 SWAP! Choose a player to switch places with.';
+  else if (freezeSelectActive) statusLine = '❄️ FREEZE! Choose a player to skip for 3 turns.';
 
   let eventLine = null;
   if (lastEvent?.type === 'freeze') {
@@ -40,7 +41,7 @@ export default function TurnIndicator({ player, taunt, timeLeft, totalTime, port
     eventLine = line(by, target);
   }
 
-  const animKey = `${player.id}-${portalActive}-${swapActive}`;
+  const animKey = `${player.id}-${portalActive}-${swapActive}-${freezeSelectActive}`;
 
   return (
     <div
@@ -66,7 +67,7 @@ export default function TurnIndicator({ player, taunt, timeLeft, totalTime, port
             <div className="turn-name" style={{ color: player.color }}>
               {player.name}
             </div>
-            <div className={`turn-taunt ${isThinking ? 'turn-taunt-thinking' : ''} ${portalActive || swapActive ? 'turn-taunt-special' : ''}`}>
+            <div className={`turn-taunt ${isThinking ? 'turn-taunt-thinking' : ''} ${portalActive || swapActive || freezeSelectActive ? 'turn-taunt-special' : ''}`}>
               {statusLine}
             </div>
             <div className="turn-event-line" style={{ visibility: eventLine ? 'visible' : 'hidden' }}>

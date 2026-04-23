@@ -251,6 +251,7 @@
   100% { box-shadow: 0 0  4px  1px rgba(231, 76, 60, 0.1); }
 }
 
+
 .cell-swap-target {
   cursor: pointer;
   animation: swapPulse 0.55s infinite alternate ease-in-out;
@@ -283,6 +284,37 @@
   }
 }
 
+.cell-freeze-target {
+  cursor: pointer;
+  animation: freezeTargetPulse 0.6s infinite alternate ease-in-out;
+  touch-action: manipulation;
+  position: relative;
+  z-index: 1;
+}
+
+.cell-freeze-target:hover {
+  transform: scale(1.1);
+  z-index: 3;
+}
+
+.cell-freeze-target:active {
+  transform: scale(0.91);
+  transition: transform 0.05s;
+}
+
+@keyframes freezeTargetPulse {
+  from {
+    transform: scale(1.0);
+    box-shadow: inset 0 0 0 2px rgba(125, 211, 252, 0.55),
+                0 0 6px rgba(125, 211, 252, 0.3);
+  }
+  to {
+    transform: scale(1.07);
+    box-shadow: inset 0 0 0 3px rgba(125, 211, 252, 1),
+                0 0 18px rgba(125, 211, 252, 0.7);
+  }
+}
+
 .cell-swap-label {
   position: absolute;
   bottom: 2px;
@@ -299,8 +331,24 @@
   line-height: 1;
 }
 
+.cell-freeze-label {
+  position: absolute;
+  bottom: 2px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.6px;
+  color: #7dd3fc;
+  text-shadow: 0 0 6px rgba(125,211,252,0.9), 0 1px 2px rgba(0,0,0,0.7);
+  pointer-events: none;
+  z-index: 4;
+  line-height: 1;
+}
+
 .player-icon {
-  font-size: calc(var(--cell-size) * 0.54);
+  font-size: calc(var(--cell-size) * 0.81);
   line-height: 1;
   display: block;
   filter: drop-shadow(0 2px 3px rgba(0,0,0,0.5));
@@ -709,6 +757,13 @@
 .player-card-empty {
   font-size: 9px;
   min-height: 1em;
+}
+
+.player-card-frozen {
+  font-size: 10px;
+  color: #7dd3fc;
+  font-family: 'Segoe UI', sans-serif;
+  font-weight: bold;
 }
 
 .player-card-rip {
@@ -1638,6 +1693,18 @@
   border: 1px solid rgba(255, 255, 255, 0.15);
   font-size: calc(var(--cell-size) * 0.21);
   font-family: 'Fredoka One', sans-serif;
+  line-height: 1.4;
+}
+
+.frozen-count-badge {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgba(20, 70, 130, 0.55);
+  border: 1px solid rgba(125, 211, 252, 0.7);
+  font-size: calc(var(--cell-size) * 0.24);
+  font-family: 'Fredoka One', sans-serif;
+  color: #bfefff;
   line-height: 1.4;
 }
 

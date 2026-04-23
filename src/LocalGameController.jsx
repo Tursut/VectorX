@@ -11,7 +11,6 @@ import PlayerPanel from './components/PlayerPanel';
 import GameOverScreen from './components/GameOverScreen';
 import EventToast from './components/EventToast';
 import SandboxPanel from './components/SandboxPanel';
-import EliminationMoment from './components/EliminationMoment';
 
 function gameReducer(state, action) {
   switch (action.type) {
@@ -52,11 +51,11 @@ export default function LocalGameController() {
   const [eventToast, setEventToast] = useState(null);
   const [countdown, setCountdown] = useState(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [playerMoment, setPlayerMoment] = useState(null);
   const [trappedPlayers, setTrappedPlayers] = useState([]);
+  const [eliminationPending, setEliminationPending] = useState(false);
+  const [flyingFreeze, setFlyingFreeze] = useState(null);
   const [exitConfirm, setExitConfirm] = useState(false);
   const prevPlayersRef = useRef(null);
-  const momentTimerRef = useRef(null);
   const trappedTimerRef = useRef(null);
 
   // iOS audio recovery: resume context on any user interaction after backgrounding
@@ -90,21 +89,17 @@ export default function LocalGameController() {
     return () => clearTimeout(t);
   }, [swapFlash]);
 
-  // Freeze / swap toast + sound
+  // Freeze / swap sound and animation
   useEffect(() => {
     const ev = gameState?.lastEvent;
     if (!ev) return;
     if (ev.type === 'freeze') {
       sounds.playFreeze();
-      const gc = gameState.gremlinCount ?? 0;
-      const humanAlive = gameState.players.some(p => !p.isEliminated && p.id < PLAYERS.length - gc);
-      if (humanAlive) {
-        setEventToast({
-          id: Date.now(),
-          type: 'freeze',
-          by: PLAYERS[ev.byId],
-          target: ev.targetId != null ? PLAYERS[ev.targetId] : null,
-        });
+      const collector = gameState.players.find(p => p.id === ev.byId);
+      const frozen = gameState.players.find(p => p.id === ev.targetId);
+      if (collector && frozen) {
+        setFlyingFreeze({ fromRow: collector.row, fromCol: collector.col, toRow: frozen.row, toCol: frozen.col });
+        setTimeout(() => setFlyingFreeze(null), 800);
       }
     } else if (ev.type === 'swap') {
       sounds.playSwap();
@@ -123,8 +118,7 @@ export default function LocalGameController() {
   useEffect(() => {
     if (!gameState || gameState.phase !== 'playing') return;
     if (gameState.sandboxMode) return; // no timer in sandbox
-    if (playerMoment) return; // paused during elimination overlay
-    if (trappedPlayers.length > 0) return; // paused during trap animation
+    if (eliminationPending || trappedPlayers.length > 0) return;
     if (exitConfirm) return; // paused during exit confirmation
     const playerIndex = gameState.currentPlayerIndex;
     const gc = gameState.gremlinCount ?? 0;
@@ -144,7 +138,7 @@ export default function LocalGameController() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [gameState?.currentPlayerIndex, gameState?.phase, gameState?.portalActive, playerMoment, trappedPlayers, exitConfirm]);
+  }, [gameState?.currentPlayerIndex, gameState?.phase, gameState?.portalActive, gameState?.freezeSelectActive, eliminationPending, trappedPlayers, exitConfirm]);
 
   // Your-turn chime — plays when it becomes a human's turn
   useEffect(() => {
@@ -171,17 +165,17 @@ export default function LocalGameController() {
           }
         }
       });
-      if (newlyTrapped.length > 0 && gameState.phase !== 'gameover') {
-        setTrappedPlayers(newlyTrapped);
+      if (newlyTrapped.length > 0) {
+        setEliminationPending(true);
         clearTimeout(trappedTimerRef.current);
         trappedTimerRef.current = setTimeout(() => {
-          setTrappedPlayers([]);
+          setEliminationPending(false);
+          setTrappedPlayers(newlyTrapped);
           sounds.playElimination();
-          const last = newlyTrapped[newlyTrapped.length - 1];
-          clearTimeout(momentTimerRef.current);
-          setPlayerMoment({ player: PLAYERS[last.id] });
-          momentTimerRef.current = setTimeout(() => setPlayerMoment(null), 2500);
-        }, 2500);
+          trappedTimerRef.current = setTimeout(() => {
+            setTrappedPlayers([]);
+          }, 2500);
+        }, 450);
       }
     }
     prevPlayersRef.current = gameState.players;
@@ -193,18 +187,18 @@ export default function LocalGameController() {
     else sounds.stopBgTheme();
   }, [gameState?.phase]);
 
-  // Game-over sound
+  // Game-over sound — waits for any death animation to finish first
   useEffect(() => {
     if (gameState?.phase !== 'gameover') return;
+    if (trappedPlayers.length > 0 || eliminationPending) return;
     if (gameState.winner !== null) sounds.playWin();
     else sounds.playDraw();
-  }, [gameState?.phase]);
+  }, [gameState?.phase, trappedPlayers, eliminationPending]);
 
   // Gremlin auto-move
   useEffect(() => {
     if (!gameState || gameState.phase !== 'playing') return;
-    if (playerMoment) return; // pause bots during elimination overlay
-    if (trappedPlayers.length > 0) return; // pause bots during trap animation
+    if (eliminationPending || trappedPlayers.length > 0) return;
     if (exitConfirm) return; // pause bots during exit confirmation
     const gc = gameState.gremlinCount ?? 0;
     if (gc === 0) return;
@@ -230,7 +224,7 @@ export default function LocalGameController() {
     }, delay);
     return () => { cancelAnimationFrame(rafId); clearTimeout(t); setIsThinking(false); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameState?.currentPlayerIndex, gameState?.turnCount, gameState?.phase, gameState?.portalActive, gameState?.swapActive, playerMoment, trappedPlayers, exitConfirm]);
+  }, [gameState?.currentPlayerIndex, gameState?.turnCount, gameState?.phase, gameState?.portalActive, gameState?.swapActive, gameState?.freezeSelectActive, eliminationPending, trappedPlayers, exitConfirm]);
 
   // Countdown sounds + logic
   const cdSoundRef = useRef(null);
@@ -343,19 +337,16 @@ export default function LocalGameController() {
         )
       : '';
 
+  const gc = gameState?.gremlinCount ?? 0;
+  const isHumanWin = gameState?.winner != null && gameState.winner < PLAYERS.length - gc;
+  const winnerPlayer = ((trappedPlayers.length > 0 || eliminationPending) && isHumanWin)
+    ? gameState.players.find(p => p.id === gameState.winner)
+    : null;
+
   return (
     <div className="app">
       <AnimatePresence>
         {eventToast && <EventToast key={eventToast.id} toast={eventToast} />}
-      </AnimatePresence>
-      <AnimatePresence>
-        {playerMoment && (
-          <EliminationMoment
-            key={playerMoment.player.id}
-            player={playerMoment.player}
-            onDismiss={() => { clearTimeout(momentTimerRef.current); setPlayerMoment(null); }}
-          />
-        )}
       </AnimatePresence>
       <AnimatePresence>
         {countdown !== null && (
@@ -399,7 +390,7 @@ export default function LocalGameController() {
           </motion.div>
         )}
 
-        {screen === 'game' && gameState?.phase === 'playing' && (
+        {screen === 'game' && (gameState?.phase === 'playing' || (gameState?.phase === 'gameover' && (trappedPlayers.length > 0 || eliminationPending))) && (
           <motion.div
             key="playing"
             className="game-layout"
@@ -413,6 +404,8 @@ export default function LocalGameController() {
                 players={gameState.players}
                 currentPlayerIndex={gameState.currentPlayerIndex}
                 gremlinCount={gameState.gremlinCount ?? 0}
+                frozenPlayerId={gameState?.frozenPlayerId ?? null}
+                frozenTurnsLeft={gameState?.frozenTurnsLeft ?? 0}
               />
               <div className="board-column">
                 <TurnIndicator
@@ -422,6 +415,7 @@ export default function LocalGameController() {
                   totalTime={TURN_TIME}
                   portalActive={gameState.portalActive}
                   swapActive={gameState.swapActive}
+                  freezeSelectActive={gameState.freezeSelectActive}
                   lastEvent={gameState.lastEvent}
                   isGremlin={gameState.players[gameState.currentPlayerIndex].id >= PLAYERS.length - (gameState.gremlinCount ?? 0)}
                   isThinking={isThinking}
@@ -437,11 +431,16 @@ export default function LocalGameController() {
                   items={gameState.items}
                   portalActive={gameState.portalActive}
                   swapActive={gameState.swapActive}
+                  freezeSelectActive={gameState.freezeSelectActive}
                   isGremlinTurn={isGremlinTurn}
                   bombBlast={bombBlast}
                   portalJump={portalJump}
                   swapFlash={swapFlash}
                   trappedPlayers={trappedPlayers}
+                  winnerPlayer={winnerPlayer}
+                  flyingFreeze={flyingFreeze}
+                  frozenPlayerId={gameState?.frozenPlayerId ?? null}
+                  frozenTurnsLeft={gameState?.frozenTurnsLeft ?? 0}
                 />
                 <button className="exit-game-btn" onClick={() => setExitConfirm(true)}>
                   ← Exit to menu
@@ -478,7 +477,7 @@ export default function LocalGameController() {
           </motion.div>
         )}
 
-        {screen === 'game' && gameState?.phase === 'gameover' && (
+        {screen === 'game' && gameState?.phase === 'gameover' && !eliminationPending && trappedPlayers.length === 0 && (
           <motion.div key="gameover" style={{ width: '100%' }} {...fadeSlide}>
             <GameOverScreen
               winner={gameState.winner !== null ? PLAYERS[gameState.winner] : null}
@@ -514,6 +513,8 @@ export default function LocalGameController() {
                 players={gameState.players}
                 currentPlayerIndex={gameState.currentPlayerIndex}
                 gremlinCount={gameState.gremlinCount ?? 0}
+                frozenPlayerId={gameState?.frozenPlayerId ?? null}
+                frozenTurnsLeft={gameState?.frozenTurnsLeft ?? 0}
               />
               <GameBoard
                 grid={gameState.grid}
@@ -524,10 +525,14 @@ export default function LocalGameController() {
                 items={gameState.items}
                 portalActive={gameState.portalActive}
                 swapActive={gameState.swapActive}
+                freezeSelectActive={gameState.freezeSelectActive}
                 isGremlinTurn={isGremlinTurn}
                 bombBlast={bombBlast}
                 portalJump={portalJump}
                 swapFlash={swapFlash}
+                flyingFreeze={flyingFreeze}
+                frozenPlayerId={gameState?.frozenPlayerId ?? null}
+                frozenTurnsLeft={gameState?.frozenTurnsLeft ?? 0}
               />
             </div>
           </motion.div>
