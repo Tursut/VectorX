@@ -28,3 +28,7 @@ coverage
 test-results
 playwright-report
 playwright/.cache
+
+# Wrangler local dev state
+.wrangler
+server/.wrangler

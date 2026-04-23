@@ -157,7 +157,7 @@ Each step is a single commit-sized unit of work. Every step ends with an automat
 
 **Step 1 deviations:**
 - Also installed `wrangler` (required by the Workers pool), `jsdom`, `@testing-library/react`, `@testing-library/jest-dom` (for later React component tests).
-- Vitest 4's pool API changed: the pool is wired in via `cloudflarePool({...})` (a `PoolRunnerInitializer` object) assigned to `test.pool`, not as a string path. `defineWorkersConfig` no longer exists in `@cloudflare/vitest-pool-workers@0.14`.
+- Vitest 4's pool API changed: register the pool via `plugins: [cloudflareTest({...})]` — `cloudflareTest`'s `configureVitest` hook sets `test.pool` + `test.poolRunner` and its `resolveId`/`load` hooks register the virtual `cloudflare:test` module. `defineWorkersConfig` no longer exists in `@cloudflare/vitest-pool-workers@0.14`. (Step 1 originally shipped with `cloudflarePool(...)` at `test.pool`, which silently omitted the virtual-module resolver; Step 4 corrected this.)
 - Created `server/wrangler.toml` (originally Step 4's deliverable) because the Workers pool requires it. It's minimal — `name`, `compatibility_date`, `nodejs_compat` flag. Step 4 will add a `main` entry + `/ping` route.
 - `playwright.config.ts` accepts a `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` env var to override the browser binary path — needed for sandboxed dev environments where `playwright install` can't reach the CDN. CI uses the default `npx playwright install --with-deps chromium`.
 - Test workflow triggers on pushes to `claude/multiplayer-architecture-planning-X2NrO` (the feature branch) and on all PRs. Not wired to `main` / the deploy branch.
@@ -178,12 +178,20 @@ Each step is a single commit-sized unit of work. Every step ends with an automat
 - Kept `import './App.css'` in `App.jsx` (not `LocalGameController.jsx`) so the global stylesheet loads regardless of mode — online play will reuse the same styles.
 - Copied the existing `gameReducer`, `fadeSlide`, all effects, and the entire JSX tree verbatim into `LocalGameController.jsx`. No behavior changes inside the local path — same imports, same deps arrays, same `// eslint-disable-next-line` lines. Pre-existing `react-hooks/set-state-in-effect` errors and `exhaustive-deps` warnings moved with the code (total lint count unchanged: 14 errors, 6 warnings).
 - `OnlineGameController.jsx` is a zero-dep stub returning `null`. Verified it's fully tree-shaken out of the production bundle: `grep "OnlineGameController" dist/assets/*.js` returns zero matches. Net bundle growth from the refactor is 70 bytes (the router wrapper itself).
-- Added `src/__tests__/App.test.jsx` — mocks both controllers and pins the "flag-off → LocalGameController" contract so Step 16's flip can't silently regress this. Full client suite: 8/8 passing.
+- Added `src/__tests__/App.test.jsx` — mocks both controllers and pins the "flag-off → LocalGameController" contract so Step 16's flip can't silently regress this. Full client suite: 7/7 passing.
 
 ### Server walking skeleton (steps 4–7): end-to-end pipe, no gameplay yet
 
-**Step 4 — Worker + `wrangler.toml` scaffold.** Create `/server/index.ts` with a single `GET /ping → "pong"` route. Add `wrangler.toml`. No DO yet.
+**Step 4 — Worker + `wrangler.toml` scaffold. ✅** Create `/server/index.ts` with a single `GET /ping → "pong"` route. Add `wrangler.toml`. No DO yet.
 - **Verify:** `wrangler dev` locally, `curl /ping` returns `pong`. Add `server/__tests__/ping.test.ts` (Workers pool) asserting the same. `npm run test:server` → green.
+
+**Step 4 deviations:**
+- `server/wrangler.toml` existed from Step 1 — just added `main = "index.ts"` (resolved relative to the toml).
+- `server/index.ts` is the modern module-default-export format (`export default { fetch(request) { … } }`), not the legacy `addEventListener('fetch', …)` style. Required for Step 5's Durable Object bindings and modern wrangler defaults.
+- **Fixed a Step 1 bug in `server/vitest.config.ts`:** previous config passed `cloudflarePool({...})` to `test.pool`, which only registered the pool runner and left the virtual-module resolver inactive — so `import { SELF } from 'cloudflare:test'` threw "Cannot find package". Correct wiring is `plugins: [cloudflareTest({...})]`; `cloudflareTest` is the Vite plugin whose `configureVitest` hook internally sets up `cloudflarePool` **plus** the `resolveId`/`load` hooks for `cloudflare:test`. Step 1's deviation note has been corrected accordingly.
+- Skipped adding `@cloudflare/workers-types` + root `tsconfig.json`. 10-line Worker with no bindings; Vitest (esbuild) and wrangler both strip TS types at runtime. Add types in Step 5 when the Durable Object `Env` / `DurableObjectState` signatures start earning their keep.
+- No CORS headers on `/ping`. The real browser client never calls `/ping`; it's a liveness probe. Step 6's WebSocket upgrade uses `Origin` checks, not CORS preflight.
+- Server suite: 4/4 passing (2 smoke + 2 ping). Manual smoke: `npx wrangler dev --config server/wrangler.toml` → `curl :8787/ping` returns `pong`, `curl :8787/nope` returns `404`. Client suite unchanged (7/7), client bundle byte-identical to Step 3.
 
 **Step 5 — `RoomDurableObject` skeleton + `POST /rooms`.** Add DO class with empty state; route creates a room with a 5-char code, stores `{code, createdAt}` in DO storage, returns `{code}`.
 - **Verify:** `server/__tests__/room-create.test.ts` asserts code format, uniqueness across 1000 creates, and code resolves to a live DO.

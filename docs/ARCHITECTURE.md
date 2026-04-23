@@ -46,6 +46,21 @@ Build-time flags use Vite's `import.meta.env.VITE_*` convention. Defaults live i
 
 When no code references a flag, Vite tree-shakes the config module out of the bundle entirely — turning the flag on later costs zero bytes today.
 
+## Server (`server/`)
+
+A Cloudflare Worker lives at `server/index.ts`, module-default-export format:
+
+```ts
+export default { async fetch(request) { … } }
+```
+
+Today it only answers `GET /ping → "pong"` and 404s everything else — a walking-skeleton proving the build + test pipeline. Steps 5–12 grow it into a `RoomDurableObject` with WebSocket upgrade, zod-validated protocol, ported `src/game/logic.js`, server-authoritative turn loop, server-side bots, and alarm-driven turn timer.
+
+- **Local dev:** `npx wrangler dev --config server/wrangler.toml` → Worker on `http://localhost:8787`.
+- **Tests:** `npm run test:server` runs the full suite inside the real `workerd` runtime via `@cloudflare/vitest-pool-workers`. The pool is registered in `server/vitest.config.ts` as `plugins: [cloudflareTest({...})]`; test files hit the Worker via `import { SELF } from 'cloudflare:test'` and `SELF.fetch(...)`.
+- **Deploy:** not wired yet. Step 18 adds `wrangler deploy` → `*.workers.dev`; Step 19 points the production client at it.
+- **No TypeScript tsconfig / `@cloudflare/workers-types`** yet. Vitest (esbuild) and wrangler both strip TS at runtime — types will land in Step 5 alongside the Durable Object `Env` / `DurableObjectState` signatures.
+
 ## Directory map
 
 ```
@@ -74,10 +89,12 @@ src/
     SoundToggle.jsx              ← tiny speaker button
     GameOverScreen.jsx           ← winner screen, restart, back to menu
 public/                          ← static assets served as-is
-server/                          ← Workers test harness (Step 1); will host the Worker + Durable Object in Step 4+
-  wrangler.toml                  ← minimal (name + compat_date + nodejs_compat); no `main` yet
-  vitest.config.ts               ← Workers-pool Vitest config
-  __tests__/smoke.test.ts        ← trivial harness-wired test
+server/                          ← Cloudflare Worker (Step 4: `/ping` only). DO + game logic arrive in Steps 5–12.
+  index.ts                       ← Worker entry. Module-default-export format. Currently: GET /ping → "pong", else 404.
+  wrangler.toml                  ← name, main, compat_date, nodejs_compat. `main = "index.ts"` (relative to the toml).
+  vitest.config.ts               ← Workers-pool Vitest config — `plugins: [cloudflareTest({ wrangler: { configPath } })]`.
+  __tests__/smoke.test.ts        ← runs inside workerd, asserts Request/Response/fetch are globals
+  __tests__/ping.test.ts         ← uses SELF.fetch from `cloudflare:test` to hit the `/ping` handler
 e2e/                             ← Playwright specs
   sanity.spec.ts                 ← trivial harness-wired test
 vitest.config.js                 ← client/jsdom Vitest config
@@ -170,11 +187,11 @@ The online branch is gated by `ENABLE_ONLINE && mode === 'online'`. With `VITE_E
 Three suites, all wired in Step 1 with trivial "is this connected?" tests:
 
 - **Client unit/component** — Vitest + jsdom + `@testing-library/react`. Config: `vitest.config.js`. Tests live at `src/**/*.test.{js,jsx}`. Run with `npm test` (or `npm run test:watch`).
-- **Server** — Vitest running inside the Cloudflare `workerd` runtime via `@cloudflare/vitest-pool-workers` (vitest 4 `PoolRunnerInitializer` API — `cloudflarePool({ wrangler: { configPath } })`). Config: `server/vitest.config.ts`. Tests live at `server/**/*.test.ts`. Requires `server/wrangler.toml`. Run with `npm run test:server`.
+- **Server** — Vitest running inside the Cloudflare `workerd` runtime via `@cloudflare/vitest-pool-workers`. Config: `server/vitest.config.ts`, registered as a Vite plugin: `plugins: [cloudflareTest({ wrangler: { configPath } })]` (the `cloudflareTest` plugin wires up the pool runner **and** the virtual `cloudflare:test` module — pass `cloudflarePool` alone and `import { SELF } from 'cloudflare:test'` will fail to resolve). Tests live at `server/**/*.test.ts`. Requires `server/wrangler.toml`. Run with `npm run test:server`.
 - **End-to-end** — Playwright (`@playwright/test`). Config: `playwright.config.ts`. Specs live at `e2e/**/*.spec.ts`. Chromium only for now. Run with `npm run test:e2e`. In sandboxed dev environments where `playwright install` can't reach the CDN, set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` to point at a pre-installed chromium binary.
 
 CI: `.github/workflows/test.yml` runs all three as separate jobs on pushes to the multiplayer feature branch and on all PRs.
 
 ## What's NOT here yet (framing for the multiplayer work)
 
-No network layer, no server, no WebSocket client, no room/lobby concept, no remote human players, no session/identity, no TypeScript. Online play is currently impossible — four humans must share one device. The work in `docs/multiplayer-plan.md` adds exactly these pieces while keeping the current hotseat path byte-for-byte intact. The test harness (Step 1) and the `VITE_ENABLE_ONLINE` flag (Step 2) are already in place so later steps can ship behind a gate without disturbing production.
+No WebSocket client, no room/lobby concept, no Durable Object, no remote human players, no session/identity, no shared game logic on the server, no TypeScript on the client. Online play is still impossible — four humans must share one device. The work in `docs/multiplayer-plan.md` adds exactly these pieces while keeping the current hotseat path byte-for-byte intact. The test harness (Step 1), the `VITE_ENABLE_ONLINE` flag (Step 2), the client mode router + controllers (Step 3), and the Worker skeleton with `/ping` (Step 4) are already in place so later steps can grow the online stack behind the gate without disturbing production.
