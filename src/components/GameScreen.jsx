@@ -69,10 +69,12 @@ export default function GameScreen({
     };
   }, []);
 
-  // Background theme.
+  // Background theme — also stop on unmount (e.g. exit to menu nulls gameState
+  // and unmounts GameScreen, so the else branch wouldn't otherwise fire).
   useEffect(() => {
     if (gameState?.phase === 'playing') sounds.startBgTheme();
     else sounds.stopBgTheme();
+    return () => sounds.stopBgTheme();
   }, [gameState?.phase]);
 
   // Freeze / swap sound on event. (The flying-freeze projectile animation is

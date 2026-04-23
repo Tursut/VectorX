@@ -137,7 +137,7 @@ export default function StartScreen({
               onClick={() => setMode('same-device')}
             >
               <span className="mode-switcher-icon">🎮</span>
-              <span className="mode-switcher-label">Same device</span>
+              <span className="mode-switcher-label">SAME DEVICE</span>
               <span className="mode-switcher-sub">On this device, bots fill the rest</span>
             </button>
             <button
@@ -148,7 +148,7 @@ export default function StartScreen({
               onClick={() => setMode('online')}
             >
               <span className="mode-switcher-icon">🌐</span>
-              <span className="mode-switcher-label">Online</span>
+              <span className="mode-switcher-label">ONLINE</span>
               <span className="mode-switcher-sub">Friends over the internet</span>
             </button>
           </div>
