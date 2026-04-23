@@ -255,7 +255,7 @@ export default function LocalGameController({
               gameState={gameState}
               mySeats={mySeats}
               onMove={handleMove}
-              onExit={() => setExitConfirm(true)}
+              onExit={gameState?.phase === 'gameover' ? handleBackToStart : () => setExitConfirm(true)}
               onRestart={handleRestart}
               soundEnabled={soundEnabled}
               onToggleSound={toggleSound}

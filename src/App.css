@@ -1882,57 +1882,78 @@
   font-family: 'Fredoka One', 'Segoe UI', sans-serif;
 }
 
-.lobby-header h2 {
-  font-family: 'Fredoka One', 'Segoe UI', sans-serif;
-  letter-spacing: 0.03em;
+/* Hero: LOBBY heading + room code line */
+.lobby-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
-
+.lobby-title {
+  font-size: 32px;
+  font-family: 'Fredoka One', 'Segoe UI', sans-serif;
+  letter-spacing: 4px;
+  color: #e8e8f4;
+  margin: 0;
+}
+.lobby-room-line {
+  font-size: 14px;
+  color: #888aaa;
+  margin: 0;
+}
 .lobby-code {
   font-family: 'Courier New', monospace;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.15em;
   color: #ffcc66;
 }
 
-.lobby-share {
+/* Invite card */
+.lobby-invite {
+  background: #141428;
+  border: 1px solid #333366;
+  border-radius: 8px;
+  padding: 12px 14px;
   display: flex;
-  align-items: flex-start;
+  flex-direction: column;
   gap: 8px;
-  font-size: 13px;
-  color: #aaaacc;
 }
-.lobby-share-link {
-  flex: 1;
-  word-break: break-all;
+.lobby-invite-label {
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #666888;
+  font-family: 'Segoe UI', sans-serif;
 }
-.lobby-share-link a {
-  color: #ffcc66;
-  text-decoration: underline;
+.lobby-invite-url {
   font-family: 'Courier New', monospace;
   font-size: 12px;
+  color: #ffcc66;
+  word-break: break-all;
+  line-height: 1.4;
+  text-decoration: none;
 }
-.lobby-share-link a:hover {
-  color: #ffe0a0;
-}
+.lobby-invite-url:hover { color: #ffe0a0; }
 .lobby-copy-btn {
-  flex-shrink: 0;
-  background: none;
-  border: 1px solid #3a3d66;
+  align-self: flex-end;
+  background: #1d1d3a;
+  border: 1px solid #4a4d88;
   border-radius: 6px;
   color: #aaaacc;
-  font-size: 14px;
-  padding: 2px 8px;
+  font-size: 13px;
+  font-family: 'Segoe UI', sans-serif;
+  padding: 5px 14px;
   cursor: pointer;
   transition: background 0.15s, color 0.15s, border-color 0.15s;
   white-space: nowrap;
 }
 .lobby-copy-btn:hover {
-  background: #1d1d3a;
+  background: #252550;
   color: #e8e8f4;
-  border-color: #6666aa;
+  border-color: #7a8cff;
 }
 .lobby-copy-btn-done {
   border-color: #44aa66;
   color: #44cc88;
+  background: #0e2418;
 }
 
 .lobby-players {
@@ -1958,9 +1979,17 @@
 
 .lobby-host-controls {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 12px;
+  gap: 10px;
+}
+.lobby-host-note {
+  font-size: 12px;
+  color: #888aaa;
+  font-family: 'Segoe UI', sans-serif;
+  font-style: italic;
+  margin: 0;
+  text-align: center;
 }
 
 .lobby-start-btn {

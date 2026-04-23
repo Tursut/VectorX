@@ -30,22 +30,26 @@ export default function Lobby({
 
   return (
     <section className="lobby" aria-label="Waiting room">
-      <header className="lobby-header">
-        <h2>Room <span className="lobby-code">{code}</span></h2>
-        <div className="lobby-share">
-          <span className="lobby-share-link">
-            Share to invite friends: <a href={shareLink}>{shareLink}</a>
-          </span>
-          <button
-            type="button"
-            className={`lobby-copy-btn${copied ? ' lobby-copy-btn-done' : ''}`}
-            onClick={copyLink}
-            aria-label="Copy invite link"
-          >
-            {copied ? '✓ Copied!' : '📋 Copy'}
-          </button>
-        </div>
-      </header>
+
+      <div className="lobby-hero">
+        <h1 className="lobby-title">LOBBY</h1>
+        <p className="lobby-room-line">
+          Room <span className="lobby-code">{code}</span>
+        </p>
+      </div>
+
+      <div className="lobby-invite">
+        <span className="lobby-invite-label">Invite friends</span>
+        <a className="lobby-invite-url" href={shareLink}>{shareLink}</a>
+        <button
+          type="button"
+          className={`lobby-copy-btn${copied ? ' lobby-copy-btn-done' : ''}`}
+          onClick={copyLink}
+          aria-label="Copy invite link"
+        >
+          {copied ? '✓ Copied!' : '📋 Copy link'}
+        </button>
+      </div>
 
       <ul className="lobby-players" aria-label="Players">
         {players.map((p) => (
@@ -64,6 +68,9 @@ export default function Lobby({
 
       {isHost && (
         <div className="lobby-host-controls">
+          <p className="lobby-host-note">
+            Start now — empty slots will be filled by bots.
+          </p>
           <button
             type="button"
             className="lobby-start-btn"
