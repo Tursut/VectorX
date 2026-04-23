@@ -193,8 +193,19 @@ Each step is a single commit-sized unit of work. Every step ends with an automat
 - No CORS headers on `/ping`. The real browser client never calls `/ping`; it's a liveness probe. Step 6's WebSocket upgrade uses `Origin` checks, not CORS preflight.
 - Server suite: 4/4 passing (2 smoke + 2 ping). Manual smoke: `npx wrangler dev --config server/wrangler.toml` → `curl :8787/ping` returns `pong`, `curl :8787/nope` returns `404`. Client suite unchanged (7/7), client bundle byte-identical to Step 3.
 
-**Step 5 — `RoomDurableObject` skeleton + `POST /rooms`.** Add DO class with empty state; route creates a room with a 5-char code, stores `{code, createdAt}` in DO storage, returns `{code}`.
+**Step 5 — `RoomDurableObject` skeleton + `POST /rooms`. ✅** Add DO class with empty state; route creates a room with a 5-char code, stores `{code, createdAt}` in DO storage, returns `{code}`.
 - **Verify:** `server/__tests__/room-create.test.ts` asserts code format, uniqueness across 1000 creates, and code resolves to a live DO.
+
+**Step 5 deviations:**
+- **Room alphabet is 32 chars, not ~1M combos.** Plan text said "~1M"; real space is 32⁵ ≈ 33.5M with alphabet `23456789ABCDEFGHJKLMNPQRSTUVWXYZ`. Doesn't change behaviour, just annotates the math.
+- **Race-safe code generation via retry-on-409.** `RoomDurableObject.fetch(POST /rooms)` refuses to reinitialise storage and returns `409` if already seeded. The Worker retries up to 5× with fresh random codes. Two concurrent Workers racing the same random code can't both win; atomic `state.storage.put({code, createdAt})` inside the DO is what enforces it. Collision probability after 5 retries ≈ 10⁻³⁷ — the retry branch effectively never fires in practice.
+- **`Date.now()` inside the DO**, not the Worker — the DO is the authoritative owner of the timestamp.
+- **DO internal route names mirror external paths.** Worker-to-DO fetch uses `POST /rooms` on the DO (not `/init`) so Step 6's `/rooms/:code/ws` maps to DO `/ws` etc. Consistent nouns; avoids a rename when more routes land.
+- **Method guards return 405 (with `Allow` headers)** for `/ping` and `/rooms`. Not in the plan text, but locks the method contract before Step 6 adds the WebSocket upgrade.
+- **`@cloudflare/workers-types` + `server/tsconfig.json`** added now. Flagged as the right moment in Step 4's deviation note; the DO types (`DurableObjectNamespace`, `DurableObjectState`, `ExportedHandler<Env>`) justify the install. Vitest (esbuild) and wrangler still strip types at runtime — tsconfig is purely for editors + type-aware tooling.
+- **Uniqueness test: 200 creates instead of 1000.** Workerd's Vitest isolate has non-linear DO-creation cost (46ms/create at n=100 → 120ms/create at n=500, probably due to in-memory state accumulation). 1000 exceeds reasonable test durations there (>90s). 200 picks in 33.5M space still have ~1.5×10⁻⁴ collision probability at the generator level; with retry-on-409 the test is deterministic, and the sample is 40× the retry depth. End-to-end round-trips are exercised either way.
+- **Parallel batches not used for creates.** Tried a `Promise.all` batch of 50 concurrent `SELF.fetch` calls — the workerd test isolate destabilised with `EnvironmentTeardownError: Closing rpc while "resolve" was pending`. Sequential is the stable path.
+- **Test suite: 10/10 green, not 9 as plan-of-plan predicted** (miscount: 2 smoke + 2 ping + 4 POST /rooms cases + 2 method guards).
 
 **Step 6 — WebSocket upgrade + echo at `/rooms/:code/ws`.** Use the Hibernation API. Server echoes any message back.
 - **Verify:** Workers-pool test opens a WS, sends `"ping"`, asserts `"ping"` comes back. Covers the hibernation wiring.

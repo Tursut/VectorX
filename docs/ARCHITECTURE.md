@@ -48,18 +48,39 @@ When no code references a flag, Vite tree-shakes the config module out of the bu
 
 ## Server (`server/`)
 
-A Cloudflare Worker lives at `server/index.ts`, module-default-export format:
+A Cloudflare Worker lives at `server/index.ts`, module-default-export format, with an exported `RoomDurableObject` class bound as `ROOM` via `wrangler.toml`.
 
-```ts
-export default { async fetch(request) { … } }
-```
+**Today's routes:**
 
-Today it only answers `GET /ping → "pong"` and 404s everything else — a walking-skeleton proving the build + test pipeline. Steps 5–12 grow it into a `RoomDurableObject` with WebSocket upgrade, zod-validated protocol, ported `src/game/logic.js`, server-authoritative turn loop, server-side bots, and alarm-driven turn timer.
+| Route | Behaviour |
+| --- | --- |
+| `GET /ping` | `200 "pong"` |
+| `POST /rooms` | Creates a room. Returns `201 {"code":"ABCDE"}`. |
+| `/ping` non-GET, `/rooms` non-POST | `405` with `Allow` header |
+| Anything else | `404` |
 
-- **Local dev:** `npx wrangler dev --config server/wrangler.toml` → Worker on `http://localhost:8787`.
-- **Tests:** `npm run test:server` runs the full suite inside the real `workerd` runtime via `@cloudflare/vitest-pool-workers`. The pool is registered in `server/vitest.config.ts` as `plugins: [cloudflareTest({...})]`; test files hit the Worker via `import { SELF } from 'cloudflare:test'` and `SELF.fetch(...)`.
+Steps 6–12 will grow this into a WebSocket upgrade at `/rooms/:code/ws`, a zod-validated protocol, ported `src/game/logic.js`, server-authoritative turn loop, server-side bots, and alarm-driven turn timer.
+
+### Durable Object: `RoomDurableObject` (bound as `ROOM`)
+
+- **One DO per room.** Room code → `env.ROOM.idFromName(code)` → stable DO identity. Same code always lands on the same DO, even after the Worker isolate restarts.
+- **Storage today:** `{ code, createdAt }` — a tombstone that proves the DO has been initialised. Steps 9+ add lobby roster, game state, turn state, timers.
+- **Internal route convention** (Worker-to-DO `stub.fetch`): path mirrors the external path. External `POST /rooms` → internal DO `POST /rooms`. External `GET /rooms/:code/ws` (Step 6) → internal DO `GET /ws`. Keeps the shape consistent as routes multiply.
+- **Init is atomic, one-shot.** DO's `POST /rooms` refuses to reinitialise (returns `409`) if storage already has a `code`. The Worker regenerates a fresh random code and retries up to 5× — race-safe against two Workers randomly picking the same code.
+
+### Room code format
+
+- Alphabet: `23456789ABCDEFGHJKLMNPQRSTUVWXYZ` — base32 excluding visually-confusable chars (`0/O/1/I`). 32 symbols → 5 bits per char.
+- 5-char codes → 32⁵ ≈ 33.5M combinations.
+- Generated via `crypto.getRandomValues(new Uint8Array(5))` + `byte & 0x1F` lookup (unbiased — 5 bits out of 8 independently uniform).
+
+### Local dev, tests, deploy
+
+- **Local dev:** `npx wrangler dev --config server/wrangler.toml` → Worker on `http://localhost:8787`. Hot-reloads on save.
+- **Tests:** `npm run test:server` runs the full suite inside the real `workerd` runtime via `@cloudflare/vitest-pool-workers`. The pool is registered in `server/vitest.config.ts` as `plugins: [cloudflareTest({...})]`; test files hit the Worker via `import { SELF } from 'cloudflare:test'`, and DO state is inspected via `runInDurableObject(stub, (instance, state) => {…})`.
+- **DO binding discovery:** `wrangler.toml` declares `[[durable_objects.bindings]] name = "ROOM" class_name = "RoomDurableObject"` plus a `[[migrations]] tag = "v1" new_classes = ["RoomDurableObject"]` block (required the first time a DO class is introduced). `wrangler dev` and the Vitest pool both read these from the same toml.
+- **TypeScript:** `server/tsconfig.json` extends `@cloudflare/workers-types` and `@cloudflare/vitest-pool-workers` types (no DOM). `noEmit: true` — types are for editors + type-aware tooling only; runtime transpilation goes through esbuild (Vitest) and wrangler.
 - **Deploy:** not wired yet. Step 18 adds `wrangler deploy` → `*.workers.dev`; Step 19 points the production client at it.
-- **No TypeScript tsconfig / `@cloudflare/workers-types`** yet. Vitest (esbuild) and wrangler both strip TS at runtime — types will land in Step 5 alongside the Durable Object `Env` / `DurableObjectState` signatures.
 
 ## Directory map
 
@@ -89,12 +110,14 @@ src/
     SoundToggle.jsx              ← tiny speaker button
     GameOverScreen.jsx           ← winner screen, restart, back to menu
 public/                          ← static assets served as-is
-server/                          ← Cloudflare Worker (Step 4: `/ping` only). DO + game logic arrive in Steps 5–12.
-  index.ts                       ← Worker entry. Module-default-export format. Currently: GET /ping → "pong", else 404.
-  wrangler.toml                  ← name, main, compat_date, nodejs_compat. `main = "index.ts"` (relative to the toml).
+server/                          ← Cloudflare Worker + RoomDurableObject (Step 5). Protocol + gameplay arrive in Steps 6–12.
+  index.ts                       ← Worker entry + `RoomDurableObject` class. Module-default-export format. Routes: GET /ping, POST /rooms; 405/404 otherwise.
+  wrangler.toml                  ← name, main, compat_date, nodejs_compat, `[[durable_objects.bindings]] ROOM`, `[[migrations]] v1 new_classes=[RoomDurableObject]`.
+  tsconfig.json                  ← server-only tsconfig. Pulls in @cloudflare/workers-types + @cloudflare/vitest-pool-workers. noEmit.
   vitest.config.ts               ← Workers-pool Vitest config — `plugins: [cloudflareTest({ wrangler: { configPath } })]`.
   __tests__/smoke.test.ts        ← runs inside workerd, asserts Request/Response/fetch are globals
   __tests__/ping.test.ts         ← uses SELF.fetch from `cloudflare:test` to hit the `/ping` handler
+  __tests__/room-create.test.ts  ← POST /rooms: code format, 200-create uniqueness, DO storage inspection via runInDurableObject, persistence, method guards
 e2e/                             ← Playwright specs
   sanity.spec.ts                 ← trivial harness-wired test
 vitest.config.js                 ← client/jsdom Vitest config
@@ -194,4 +217,4 @@ CI: `.github/workflows/test.yml` runs all three as separate jobs on pushes to th
 
 ## What's NOT here yet (framing for the multiplayer work)
 
-No WebSocket client, no room/lobby concept, no Durable Object, no remote human players, no session/identity, no shared game logic on the server, no TypeScript on the client. Online play is still impossible — four humans must share one device. The work in `docs/multiplayer-plan.md` adds exactly these pieces while keeping the current hotseat path byte-for-byte intact. The test harness (Step 1), the `VITE_ENABLE_ONLINE` flag (Step 2), the client mode router + controllers (Step 3), and the Worker skeleton with `/ping` (Step 4) are already in place so later steps can grow the online stack behind the gate without disturbing production.
+No WebSocket client, no WebSocket upgrade on the server, no lobby roster, no remote human players, no session/identity, no shared game logic on the server, no TypeScript on the client. Online play is still impossible — four humans must share one device. The work in `docs/multiplayer-plan.md` adds exactly these pieces while keeping the current hotseat path byte-for-byte intact. The test harness (Step 1), the `VITE_ENABLE_ONLINE` flag (Step 2), the client mode router + controllers (Step 3), the Worker skeleton (Step 4), and the `RoomDurableObject` + `POST /rooms` (Step 5) are already in place so later steps can grow the online stack behind the gate without disturbing production.
