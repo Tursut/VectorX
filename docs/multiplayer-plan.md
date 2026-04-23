@@ -285,8 +285,18 @@ Each step is a single commit-sized unit of work. Every step ends with an automat
 - **Game storage keyed `game`, typed `any`** on the server. The module boundary (logic.js is JS, no .d.ts) makes tight typing low-value; `GameStateMsg` zod schema is the typed contract on the wire.
 - **Server suite: 91/91 green** (81 prior + 10 new turn-loop). No client changes; client bundle byte-identical to Step 9.
 
-**Step 11 — Bots fill empty seats + full-bot simulation.** On `START`, fill `4-N` seats with bot records. On a bot's turn, call `getGremlinMove(state, 1)` after a 800–1400ms delay.
+**Step 11 — Bots fill empty seats + full-bot simulation. ✅** On `START`, fill `4-N` seats with bot records. On a bot's turn, call `getGremlinMove(state, 1)` after a 800–1400ms delay.
 - **Verify:** `room-bots.test.ts` includes an **all-bots simulation**: seed 4 bots, drive the DO's alarm forward until `GAME_OVER`, assert exactly one winner and no errors. This single test exercises the whole loop.
+
+**Step 11 deviations:**
+- **Bot display name:** `` `🤖 ${PLAYERS[id].shortName}` `` (e.g., `"🤖 Bluebot"`) rather than "Bot N". Character names match the hotseat-game identity players already know; emoji prefix keeps the visual distinct even if a human picked a character shortName as their displayName.
+- **`getGremlinMove === null` → `eliminateCurrentPlayer`** (matches the hotseat TIMEOUT path). A bot with no legal moves is trapped, same effect as a timed-out human.
+- **Bot seat ids stay in `game.players` only.** `lobby.players` remains human-only; `buildGameState` derives `isBot: !lobby.entry`. No protocol change, no new storage field for "bot roster".
+- **Alarm driver via a new `maybeScheduleBotTurn(game, lobby)` helper** wired at the end of `handleStart`, `handleMove`, and `alarm()`. Sets a single alarm 800–1400ms out when the current seat is a bot; `deleteAlarm()` (idempotent, no guard needed) on human turns or game-over.
+- **`alarm()` override re-reads storage** and guards against stale invocations (phase flipped, current player changed to human between schedule and fire). DO single-threading guarantees `webSocketMessage` and `alarm()` never run concurrently on the same DO.
+- **All-bots simulation seeds storage directly via `runInDurableObject`** rather than adding a 0-humans-can-START protocol path. The seed shape mirrors what `handleStart` produces; a comment in the test flags that coupling so changes to handleStart don't silently diverge.
+- **Seat recycling invariant test** added — proves that closing a mid-roster seat and rejoining reclaims the vacated slot (dense 0..N-1 seat ids), which is the precondition that makes `initGame(magicItems, 4 - N)` correctly mark empty seats as bots.
+- **Tests: 95/95 green** (91 + 4 new: identity, alarm scheduling, all-bots simulation to `GAME_OVER`, seat recycling).
 
 **Step 12 — Turn timer + disconnect=elimination.** DO alarm scheduled at `TURN_TIME_MS`; on fire, auto-forfeit current turn. WS `close` → eliminate that player, broadcast.
 - **Verify:** `room-timer.test.ts` fast-forwards the alarm and asserts forfeit. `room-disconnect.test.ts` closes a WS mid-turn and asserts elimination broadcast + game continuation.
