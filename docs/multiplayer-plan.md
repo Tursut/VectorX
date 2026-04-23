@@ -207,8 +207,18 @@ Each step is a single commit-sized unit of work. Every step ends with an automat
 - **Parallel batches not used for creates.** Tried a `Promise.all` batch of 50 concurrent `SELF.fetch` calls — the workerd test isolate destabilised with `EnvironmentTeardownError: Closing rpc while "resolve" was pending`. Sequential is the stable path.
 - **Test suite: 10/10 green, not 9 as plan-of-plan predicted** (miscount: 2 smoke + 2 ping + 4 POST /rooms cases + 2 method guards).
 
-**Step 6 — WebSocket upgrade + echo at `/rooms/:code/ws`.** Use the Hibernation API. Server echoes any message back.
+**Step 6 — WebSocket upgrade + echo at `/rooms/:code/ws`. ✅** Use the Hibernation API. Server echoes any message back.
 - **Verify:** Workers-pool test opens a WS, sends `"ping"`, asserts `"ping"` comes back. Covers the hibernation wiring.
+
+**Step 6 deviations:**
+- **Hibernation API:** DO uses `this.ctx.acceptWebSocket(server)` (not `server.accept()`) and implements `webSocketMessage`, `webSocketClose`, `webSocketError` on the class. The runtime dispatches inbound frames to `webSocketMessage` so the DO can hibernate between messages — this is what makes idle rooms cost $0 on the free tier. No extra compat flag needed (`compatibility_date = "2025-01-01"` is well past hibernation GA).
+- **Pre-upgrade 404 for uninitialised rooms** (rejected before the 101 handshake, not via a post-upgrade close frame). Avoids half-open sockets and composes with standard fetch error handling in tests.
+- **Belt-and-braces regex validation.** Worker checks a looser path regex (`[A-Z2-9]{5}`) before the stricter alphabet regex (`[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{5}`). Paths with `O` or `I` slip past the first (they're in `A-Z`) and hit a 400; obvious garbage like lowercase falls through the first to 404. Reason: keeps the alphabet definition local to one regex.
+- **`webSocketError` override** added even though echo doesn't need it. Without it, workerd logs "unhandled socket error" on abnormal close and that noise races Vitest teardown (same class of issue that destabilised Step 5's parallel-fetch experiment).
+- **Test isolate hygiene.** `afterEach` drains and closes any leftover sockets; happy-path test `await`s a `close` event. Leaving sockets open holds the isolate and cascades into timeouts — the WS analogue of Step 5's parallel-fetch blowup.
+- **Method guards:** `POST /rooms/:code/ws` → 405 `Allow: GET`. Added now to lock the contract before Step 9's real protocol lands.
+- **Manual probe prerequisites on Mac:** plain `curl` hangs on 101 (it's a half-done upgrade with no real client to continue). Use `curl --max-time 2 -o /dev/null -w "%{http_code}"` to just check the status, or `brew install websocat` for an interactive REPL.
+- **Server suite: 15/15 green** (2 smoke + 2 ping + 6 room-create + 5 room-ws).
 
 **Step 7 — `protocol.ts` with zod schemas.** Define `HELLO`, `JOIN`, `LOBBY_STATE`, `START`, `MOVE`, `GAME_STATE`, `ELIMINATED`, `GAME_OVER` schemas. No handlers wired yet — just the types.
 - **Verify:** `server/__tests__/protocol.test.ts` round-trips every valid message and asserts rejection of malformed ones.

@@ -56,17 +56,31 @@ A Cloudflare Worker lives at `server/index.ts`, module-default-export format, wi
 | --- | --- |
 | `GET /ping` | `200 "pong"` |
 | `POST /rooms` | Creates a room. Returns `201 {"code":"ABCDE"}`. |
-| `/ping` non-GET, `/rooms` non-POST | `405` with `Allow` header |
+| `GET /rooms/:code/ws` | WebSocket upgrade. `101` on success; the Worker forwards to the room's DO. Returns `404` if room never initialised, `400` for malformed codes (alphabet violation), `426` if `Upgrade: websocket` header missing. |
+| Method violations on any above | `405` with `Allow` header |
 | Anything else | `404` |
 
-Steps 6–12 will grow this into a WebSocket upgrade at `/rooms/:code/ws`, a zod-validated protocol, ported `src/game/logic.js`, server-authoritative turn loop, server-side bots, and alarm-driven turn timer.
+Steps 7–12 will grow this into a zod-validated protocol, ported `src/game/logic.js`, server-authoritative turn loop, server-side bots, and alarm-driven turn timer. Step 6 ships the transport only — the server just echoes whatever comes over the socket.
 
 ### Durable Object: `RoomDurableObject` (bound as `ROOM`)
 
 - **One DO per room.** Room code → `env.ROOM.idFromName(code)` → stable DO identity. Same code always lands on the same DO, even after the Worker isolate restarts.
 - **Storage today:** `{ code, createdAt }` — a tombstone that proves the DO has been initialised. Steps 9+ add lobby roster, game state, turn state, timers.
-- **Internal route convention** (Worker-to-DO `stub.fetch`): path mirrors the external path. External `POST /rooms` → internal DO `POST /rooms`. External `GET /rooms/:code/ws` (Step 6) → internal DO `GET /ws`. Keeps the shape consistent as routes multiply.
+- **Internal route convention** (Worker-to-DO `stub.fetch`): path mirrors the external path. External `POST /rooms` → internal DO `POST /rooms`. External `GET /rooms/:code/ws` → internal DO `GET /ws` (Worker rewrites the URL via `new Request('http://do/ws', request)` to preserve method + all handshake headers).
 - **Init is atomic, one-shot.** DO's `POST /rooms` refuses to reinitialise (returns `409`) if storage already has a `code`. The Worker regenerates a fresh random code and retries up to 5× — race-safe against two Workers randomly picking the same code.
+- **WebSocket lifecycle** (Step 6): DO's `/ws` handler checks storage has been initialised (`404` if not), creates a `WebSocketPair`, and calls `this.ctx.acceptWebSocket(server)` — the Hibernation API entry point. Inbound frames are dispatched to `webSocketMessage(ws, message)` on the class by the runtime.
+
+### WebSocket Hibernation API
+
+Cloudflare's Hibernation API is the reason a hobby multiplayer game can run for $0 on the free tier: instead of keeping the DO instance alive for every open connection, the DO can hibernate between messages and the runtime re-invokes it only when inbound data arrives.
+
+Three invariants, all on `RoomDurableObject`:
+
+- **Use `this.ctx.acceptWebSocket(server)` on the server half, not `server.accept()`.** The former is the hibernation entry; the latter creates a live, non-hibernating socket.
+- **Declare `webSocketMessage(ws, message)`, `webSocketClose(ws, code, reason, wasClean)`, and `webSocketError(ws, error)` on the class.** The runtime calls these directly — they are not reached via `fetch()`.
+- **The client half of the pair** is returned via `new Response(null, { status: 101, webSocket: client })`. The Worker's route handler forwards this response unchanged.
+
+Today `webSocketMessage` just echoes the message (Step 6). Step 9 will parse the payload as a zod-validated protocol message and dispatch to lobby/game handlers. `webSocketError` closes the socket cleanly on any workerd-reported fault — without it, the test isolate noisily logs unhandled errors on every abnormal close.
 
 ### Room code format
 
@@ -110,14 +124,15 @@ src/
     SoundToggle.jsx              ← tiny speaker button
     GameOverScreen.jsx           ← winner screen, restart, back to menu
 public/                          ← static assets served as-is
-server/                          ← Cloudflare Worker + RoomDurableObject (Step 5). Protocol + gameplay arrive in Steps 6–12.
-  index.ts                       ← Worker entry + `RoomDurableObject` class. Module-default-export format. Routes: GET /ping, POST /rooms; 405/404 otherwise.
+server/                          ← Cloudflare Worker + RoomDurableObject (Steps 4–6). Protocol + gameplay arrive in Steps 7–12.
+  index.ts                       ← Worker entry + `RoomDurableObject` class. Module-default-export format. Routes: GET /ping, POST /rooms, GET /rooms/:code/ws (WebSocket upgrade); 400/404/405/426 otherwise.
   wrangler.toml                  ← name, main, compat_date, nodejs_compat, `[[durable_objects.bindings]] ROOM`, `[[migrations]] v1 new_classes=[RoomDurableObject]`.
   tsconfig.json                  ← server-only tsconfig. Pulls in @cloudflare/workers-types + @cloudflare/vitest-pool-workers. noEmit.
   vitest.config.ts               ← Workers-pool Vitest config — `plugins: [cloudflareTest({ wrangler: { configPath } })]`.
   __tests__/smoke.test.ts        ← runs inside workerd, asserts Request/Response/fetch are globals
   __tests__/ping.test.ts         ← uses SELF.fetch from `cloudflare:test` to hit the `/ping` handler
   __tests__/room-create.test.ts  ← POST /rooms: code format, 200-create uniqueness, DO storage inspection via runInDurableObject, persistence, method guards
+  __tests__/room-ws.test.ts      ← GET /rooms/:code/ws: happy-path echo through hibernation, 404 on uninitialised room, 426 without Upgrade header, 400 on malformed code, 405 on wrong method. afterEach drains open sockets.
 e2e/                             ← Playwright specs
   sanity.spec.ts                 ← trivial harness-wired test
 vitest.config.js                 ← client/jsdom Vitest config
@@ -217,4 +232,4 @@ CI: `.github/workflows/test.yml` runs all three as separate jobs on pushes to th
 
 ## What's NOT here yet (framing for the multiplayer work)
 
-No WebSocket client, no WebSocket upgrade on the server, no lobby roster, no remote human players, no session/identity, no shared game logic on the server, no TypeScript on the client. Online play is still impossible — four humans must share one device. The work in `docs/multiplayer-plan.md` adds exactly these pieces while keeping the current hotseat path byte-for-byte intact. The test harness (Step 1), the `VITE_ENABLE_ONLINE` flag (Step 2), the client mode router + controllers (Step 3), the Worker skeleton (Step 4), and the `RoomDurableObject` + `POST /rooms` (Step 5) are already in place so later steps can grow the online stack behind the gate without disturbing production.
+No protocol yet — the WS endpoint just echoes. No client-side WebSocket code, no lobby roster, no remote human players, no session/identity, no shared game logic on the server, no TypeScript on the client. Online play is still impossible — four humans must share one device. The work in `docs/multiplayer-plan.md` adds exactly these pieces while keeping the current hotseat path byte-for-byte intact. The test harness (Step 1), the `VITE_ENABLE_ONLINE` flag (Step 2), the client mode router + controllers (Step 3), the Worker skeleton (Step 4), `RoomDurableObject` + `POST /rooms` (Step 5), and the WebSocket upgrade at `GET /rooms/:code/ws` via the Hibernation API (Step 6) are all in place so later steps can grow the online stack behind the gate without disturbing production.
