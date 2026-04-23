@@ -313,8 +313,18 @@ Each step is a single commit-sized unit of work. Every step ends with an automat
 
 ### Client networking (steps 13–16)
 
-**Step 13 — `src/net/client.js` WebSocket wrapper.** Auto-reconnect with backoff, send-queue while disconnected, typed send/recv using the shared zod schemas.
+**Step 13 — `src/net/client.js` WebSocket wrapper. ✅** Auto-reconnect with backoff, send-queue while disconnected, typed send/recv using the shared zod schemas.
 - **Verify:** `src/net/__tests__/client.test.js` with mock `WebSocket`: reconnect backoff, queued sends flush on reconnect, session cookie persists.
+
+**Step 13 deviations:**
+- **API shape:** factory function `createClient({ url, onMessage, onStateChange })` returning `{ send, close, getState }` — not a class. Simpler to test, no `new`-vs-factory debate.
+- **Outbound validation is strict** (`ClientMsg.parse` throws on malformed input). Calling `send()` with garbage is a developer error, never a runtime failure — zod's throw is the right signal.
+- **Inbound validation is permissive** (`ServerMsg.safeParse` + log-and-drop on failure). A server-side protocol bug shouldn't kill the client; just warn to console and skip the bad frame. Same policy for non-text frames / non-JSON text.
+- **Backoff schedule:** `[500, 1000, 2000, 4000, 8000, 16000, 30000]` ms with ±25% jitter per step. Resets on a successful `open`.
+- **Explicit `close()` is sticky** — sets a `destroyed` flag so subsequent close events from the socket don't schedule a reconnect. State transitions to `'destroyed'` (a fourth state beyond `connecting | open | closed`) so callers can distinguish "transient disconnect" from "torn down".
+- **Session cookie persistence — DEFERRED.** The plan's Step 13 verify mentions it, but implementing seat-sticky reconnects requires cross-origin `Set-Cookie: SameSite=None; Secure` server-side plumbing, DO storage of session→seat mapping, and a change to `webSocketClose` so reconnects don't eliminate the seat. Not worth shipping in Step 13's client-only scope. A later step can layer it on — either as a dedicated "reconnect identity" step or folded into Step 17 where `reconnect.spec.ts` exercises it end-to-end. For now, a reconnecting client treats the new socket as fresh: re-HELLO on `open`, accept whatever seat the server assigns.
+- **No integration with the React tree yet.** Nothing imports `client.js` yet — Step 14's `useNetworkGame` hook is the first consumer. Until then, Vite tree-shakes the module entirely; client bundle size is byte-identical to Step 12.
+- **Tests: 14 new cases** (21 total client-side). Uses a hand-written `MockWebSocket` installed via `vi.stubGlobal` and Vitest's fake timers for deterministic backoff assertions. Covers connect transitions, inbound happy-path / malformed-JSON / wrong-shape, outbound validation throw paths, queue FIFO before and across reconnects, backoff growth, backoff reset on successful open, explicit close is idempotent and non-reconnecting.
 
 **Step 14 — `useNetworkGame` hook (contract test).** Returns the exact same state shape as the existing `useReducer` path.
 - **Verify:** `src/net/__tests__/useNetworkGame.test.jsx` — **contract test**: fake a server script, assert every field the local reducer produces also appears from the hook. This is the guarantee that lets existing components render online play unchanged.
