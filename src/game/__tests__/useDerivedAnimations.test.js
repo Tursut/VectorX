@@ -143,29 +143,50 @@ describe('useDerivedAnimations — bomb pickup', () => {
 // ---------- Portal / swap item pickups ----------
 
 describe('useDerivedAnimations — item pickup sounds', () => {
-  it('fires playPortal when player lands on a portal item', () => {
+  // Portal and swap/freeze pickups do NOT advance turnCount in the game reducer
+  // (completeTurn is called only on the subsequent move). The hook must detect
+  // these via the flag transition (portalActive/swapActive/freezeSelectActive
+  // flipping to true), not via turnCount. These tests reflect that reality.
+
+  it('fires playPortal when player lands on a portal item (turnCount unchanged)', () => {
     const prev = {
       ...baseState(),
       items: [{ id: 'p1', type: 'portal', row: 0, col: 1 }],
     };
-    const { rerender } = renderHook(
-      ({ gameState }) => useDerivedAnimations(gameState),
-      { initialProps: { gameState: prev } },
-    );
-    rerender({ gameState: withMove(prev, 0, 1, { items: [], portalActive: true }) });
-    expect(sounds.playPortal).toHaveBeenCalledOnce();
-  });
-
-  it('fires playSwapActivate when player lands on a swap item', () => {
-    const prev = {
-      ...baseState(),
-      items: [{ id: 's1', type: 'swap', row: 0, col: 1 }],
+    // Simulate the real game: player moves to item cell, item removed, portalActive
+    // set — but turnCount stays the same because completeTurn hasn't fired yet.
+    const next = {
+      ...prev,
+      players: prev.players.map((p, i) => i === 0 ? { ...p, row: 0, col: 1 } : p),
+      items: [],
+      portalActive: true,
+      // turnCount deliberately NOT incremented
     };
     const { rerender } = renderHook(
       ({ gameState }) => useDerivedAnimations(gameState),
       { initialProps: { gameState: prev } },
     );
-    rerender({ gameState: withMove(prev, 0, 1, { items: [], swapActive: true }) });
+    rerender({ gameState: next });
+    expect(sounds.playPortal).toHaveBeenCalledOnce();
+  });
+
+  it('fires playSwapActivate when player lands on a swap item (turnCount unchanged)', () => {
+    const prev = {
+      ...baseState(),
+      items: [{ id: 's1', type: 'swap', row: 0, col: 1 }],
+    };
+    const next = {
+      ...prev,
+      players: prev.players.map((p, i) => i === 0 ? { ...p, row: 0, col: 1 } : p),
+      items: [],
+      swapActive: true,
+      // turnCount deliberately NOT incremented
+    };
+    const { rerender } = renderHook(
+      ({ gameState }) => useDerivedAnimations(gameState),
+      { initialProps: { gameState: prev } },
+    );
+    rerender({ gameState: next });
     expect(sounds.playSwapActivate).toHaveBeenCalledOnce();
   });
 

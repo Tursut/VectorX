@@ -62,7 +62,20 @@ export function useDerivedAnimations(gameState) {
     const prev = prevRef.current;
     prevRef.current = gameState;
     if (!prev) return;
-    if (prev.turnCount === gameState.turnCount) return; // no move happened
+    // Bomb/portal/swap/freeze items each have different turn-advancement behaviour:
+    //   bomb   → calls completeTurn → turnCount advances
+    //   portal → sets portalActive; completeTurn fires on the *next* move
+    //   swap   → sets swapActive; completeTurn fires on the *next* move
+    //   freeze → sets freezeSelectActive; completeTurn fires on the *next* move
+    // So "turnCount changed" is not a reliable proxy for "something happened".
+    // Let through any transition where the turn advanced OR an item-mode flag
+    // just became active (which means a portal/swap/freeze item was just picked up).
+    const turnAdvanced = prev.turnCount !== gameState.turnCount;
+    const modeActivated =
+      (!prev.swapActive && gameState.swapActive) ||
+      (!prev.portalActive && gameState.portalActive) ||
+      (!prev.freezeSelectActive && gameState.freezeSelectActive);
+    if (!turnAdvanced && !modeActivated) return;
 
     const mover = gameState.players[prev.currentPlayerIndex];
     if (!mover) return;
