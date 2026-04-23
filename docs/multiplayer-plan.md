@@ -338,8 +338,19 @@ Each step is a single commit-sized unit of work. Every step ends with an automat
 - **Tests: 11 new cases** (32 total client-side). Mocks `../client.js` via `vi.mock` and captures the `onMessage` + `onStateChange` callbacks. Contract tests 1 and 2 (top-level keys + per-player keys) are the load-bearing ones; others cover lobby/mySeatId/senders/error/connection-state/unmount-cleanup.
 - **Nothing consumes the hook yet** — Vite tree-shakes it out of the prod bundle. Client bundle byte-identical to Step 13.
 
-**Step 15 — `JoinScreen` + `Lobby` components.** `JoinScreen` autofocus, uppercase, URL-paste. `Lobby` shows joined players + empty seats + host-only Start.
+**Step 15 — `JoinScreen` + `Lobby` components. ✅** `JoinScreen` autofocus, uppercase, URL-paste. `Lobby` shows joined players + empty seats + host-only Start.
 - **Verify:** `JoinScreen.test.jsx` and `Lobby.test.jsx` unit tests.
+
+**Step 15 deviations:**
+- **Both components are pure presentational** — no `useNetworkGame`, no fetch/WS. Parent (Step 16) wires callbacks. Keeps tests fast and focused; Step 16 adds the routing/wiring.
+- **`JoinScreen` has two inputs** (displayName + code) in a single form, rather than plan's "single 5-char input + name-picked-on-join". Cleaner UX: both fields side-by-side, submit once. Autofocus: code input if `defaultCode` is absent, displayName if a share link pre-filled the code.
+- **Paste extraction prefers `/r/CODE` share-link shape** over a bare 5-char alphabet match. Otherwise "HTTPS" (5 alphabet chars) in a URL would be picked before the real code.
+- **Real-time code filtering** on every `onChange`: uppercase + alphabet-strip + clamp-to-5. The input is always valid-or-empty, so the submit button's disabled state is a single regex check.
+- **Host controls:** magic-items toggle + Start button render only when `mySeatId === hostId`. Non-hosts see "Waiting for the host to start…". Server is the authority (`UNAUTHORIZED` for non-host START) — client UI is just deference.
+- **No framer-motion this step.** Step 16 can wrap the screens in `<motion.div>` for the mode-transition flourish once they're in context.
+- **Installed `@testing-library/user-event`** as a devDep — not previously in the project. Needed for realistic typing/pasting in tests (`user.type`, `user.paste`).
+- **Tests: 22 new cases** (12 JoinScreen + 10 Lobby). 54 total client-side (was 32).
+- **CSS appended to `src/App.css`** (~100 lines under "Online: JoinScreen + Lobby"). Follows the existing global-CSS pattern rather than introducing a CSS-module split. Client CSS bundle grew +1.57 KB; JS bundle unchanged (components are tree-shaken since nothing imports them yet — Step 16 does).
 
 **Step 16 — Wire `OnlineGameController` to the hook; flag-gate Create/Join on `StartScreen`.** Behind `VITE_ENABLE_ONLINE=true` only.
 - **Verify:** `StartScreen.test.jsx` asserts flag-off hides online buttons. Run `vite dev` with flag on, click through Create → Lobby → Start → play. One manual glance; everything else covered by tests.

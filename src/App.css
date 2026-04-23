@@ -1811,3 +1811,131 @@
   color: #aaaacc;
   font-family: 'Segoe UI', sans-serif;
 }
+
+/* ---------- Online: JoinScreen + Lobby (Step 15) ---------- */
+
+.join-screen {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 420px;
+  margin: 48px auto;
+  padding: 24px;
+  background: rgba(20, 24, 48, 0.85);
+  border: 1px solid #3a3d66;
+  border-radius: 12px;
+  color: #e8e8f4;
+}
+
+.join-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+  font-family: 'Segoe UI', sans-serif;
+}
+
+.join-field input {
+  padding: 10px 12px;
+  font-size: 16px;
+  font-family: inherit;
+  border-radius: 6px;
+  border: 1px solid #4a4d88;
+  background: #141830;
+  color: inherit;
+}
+
+.join-field input:focus {
+  outline: 2px solid #7a8cff;
+  outline-offset: 1px;
+}
+
+.join-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.join-actions button {
+  padding: 10px 20px;
+  font-size: 14px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.join-actions button[type='submit']:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.lobby {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  max-width: 520px;
+  margin: 48px auto;
+  padding: 24px;
+  background: rgba(20, 24, 48, 0.85);
+  border: 1px solid #3a3d66;
+  border-radius: 12px;
+  color: #e8e8f4;
+}
+
+.lobby-code {
+  font-family: 'Courier New', monospace;
+  letter-spacing: 0.1em;
+  color: #ffcc66;
+}
+
+.lobby-share {
+  font-size: 12px;
+  color: #aaaacc;
+  word-break: break-all;
+}
+
+.lobby-players {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lobby-player {
+  padding: 10px 14px;
+  background: #141830;
+  border: 1px solid #33365c;
+  border-radius: 8px;
+}
+
+.lobby-empty-seat {
+  opacity: 0.6;
+  font-style: italic;
+}
+
+.lobby-host-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.lobby-start-btn {
+  padding: 10px 20px;
+  font-size: 15px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.lobby-wait-note {
+  font-size: 13px;
+  color: #aaaacc;
+  font-style: italic;
+}
+
+.lobby-leave-btn {
+  align-self: flex-start;
+  padding: 6px 12px;
+  font-size: 13px;
+}
