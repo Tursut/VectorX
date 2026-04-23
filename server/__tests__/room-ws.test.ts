@@ -40,8 +40,14 @@ async function openWs(code: string): Promise<WebSocket> {
   return ws;
 }
 
-describe('GET /rooms/:code/ws — echo via Hibernation API', () => {
-  it('echoes a text message back through the hibernated DO', async () => {
+describe('GET /rooms/:code/ws — hibernation dispatch', () => {
+  // Step 6 originally asserted that the server echoes any frame back. Step 9
+  // replaced the echo with a protocol dispatcher, so any non-protocol frame
+  // now comes back as ERROR BAD_PAYLOAD. Retaining the assertion in this
+  // shape proves the hibernation wiring (message → DO handler → back to
+  // client) still works; lobby-specific behaviour is covered by
+  // room-lobby.test.ts.
+  it('delivers a round-trip through the hibernated DO', async () => {
     const code = await createRoom();
     const ws = await openWs(code);
 
@@ -52,8 +58,10 @@ describe('GET /rooms/:code/ws — echo via Hibernation API', () => {
         { once: true },
       );
     });
-    ws.send('ping');
-    expect(await received).toBe('ping');
+    ws.send('not-valid-json');
+    const parsed = JSON.parse(await received) as { type: string; code: string };
+    expect(parsed.type).toBe('ERROR');
+    expect(parsed.code).toBe('BAD_PAYLOAD');
   });
 
   it('returns 404 for an uninitialised room code', async () => {

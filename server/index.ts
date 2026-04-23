@@ -1,11 +1,18 @@
 // Cloudflare Worker + RoomDurableObject.
-// Step 4: `/ping`. Step 5: `POST /rooms` + DO init.
-// Step 6: `GET /rooms/:code/ws` — WebSocket upgrade using the Hibernation API
-// (DO sleeps between messages; `webSocketMessage` is dispatched by the runtime).
-// No protocol yet — just echo. Step 7 adds zod schemas; Step 9 starts
-// interpreting messages as lobby/game actions.
+// Step 4: /ping. Step 5: POST /rooms + DO init. Step 6: /rooms/:code/ws echo.
+// Step 7: zod schemas in protocol.ts. Step 8: shared game logic + validateMove.
+// Step 9: replace echo with a real lobby dispatcher (HELLO/START + LOBBY_STATE
+// broadcasts). Gameplay (initGame, GAME_STATE) arrives in Step 10.
 
 import { DurableObject } from 'cloudflare:workers';
+import {
+  parseClientMsg,
+  type HelloMsg,
+  type JoinMsg,
+  type LobbyStateMsg,
+  type ServerMsg,
+  type StartMsg,
+} from './protocol';
 
 interface Env {
   ROOM: DurableObjectNamespace<RoomDurableObject>;
@@ -24,6 +31,8 @@ const CODE_RE = /^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{5}$/;
 // invariant local to one place.
 const WS_PATH_RE = /^\/rooms\/([A-Z2-9]{5})\/ws$/;
 
+const MAX_PLAYERS = 4;
+
 function generateRoomCode(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(5));
   let out = '';
@@ -32,6 +41,23 @@ function generateRoomCode(): string {
   }
   return out;
 }
+
+// Storage shape (single `lobby` key). `isHost` is NOT stored — it's derived at
+// broadcast time from `hostId` so host reassignment on disconnect is a single
+// field update instead of N per-player flag updates.
+type LobbyStorage = {
+  players: Array<{ id: number; displayName: string; isBot: boolean }>;
+  hostId: number | null;
+  phase: 'lobby' | 'playing';
+  magicItems: boolean;
+};
+
+const EMPTY_LOBBY: LobbyStorage = {
+  players: [],
+  hostId: null,
+  phase: 'lobby',
+  magicItems: false,
+};
 
 export class RoomDurableObject extends DurableObject<Env> {
   override async fetch(request: Request): Promise<Response> {
@@ -46,7 +72,11 @@ export class RoomDurableObject extends DurableObject<Env> {
         return new Response('conflict', { status: 409 });
       }
       const { code } = (await request.json()) as { code: string };
-      await this.ctx.storage.put({ code, createdAt: Date.now() });
+      await this.ctx.storage.put({
+        code,
+        createdAt: Date.now(),
+        lobby: EMPTY_LOBBY,
+      });
       return new Response(null, { status: 204 });
     }
 
@@ -74,18 +104,81 @@ export class RoomDurableObject extends DurableObject<Env> {
     return new Response('Not Found', { status: 404 });
   }
 
-  // Hibernation lifecycle. Step 6 just echoes; Step 9 will parse the payload
-  // as a zod-validated protocol message and dispatch to lobby/game handlers.
-  override webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): void {
-    ws.send(message);
+  // Hibernation dispatch. Parse → parseClientMsg → route.
+  override async webSocketMessage(
+    ws: WebSocket,
+    raw: string | ArrayBuffer,
+  ): Promise<void> {
+    // Binary frames aren't part of the text-JSON protocol.
+    if (typeof raw !== 'string') {
+      this.sendError(ws, 'BAD_PAYLOAD');
+      return;
+    }
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      this.sendError(ws, 'BAD_PAYLOAD');
+      return;
+    }
+
+    const result = parseClientMsg(parsed);
+    if (!result.ok) {
+      this.sendError(ws, 'BAD_PAYLOAD');
+      return;
+    }
+
+    const msg = result.msg;
+    switch (msg.type) {
+      case 'HELLO':
+        await this.handleHello(ws, msg);
+        return;
+      case 'START':
+        await this.handleStart(ws, msg);
+        return;
+      case 'MOVE':
+        // Step 10 replaces this with real validation + applyMove + broadcast.
+        // For Step 9, a MOVE is meaningless; the game hasn't started.
+        this.sendError(ws, 'INVALID_MOVE', 'Game not started');
+        return;
+    }
   }
 
-  override webSocketClose(
+  override async webSocketClose(
     ws: WebSocket,
     code: number,
     reason: string,
     _wasClean: boolean,
-  ): void {
+  ): Promise<void> {
+    // Wrap the whole body: DO teardown races during tests can throw storage
+    // reads; we always want to attempt ws.close() at the end.
+    try {
+      const seatId = this.getAttachedSeatId(ws);
+      if (seatId === null) return;
+
+      const lobby = await this.ctx.storage.get<LobbyStorage>('lobby');
+      if (!lobby) return;
+
+      if (lobby.phase === 'lobby') {
+        const players = lobby.players.filter((p) => p.id !== seatId);
+        let hostId = lobby.hostId;
+        if (hostId === seatId) {
+          // Reassign to lowest-id remaining player, or null if room emptied.
+          hostId = players.length > 0 ? players[0].id : null;
+        }
+        const updated: LobbyStorage = { ...lobby, players, hostId };
+        await this.ctx.storage.put('lobby', updated);
+
+        const storedCode = await this.ctx.storage.get<string>('code');
+        if (storedCode) {
+          this.broadcast(this.buildLobbyState(storedCode, updated));
+        }
+      }
+      // phase === 'playing': Step 12 handles elimination + broadcast.
+    } catch {
+      // DO/storage may be torn down; ignore and still close the socket below.
+    }
     try {
       ws.close(code, reason);
     } catch {
@@ -93,9 +186,6 @@ export class RoomDurableObject extends DurableObject<Env> {
     }
   }
 
-  // Not strictly required for echo, but prevents workerd's
-  // "unhandled socket error" noise from racing Vitest teardown (same class
-  // of issue that destabilised the parallel-fetch experiment in Step 5).
   override webSocketError(ws: WebSocket, _error: unknown): void {
     try {
       ws.close(1011, 'error');
@@ -103,6 +193,173 @@ export class RoomDurableObject extends DurableObject<Env> {
       // already closed — harmless
     }
   }
+
+  // ----- Handlers -----
+
+  private async handleHello(ws: WebSocket, msg: HelloMsg): Promise<void> {
+    const storedCode = await this.ctx.storage.get<string>('code');
+    const lobby = (await this.ctx.storage.get<LobbyStorage>('lobby')) ?? EMPTY_LOBBY;
+    if (!storedCode) {
+      // Shouldn't happen — room has to be initialised before /ws accepts.
+      this.sendError(ws, 'BAD_PAYLOAD');
+      return;
+    }
+
+    if (lobby.phase !== 'lobby') {
+      this.sendError(ws, 'ALREADY_STARTED');
+      return;
+    }
+
+    // Idempotent re-HELLO: if the socket already has an attached seat that
+    // still matches a live player, just resend LOBBY_STATE. If the attachment
+    // is stale (player was removed while socket was in flight), fall through
+    // to fresh-join behaviour.
+    const attached = this.getAttachedSeatId(ws);
+    if (attached !== null && lobby.players.some((p) => p.id === attached)) {
+      ws.send(JSON.stringify(this.buildLobbyState(storedCode, lobby)));
+      return;
+    }
+
+    if (lobby.players.length >= MAX_PLAYERS) {
+      this.sendError(ws, 'ROOM_FULL');
+      return;
+    }
+
+    if (lobby.players.some((p) => p.displayName === msg.displayName)) {
+      this.sendError(ws, 'DUPLICATE_NAME');
+      return;
+    }
+
+    const newId = lowestUnusedId(lobby.players.map((p) => p.id));
+    const newPlayer = {
+      id: newId,
+      displayName: msg.displayName,
+      isBot: false,
+    };
+    const updated: LobbyStorage = {
+      ...lobby,
+      players: [...lobby.players, newPlayer],
+      hostId: lobby.hostId ?? newId,
+    };
+    await this.ctx.storage.put('lobby', updated);
+
+    ws.serializeAttachment({ seatId: newId });
+
+    const joinMsg: JoinMsg = {
+      type: 'JOIN',
+      player: { ...newPlayer, isHost: newPlayer.id === updated.hostId },
+    };
+    this.broadcast(joinMsg); // includes joiner — client symmetry
+    this.broadcast(this.buildLobbyState(storedCode, updated));
+  }
+
+  private async handleStart(ws: WebSocket, msg: StartMsg): Promise<void> {
+    const lobby = await this.ctx.storage.get<LobbyStorage>('lobby');
+    if (!lobby) {
+      this.sendError(ws, 'BAD_PAYLOAD');
+      return;
+    }
+
+    // Phase check BEFORE host check: ALREADY_STARTED is more informative than
+    // UNAUTHORIZED for a duplicate/late START, even from a non-host.
+    if (lobby.phase !== 'lobby') {
+      this.sendError(ws, 'ALREADY_STARTED');
+      return;
+    }
+
+    const seatId = this.getAttachedSeatId(ws);
+    if (seatId === null || seatId !== lobby.hostId) {
+      this.sendError(ws, 'UNAUTHORIZED');
+      return;
+    }
+
+    const updated: LobbyStorage = {
+      ...lobby,
+      phase: 'playing',
+      magicItems: msg.magicItems,
+    };
+    await this.ctx.storage.put('lobby', updated);
+    // Step 10: broadcast GAME_STATE here after initGame.
+  }
+
+  // ----- Helpers -----
+
+  private broadcast(msg: ServerMsg, opts?: { excludeSeatId?: number }): void {
+    const raw = JSON.stringify(msg);
+    for (const ws of this.ctx.getWebSockets()) {
+      // Skip terminal states only — hibernation-accepted sockets may not report
+      // readyState === OPEN even when they're perfectly live. The try/catch
+      // below handles any "send on closed socket" edge cases.
+      if (
+        ws.readyState === WebSocket.CLOSING ||
+        ws.readyState === WebSocket.CLOSED
+      ) {
+        continue;
+      }
+      if (opts?.excludeSeatId !== undefined) {
+        const a = this.getAttachedSeatId(ws);
+        if (a === opts.excludeSeatId) continue;
+      }
+      try {
+        ws.send(raw);
+      } catch {
+        // One misbehaving socket shouldn't abort the broadcast.
+      }
+    }
+  }
+
+  private buildLobbyState(code: string, lobby: LobbyStorage): LobbyStateMsg {
+    return {
+      type: 'LOBBY_STATE',
+      code,
+      players: lobby.players.map((p) => ({
+        ...p,
+        isHost: p.id === lobby.hostId,
+      })),
+      hostId: lobby.hostId,
+      magicItems: lobby.magicItems,
+    };
+  }
+
+  private getAttachedSeatId(ws: WebSocket): number | null {
+    try {
+      const a = ws.deserializeAttachment() as { seatId?: number } | null;
+      return a?.seatId ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  private sendError(
+    ws: WebSocket,
+    code:
+      | 'NOT_YOUR_TURN'
+      | 'INVALID_MOVE'
+      | 'ROOM_FULL'
+      | 'DUPLICATE_NAME'
+      | 'UNAUTHORIZED'
+      | 'BAD_PAYLOAD'
+      | 'ALREADY_STARTED',
+    message?: string,
+  ): void {
+    const payload: ServerMsg = message
+      ? { type: 'ERROR', code, message }
+      : { type: 'ERROR', code };
+    try {
+      ws.send(JSON.stringify(payload));
+    } catch {
+      // socket gone — nothing to do
+    }
+  }
+}
+
+function lowestUnusedId(used: number[]): number {
+  const taken = new Set(used);
+  for (let i = 0; i < MAX_PLAYERS; i++) {
+    if (!taken.has(i)) return i;
+  }
+  // Caller is responsible for capacity check; this should never fire.
+  throw new Error('no free seat');
 }
 
 export default {

@@ -65,10 +65,24 @@ Steps 7–12 will grow this into a zod-validated protocol, ported `src/game/logi
 ### Durable Object: `RoomDurableObject` (bound as `ROOM`)
 
 - **One DO per room.** Room code → `env.ROOM.idFromName(code)` → stable DO identity. Same code always lands on the same DO, even after the Worker isolate restarts.
-- **Storage today:** `{ code, createdAt }` — a tombstone that proves the DO has been initialised. Steps 9+ add lobby roster, game state, turn state, timers.
+- **Storage today:** `{ code, createdAt, lobby }` where `lobby = { players: [{id, displayName, isBot}], hostId, phase: 'lobby'|'playing', magicItems }`. `isHost` is NOT stored — it's derived at broadcast time from `hostId`, so host reassignment on disconnect is a single field update. Step 10 will add `game` alongside `lobby`.
 - **Internal route convention** (Worker-to-DO `stub.fetch`): path mirrors the external path. External `POST /rooms` → internal DO `POST /rooms`. External `GET /rooms/:code/ws` → internal DO `GET /ws` (Worker rewrites the URL via `new Request('http://do/ws', request)` to preserve method + all handshake headers).
 - **Init is atomic, one-shot.** DO's `POST /rooms` refuses to reinitialise (returns `409`) if storage already has a `code`. The Worker regenerates a fresh random code and retries up to 5× — race-safe against two Workers randomly picking the same code.
-- **WebSocket lifecycle** (Step 6): DO's `/ws` handler checks storage has been initialised (`404` if not), creates a `WebSocketPair`, and calls `this.ctx.acceptWebSocket(server)` — the Hibernation API entry point. Inbound frames are dispatched to `webSocketMessage(ws, message)` on the class by the runtime.
+- **Per-socket seat identity** lives in `ws.serializeAttachment({ seatId })` (persists across hibernation). `handleHello` writes it on first join; subsequent handlers (`handleStart`, `webSocketClose`) read via `ws.deserializeAttachment()`.
+- **WebSocket lifecycle:** DO's `/ws` handler checks storage has been initialised (`404` if not), creates a `WebSocketPair`, and calls `this.ctx.acceptWebSocket(server)` — the Hibernation API entry point. Inbound frames are dispatched to `webSocketMessage(ws, message)` on the class by the runtime.
+
+### Lobby dispatcher (Step 9)
+
+`webSocketMessage` flow: reject `ArrayBuffer` frames as `BAD_PAYLOAD` → `JSON.parse` → `parseClientMsg` → dispatch on `msg.type`:
+
+- `HELLO`: validate phase (must be `'lobby'`), idempotent re-send (same socket re-HELLOs → LOBBY_STATE back to caller only), capacity (≤ 4), unique displayName. Assigns the lowest-unused seat id 0..3; first joiner becomes host. Broadcasts `JOIN { player }` to **all sockets including the joiner** (client symmetry — one reducer path for "player joined"), followed by a full `LOBBY_STATE` snapshot.
+- `START`: phase check runs **before** host check (so duplicate/late START returns `ALREADY_STARTED` even from non-host). Host-only; transitions `phase: 'playing'` and records `magicItems`. No `GAME_STATE` broadcast yet — Step 10 wires that.
+- `MOVE`: returns `ERROR INVALID_MOVE` with `"Game not started"` until Step 10 replaces this branch.
+- Parse failure / unknown type → `ERROR BAD_PAYLOAD`.
+
+`webSocketClose` during `phase: 'lobby'` removes the departing seat from `players`, reassigns `hostId` to the lowest-id remaining player if the leaver was host, and broadcasts an updated LOBBY_STATE. During `phase: 'playing'` it's a no-op — Step 12 will add the elimination path.
+
+Three private helpers on the class: `broadcast(msg, {excludeSeatId?})` iterates `this.ctx.getWebSockets()` and sends (skips only sockets in terminal state; one bad socket doesn't abort the loop); `buildLobbyState(code, lobby)` annotates `isHost` and assembles a `LobbyStateMsg`; `getAttachedSeatId(ws)` safely extracts the attachment.
 
 ### WebSocket Hibernation API
 
@@ -177,6 +191,7 @@ server/                          ← Cloudflare Worker + RoomDurableObject + wir
   __tests__/room-ws.test.ts      ← GET /rooms/:code/ws: happy-path echo through hibernation, 404 on uninitialised room, 426 without Upgrade header, 400 on malformed code, 405 on wrong method. afterEach drains open sockets.
   __tests__/protocol.test.ts     ← Pure schema tests (no Worker/DO). Round-trips 9 message types; rejects version/length/enum violations + unknown keys; covers discriminated-union direction guards and parseClientMsg.
   __tests__/logic.test.ts        ← Server-side tests for the shared src/game/ module. initGame shape, applyMove/eliminateCurrentPlayer/getValidMoves/getCurrentValidMoves, and all validateMove security cases (NOT_YOUR_TURN × 2, INVALID_MOVE × 4). getGremlinMove → validateMove round-trip.
+  __tests__/room-lobby.test.ts   ← 15 cases covering HELLO/START dispatch: single+second join, capacity cap, duplicate name, host/non-host START, re-START (ALREADY_STARTED), malformed JSON / unknown type / binary (BAD_PAYLOAD), idempotent re-HELLO, player-leaves-during-lobby, host-leaves-during-lobby, MOVE-in-lobby. Uses a `waitForInbox` helper — inboxes are attached at socket open so broadcasts that arrive before test-side waiters aren't lost.
 e2e/                             ← Playwright specs
   sanity.spec.ts                 ← trivial harness-wired test
 vitest.config.js                 ← client/jsdom Vitest config
@@ -276,4 +291,4 @@ CI: `.github/workflows/test.yml` runs all three as separate jobs on pushes to th
 
 ## What's NOT here yet (framing for the multiplayer work)
 
-Protocol schemas and game logic are on the server, but no handler reads them — the WS endpoint still echoes. No client-side WebSocket code, no lobby roster, no remote human players, no session/identity, no TypeScript on the client. Online play is still impossible — four humans must share one device. The work in `docs/multiplayer-plan.md` adds exactly these pieces while keeping the current hotseat path byte-for-byte intact. The test harness (Step 1), the `VITE_ENABLE_ONLINE` flag (Step 2), the client mode router + controllers (Step 3), the Worker skeleton (Step 4), `RoomDurableObject` + `POST /rooms` (Step 5), the WebSocket upgrade via the Hibernation API (Step 6), the zod-validated wire format (Step 7), and the shared game module with server-side `validateMove` (Step 8) are all in place so later steps can grow the online stack behind the gate without disturbing production.
+The lobby works but gameplay doesn't — `START` transitions phase but no `initGame` or `GAME_STATE` broadcast yet. No client-side WebSocket code, no bots, no remote human gameplay, no session/identity across reconnects, no TypeScript on the client. Online play is still impossible — four humans must share one device. The work in `docs/multiplayer-plan.md` adds exactly these pieces while keeping the current hotseat path byte-for-byte intact. The test harness (Step 1), the `VITE_ENABLE_ONLINE` flag (Step 2), the client mode router + controllers (Step 3), the Worker skeleton (Step 4), `RoomDurableObject` + `POST /rooms` (Step 5), the WebSocket upgrade via the Hibernation API (Step 6), the zod-validated wire format (Step 7), the shared game module with server-side `validateMove` (Step 8), and the lobby dispatcher (Step 9) are all in place so later steps can grow the online stack behind the gate without disturbing production.

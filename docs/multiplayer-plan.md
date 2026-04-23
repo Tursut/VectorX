@@ -255,8 +255,21 @@ Each step is a single commit-sized unit of work. Every step ends with an automat
 
 ### Gameplay on the server (steps 9–12)
 
-**Step 9 — Lobby: join / host / start (no gameplay yet).** WS handler accepts `HELLO` (adds player, assigns host if first), caps at 4, rejects duplicates, broadcasts `LOBBY_STATE`. Host-only `START` transitions state.
+**Step 9 — Lobby: join / host / start (no gameplay yet). ✅** WS handler accepts `HELLO` (adds player, assigns host if first), caps at 4, rejects duplicates, broadcasts `LOBBY_STATE`. Host-only `START` transitions state.
 - **Verify:** `room-lobby.test.ts` — join flow, capacity cap, host assignment, non-host start rejected.
+
+**Step 9 deviations:**
+- **Storage shape:** single `lobby` key with `{ players, hostId, phase, magicItems }`. `isHost` is NOT stored — derived at broadcast time from `hostId`. Host reassignment becomes one field update instead of N per-player flag updates.
+- **Lobby initialised at `POST /rooms` time**, not lazily on first HELLO. Step 5's `room-create.test.ts` only asserted `code` and `createdAt` so the extra field is additive.
+- **JOIN broadcast to everyone including the joiner** (not just others). Client symmetry: one reducer path for "a player joined the lobby".
+- **MOVE during lobby → `ERROR INVALID_MOVE "Game not started"`** (not `NOT_YOUR_TURN` which would be misleading since nobody's turn in lobby; not a new `NOT_PLAYING` enum code which would've needed a protocol version bump).
+- **Phase check before host check in `handleStart`:** a duplicate/late START returns the more salient `ALREADY_STARTED` even when the sender isn't host.
+- **Idempotent re-HELLO:** same socket re-sends HELLO → server resends LOBBY_STATE to caller, no JOIN broadcast, no roster change. Avoids adding an `ALREADY_JOINED` error code (which would've required a protocol version bump).
+- **Binary frames rejected** as `BAD_PAYLOAD`. Protocol is text-only today.
+- **Broadcast `readyState` guard loosened** from `!== OPEN` to `!== CLOSING/CLOSED`. Hibernation-accepted server-side sockets don't always report `readyState === OPEN` even when live; try/catch around `ws.send()` handles the edge cases the guard was trying to catch.
+- **Step 6's echo test in `room-ws.test.ts` was repurposed** — now asserts a BAD_PAYLOAD round-trip through the hibernated DO (proves the transport + dispatch still works end-to-end without overlapping lobby tests).
+- **Test-side race:** `waitForMessage` only catches FUTURE events; a listener attached after a broadcast already arrived misses it. Added `waitForInbox(inbox, predicate)` helper that scans a growing array — inboxes are attached at socket open and retained throughout each test.
+- **Server suite: 81/81 green** (+15 lobby cases + a repurposed ws test). No changes to client tests (still 7/7); client bundle byte-identical to Step 8.
 
 **Step 10 — Server-authoritative turn loop.** On `START`, call `initGame`, broadcast `GAME_STATE`. On `MOVE`, validate → `applyMove` → `completeTurn` → broadcast updated state. Reject illegal moves with a typed error.
 - **Verify:** `room-turnloop.test.ts` — legal move advances state, illegal move returns error and leaves state unchanged, broadcast reaches all clients.
