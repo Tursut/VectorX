@@ -400,8 +400,18 @@ Each step is a single commit-sized unit of work. Every step ends with an automat
 - **No test changes.** 93 client tests + 4 Playwright specs + server suite still green — Step 18 is purely infra.
 - **User must perform a one-time credential setup before CI works:** (1) create Cloudflare account, (2) generate an "Edit Cloudflare Workers" API token, (3) add it as the `CLOUDFLARE_API_TOKEN` GitHub secret, (4) run `npm run deploy:preview` locally once to confirm credentials work. The workflow documents these steps in its header comment.
 
-**Step 19 — Production cutover.** Merge the feature branch to `main`. Flip production build env var `VITE_ENABLE_ONLINE=true`. Point client at production Worker URL.
+**Step 19 — Production cutover. ✅** Merge the feature branch to `main`. Flip production build env var `VITE_ENABLE_ONLINE=true`. Point client at production Worker URL.
 - **Verify:** Load the live Pages URL; online buttons appear; create a room; play a full game with a friend. CI green.
+
+**Step 19 deviations:**
+- **Deploy trigger branch changed from `claude/grid-territory-game-design-433J8` to `main`.** The original plan referred to `main` as shorthand for "the deploy branch"; this step makes main literally the deploy branch going forward. Simpler mental model, aligns with the original plan text.
+- **Ported two bug fixes from main (commit `2fd7286`) before merging:** (A) trapped-bot fast-death (80 ms instead of 1.6–2 s fake-thinking delay), (B) bot winners now get the winner-celebration bounce animation. The main-side commits touched the monolithic `src/App.jsx`; our refactor put that logic in `LocalGameController.jsx` (gremlin effect) and `GameScreen.jsx` (winnerPlayer gating). Port commit: `2a53dce`.
+- **Main's other bug fix (`5907baa`, "stop game on exit") was already on our branch** via `e6257ea` — our version is leaner because animation and bg-sound cleanup is handled by hook unmount when `gameState → null`.
+- **Merge conflict** was limited to `src/App.jsx`. Resolved by keeping our 95-line router (main's 634-line monolith is now replaced by the split into LocalGameController + OnlineGameController + GameScreen).
+- **`deploy.yml` was rewritten**, not just patched: it now has two jobs — `deploy-worker` (wrangler deploy → capture URL → smoke-test /ping) followed by `deploy-pages` (build with the Worker URL + push to GitHub Pages). Consolidates the old `deploy-preview.yml` into the production pipeline.
+- **`deploy-preview.yml` deleted.** Its logic (Worker deploy + client build with online flag) is now part of `deploy.yml`. The `gh-pages-preview` branch is no longer updated — main IS the preview now.
+- **`test.yml` trigger changed to `main`** (was the multiplayer feature branch). PRs still trigger it as before.
+- **Feature branch stays around for history.** Can be deleted any time; not in the way.
 
 **Step 20 — Abuse & hygiene hardening.** Not "enterprise security" — just the minimum so a bored stranger can't trivially grief or exhaust the server.
 

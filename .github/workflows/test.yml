@@ -2,7 +2,7 @@ name: Test
 
 on:
   push:
-    branches: [claude/multiplayer-architecture-planning-X2NrO]
+    branches: [main]
   pull_request:
 
 permissions:
