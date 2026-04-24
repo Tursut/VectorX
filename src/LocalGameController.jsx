@@ -1,6 +1,6 @@
 import { useReducer, useState, useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { initGame, initSandboxGame, applyMove, getCurrentValidMoves, eliminateCurrentPlayer, placeSandboxItem, getValidMoves } from './game/logic';
+import { initGame, initSandboxGame, applyMove, getCurrentValidMoves, eliminateCurrentPlayer, placeSandboxItem } from './game/logic';
 import { getGremlinMove } from './game/ai';
 import { PLAYERS, TURN_TIME } from './game/constants';
 import { useDerivedAnimations } from './game/useDerivedAnimations';

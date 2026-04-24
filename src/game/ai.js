@@ -1,5 +1,5 @@
 import { GRID_SIZE, DIRECTIONS } from './constants';
-import { getCurrentValidMoves, getValidMoves } from './logic';
+import { getCurrentValidMoves } from './logic';
 
 const GREMLIN_THOUGHTS = [
   'Recklessly scheming…',

@@ -40,7 +40,9 @@ export default function OnlineGameController({
     move,
   } = useNetworkGame({ url });
 
-  const [magicItems, setMagicItems] = useState(initialMagicItems);
+  // setter isn't wired up yet — the host's magic-toggle UI in the lobby would
+  // own it; for now we just lock the value from the prop at mount.
+  const [magicItems] = useState(initialMagicItems);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [exitConfirm, setExitConfirm] = useState(false);
 

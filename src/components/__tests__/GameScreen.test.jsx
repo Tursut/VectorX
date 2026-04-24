@@ -4,7 +4,7 @@
 // GameOverScreen) so we can assert the routing + prop plumbing + mySeats
 // click-gating without pulling their full implementations into the test.
 
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // getCurrentValidMoves walks the grid; tests don't care about its output
