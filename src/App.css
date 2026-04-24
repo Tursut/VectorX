@@ -2137,12 +2137,15 @@
   background: #0f0f23;
   border-color: #7a8cff;
   color: #c8caff;
-  /* Merge into the drawer below: hide the bottom border, sink by 2px so we
-     sit over the drawer's top border, rounded corners only on top. */
+  /* Merge into the drawer below: hide the bottom border, sink 2 px so the
+     tile's bg paints over the drawer's 2 px blue top border in this column,
+     rounded corners only on top. margin-bottom doesn't work here because
+     the tile is a grid child — its row height is fixed by the grid. Use a
+     transform so the visual overlap happens without touching layout. */
   border-bottom-color: transparent;
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
-  margin-bottom: -2px;
+  transform: translateY(2px);
   position: relative;
   z-index: 2;
 }
