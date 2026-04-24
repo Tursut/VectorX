@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { PLAYERS, ITEM_TYPES } from '../game/constants';
 import { BUILD_TIME } from '../config';
 import SoundToggle from './SoundToggle';
@@ -41,30 +42,22 @@ export default function StartScreen({
   onToggleSound,
   onCreateOnline,
   onJoinOnline,
-  defaultMode = 'same-device',
+  defaultMode = 'this-device',
   defaultCode = '',
   onlineError = null,
 }) {
-  // Online handlers are required for the switcher to show. When ENABLE_ONLINE
-  // is false, App.jsx passes null for both and the screen behaves exactly
-  // like the hotseat-only design.
+  // Online handlers are required for the create/join tiles to show. When
+  // ENABLE_ONLINE is false, App.jsx passes null for both and the screen
+  // behaves exactly like the hotseat-only design.
   const onlineAvailable =
     typeof onCreateOnline === 'function' &&
     typeof onJoinOnline === 'function';
 
-  const [mode, setMode] = useState(onlineAvailable ? defaultMode : 'same-device');
+  // Three-mode state: 'this-device' (hotseat + bots), 'create' (host a new
+  // online room), 'join' (enter someone else's room).
+  const [mode, setMode] = useState(onlineAvailable ? defaultMode : 'this-device');
   const [code, setCode] = useState(filterCode(defaultCode));
   const [displayName, setDisplayName] = useState('');
-  const nameInputRef = useRef(null);
-
-  // When the user (or a cold-open) lands on online mode, focus the name
-  // field. Users arriving via a share link usually have the code pre-filled
-  // and just need to type their name.
-  useEffect(() => {
-    if (mode === 'online') {
-      nameInputRef.current?.focus();
-    }
-  }, [mode]);
 
   const humanCount = PLAYERS.length - gremlinCount;
   const gremlinLabel =
@@ -73,14 +66,16 @@ export default function StartScreen({
     humanCount === 1 ? 'Just you vs the gremlins. Good luck.' :
     `${humanCount} humans, ${gremlinCount} gremlins.`;
 
-  const isOnline = mode === 'online';
+  const isCreate = mode === 'create';
+  const isJoin = mode === 'join';
+  const isOnline = isCreate || isJoin;
   const hasCode = isCodeValid(code);
-  // A "joiner" landed on a share link: online + valid code pre-filled.
-  // We strip the screen down to just name + code + JOIN for them.
-  const isJoiner = isOnline && hasCode;
-  // In online mode, submit needs a valid name + (empty code OR a valid code).
-  const canSubmitOnline =
-    isDisplayNameValid(displayName) && (code === '' || hasCode);
+  // A "joiner" landed on a share link: join tile + valid code pre-filled.
+  // Strip the screen down to just name + code + JOIN for them.
+  const isJoiner = isJoin && hasCode;
+  const canSubmitCreate = isDisplayNameValid(displayName);
+  const canSubmitJoin = isDisplayNameValid(displayName) && hasCode;
+  const canSubmit = isCreate ? canSubmitCreate : isJoin ? canSubmitJoin : true;
 
   function handleCodeChange(e) {
     setCode(filterCode(e.target.value));
@@ -97,27 +92,28 @@ export default function StartScreen({
   }
 
   function handlePrimaryClick() {
-    if (isOnline) {
-      if (!canSubmitOnline) return;
-      if (hasCode) {
-        onJoinOnline({ displayName: displayName.trim(), code });
-      } else {
-        onCreateOnline({ displayName: displayName.trim(), magicItems });
-      }
+    if (isCreate) {
+      if (!canSubmitCreate) return;
+      onCreateOnline({ displayName: displayName.trim(), magicItems });
+      return;
+    }
+    if (isJoin) {
+      if (!canSubmitJoin) return;
+      onJoinOnline({ displayName: displayName.trim(), code });
       return;
     }
     onStart?.();
   }
 
-  const primaryLabel = !isOnline
-    ? 'START THE GAME →'
-    : hasCode
+  const primaryLabel = isCreate
+    ? 'CREATE ROOM →'
+    : isJoin
       ? 'JOIN ROOM →'
-      : 'CREATE ROOM →';
+      : 'START THE GAME →';
 
-  // In online mode with a code present, the joiner doesn't pick magic items
-  // — the host does. Hide the Magic/Classic toggle + items list then.
-  const showMagicToggle = !isOnline || !hasCode;
+  // Joiners don't pick magic items — the host does. Hide Magic/Classic
+  // toggle in that case; everyone else sees it.
+  const showMagicToggle = !isJoiner;
 
   return (
     <div className="start-screen">
@@ -130,115 +126,171 @@ export default function StartScreen({
           Four players. One grid. Only one walks away smiling.
         </p>
 
-        {/* Mode switcher — only when online is available, and hidden for joiners */}
+        {/* Mode switcher — hidden for joiners (share-link minimal view) */}
         {onlineAvailable && !isJoiner && (
           <div className="mode-switcher" role="tablist" aria-label="Game mode">
             <button
               type="button"
               role="tab"
-              aria-selected={!isOnline}
-              className={`mode-switcher-tile ${!isOnline ? 'mode-switcher-tile-active' : ''}`}
-              onClick={() => setMode('same-device')}
+              aria-selected={mode === 'this-device'}
+              className={`mode-switcher-tile ${mode === 'this-device' ? 'mode-switcher-tile-active' : ''}`}
+              onClick={() => setMode('this-device')}
             >
               <span className="mode-switcher-icon">🎮</span>
-              <span className="mode-switcher-label">SAME DEVICE</span>
+              <span className="mode-switcher-label">THIS DEVICE</span>
               <span className="mode-switcher-sub">On this device, bots fill the rest</span>
             </button>
             <button
               type="button"
               role="tab"
-              aria-selected={isOnline}
-              className={`mode-switcher-tile ${isOnline ? 'mode-switcher-tile-active' : ''}`}
-              onClick={() => setMode('online')}
+              aria-selected={mode === 'create'}
+              className={`mode-switcher-tile ${mode === 'create' ? 'mode-switcher-tile-active' : ''}`}
+              onClick={() => setMode('create')}
             >
-              <span className="mode-switcher-icon">🌐</span>
-              <span className="mode-switcher-label">ONLINE</span>
-              <span className="mode-switcher-sub">Friends over the internet</span>
+              <span className="mode-switcher-icon">➕</span>
+              <span className="mode-switcher-label">CREATE ROOM</span>
+              <span className="mode-switcher-sub">Start a new room for friends</span>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mode === 'join'}
+              className={`mode-switcher-tile ${mode === 'join' ? 'mode-switcher-tile-active' : ''}`}
+              onClick={() => setMode('join')}
+            >
+              <span className="mode-switcher-icon">🔗</span>
+              <span className="mode-switcher-label">JOIN ROOM</span>
+              <span className="mode-switcher-sub">Enter a code to join a room</span>
             </button>
           </div>
         )}
 
-        {/* Mode-specific top block */}
-        {!isOnline ? (
-          <div className="gremlin-section">
-            <p className="gremlin-question">Who's playing?</p>
-            <div className="gremlin-slots">
-              {PLAYERS.map((p) => {
-                const isGremlin = p.id >= PLAYERS.length - gremlinCount;
-                return (
-                  <div key={p.id} className={`gremlin-slot ${isGremlin ? 'gremlin-slot-bot' : 'gremlin-slot-human'}`}>
-                    <div
-                      className="gremlin-slot-avatar"
-                      style={isGremlin ? {} : { backgroundColor: p.color }}
-                    >
-                      {isGremlin ? '👾' : p.icon}
-                    </div>
-                    <span className="gremlin-slot-name" style={isGremlin ? {} : { color: p.color }}>
-                      {p.shortName}
-                    </span>
-                    <span className="gremlin-slot-type">
-                      {isGremlin ? 'gremlin' : 'human'}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-            <input
-              type="range"
-              min="0"
-              max="4"
-              value={4 - gremlinCount}
-              onChange={(e) => onChangeGremlinCount(4 - Number(e.target.value))}
-              className="gremlin-slider"
-            />
-            <p className="gremlin-sub">{gremlinLabel}</p>
-          </div>
-        ) : (
-          <div className="online-section">
-            <label className="join-field">
-              <span>Your name</span>
-              <input
-                ref={nameInputRef}
-                type="text"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="e.g. Alice"
-                maxLength={20}
-                autoComplete="off"
-              />
-            </label>
-            <label className="join-field">
-              <span>
-                Room code
-                {!isJoiner && (
-                  <>
-                    {' '}
-                    <span className="join-subhint">(leave blank to create a new room)</span>
-                  </>
+        {/* Mode-specific drawer — animates height+opacity below the tile row */}
+        <AnimatePresence mode="wait" initial={false}>
+          {mode === 'this-device' && (
+            <motion.div
+              key="this-device-drawer"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.22 }}
+              style={{ overflow: 'hidden', width: '100%' }}
+            >
+              <div className="gremlin-section">
+                <p className="gremlin-question">Who's playing?</p>
+                <div className="gremlin-slots">
+                  {PLAYERS.map((p) => {
+                    const isGremlin = p.id >= PLAYERS.length - gremlinCount;
+                    return (
+                      <div key={p.id} className={`gremlin-slot ${isGremlin ? 'gremlin-slot-bot' : 'gremlin-slot-human'}`}>
+                        <div
+                          className="gremlin-slot-avatar"
+                          style={isGremlin ? {} : { backgroundColor: p.color }}
+                        >
+                          {isGremlin ? '👾' : p.icon}
+                        </div>
+                        <span className="gremlin-slot-name" style={isGremlin ? {} : { color: p.color }}>
+                          {p.shortName}
+                        </span>
+                        <span className="gremlin-slot-type">
+                          {isGremlin ? 'gremlin' : 'human'}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="4"
+                  value={4 - gremlinCount}
+                  onChange={(e) => onChangeGremlinCount(4 - Number(e.target.value))}
+                  className="gremlin-slider"
+                />
+                <p className="gremlin-sub">{gremlinLabel}</p>
+              </div>
+            </motion.div>
+          )}
+
+          {mode === 'create' && (
+            <motion.div
+              key="create-drawer"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.22 }}
+              style={{ overflow: 'hidden', width: '100%' }}
+            >
+              <div className="online-section">
+                <label className="join-field">
+                  <span>Your name</span>
+                  <input
+                    type="text"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    placeholder="e.g. Alice"
+                    maxLength={20}
+                    autoComplete="off"
+                    autoFocus
+                  />
+                </label>
+                {onlineError && (
+                  <p className="online-error" role="alert">
+                    Couldn't reach the server: {onlineError}
+                  </p>
                 )}
-              </span>
-              <input
-                type="text"
-                value={code}
-                onChange={handleCodeChange}
-                onPaste={handleCodePaste}
-                placeholder="ABCDE"
-                inputMode="text"
-                autoCapitalize="characters"
-                autoCorrect="off"
-                spellCheck={false}
-                autoComplete="off"
-                maxLength={5}
-                aria-label="Room code"
-              />
-            </label>
-            {onlineError && (
-              <p className="online-error" role="alert">
-                Couldn't reach the server: {onlineError}
-              </p>
-            )}
-          </div>
-        )}
+              </div>
+            </motion.div>
+          )}
+
+          {mode === 'join' && (
+            <motion.div
+              key="join-drawer"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.22 }}
+              style={{ overflow: 'hidden', width: '100%' }}
+            >
+              <div className="online-section">
+                <label className="join-field">
+                  <span>Your name</span>
+                  <input
+                    type="text"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    placeholder="e.g. Alice"
+                    maxLength={20}
+                    autoComplete="off"
+                    autoFocus
+                  />
+                </label>
+                <label className="join-field">
+                  <span>Room code</span>
+                  <input
+                    type="text"
+                    value={code}
+                    onChange={handleCodeChange}
+                    onPaste={handleCodePaste}
+                    placeholder="ABCDE"
+                    inputMode="text"
+                    autoCapitalize="characters"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    autoComplete="off"
+                    maxLength={5}
+                    aria-label="Room code"
+                  />
+                </label>
+                {onlineError && (
+                  <p className="online-error" role="alert">
+                    Couldn't reach the server: {onlineError}
+                  </p>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Magic / Classic toggle — hidden entirely for share-link joiners */}
         {!isJoiner && (
@@ -308,7 +360,7 @@ export default function StartScreen({
         <button
           className="start-button"
           onClick={handlePrimaryClick}
-          disabled={isOnline && !canSubmitOnline}
+          disabled={!canSubmit}
         >
           {primaryLabel}
         </button>

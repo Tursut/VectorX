@@ -87,7 +87,7 @@ export default function App() {
     <LocalGameController
       onCreateOnline={ENABLE_ONLINE ? handleCreateOnline : null}
       onJoinOnline={ENABLE_ONLINE ? handleJoinOnline : null}
-      defaultMode={ENABLE_ONLINE && coldOpenCode ? 'online' : 'same-device'}
+      defaultMode={ENABLE_ONLINE && coldOpenCode ? 'join' : 'this-device'}
       defaultCode={coldOpenCode ?? ''}
       onlineError={onlineError}
     />
