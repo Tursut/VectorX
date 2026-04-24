@@ -1,5 +1,4 @@
 import { useState } from 'react';
-// eslint-disable-next-line no-unused-vars -- `motion` is used as <motion.div> in JSX; the lint config lacks eslint-plugin-react/jsx-uses-vars.
 import { AnimatePresence, motion } from 'framer-motion';
 import { PLAYERS, ITEM_TYPES } from '../game/constants';
 import { BUILD_TIME } from '../config';
@@ -349,9 +348,6 @@ export default function StartScreen({
           </div>
         )}
 
-        {!isJoiner && (
-          <p className="start-footnote">Starting player chosen by fate (it's random).</p>
-        )}
         {!isOnline && (
           <button className="sandbox-entry-btn" onClick={onSandbox}>🧪 testing ground</button>
         )}
