@@ -209,8 +209,13 @@ export default function StartScreen({
             </label>
             <label className="join-field">
               <span>
-                Room code{' '}
-                <span className="join-subhint">(leave blank to create a new room)</span>
+                Room code
+                {!isJoiner && (
+                  <>
+                    {' '}
+                    <span className="join-subhint">(leave blank to create a new room)</span>
+                  </>
+                )}
               </span>
               <input
                 type="text"
