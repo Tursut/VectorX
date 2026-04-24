@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import { ITEM_TYPES } from '../game/constants';
 import SoundToggle from './SoundToggle';
 import * as sounds from '../game/sounds';
@@ -30,22 +29,6 @@ export default function SandboxPanel({
   if (swapActive)   statusText = '🎭 Swap active — click a player to swap with';
 
   const buttonsEnabled = !isThinking && !portalActive && !swapActive;
-
-  // useGameplaySounds already has bg music playing while the sandbox is open.
-  // The picker just swaps the active variant live. On unmount we reset to
-  // 'explorer' so exiting the sandbox doesn't leak a picked variant into the
-  // real game flow.
-  const [selectedVariant, setSelectedVariant] = useState(() => sounds.getBgVariant());
-
-  useEffect(() => () => {
-    sounds.setBgVariant('explorer');
-  }, []);
-
-  function auditionVariant(id) {
-    sounds.resumeAudio();
-    sounds.setBgVariant(id);
-    setSelectedVariant(id);
-  }
 
   return (
     <div className="sandbox-panel" style={{ borderColor: currentPlayer.color }}>
@@ -94,27 +77,6 @@ export default function SandboxPanel({
         </div>
       </div>
 
-      <div className="sandbox-sound-section">
-        <div className="sandbox-sound-title">BACKGROUND MUSIC</div>
-        <div className="sandbox-bgmusic-grid">
-          {sounds.BG_VARIANT_LIST.map(({ id, name, desc }) => {
-            const active = selectedVariant === id;
-            return (
-              <button
-                key={id}
-                className={`sandbox-bgmusic-btn ${active ? 'sandbox-bgmusic-btn-active' : ''}`}
-                onClick={() => auditionVariant(id)}
-                title={desc}
-              >
-                <span className="sandbox-bgmusic-name">
-                  {active ? '♪ ' : '▶ '}{name}
-                </span>
-                <span className="sandbox-bgmusic-desc">{desc}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
     </div>
   );
 }
