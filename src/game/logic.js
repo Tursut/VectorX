@@ -146,20 +146,7 @@ function completeTurn(state) {
   let frozenPlayerId = state.frozenPlayerId ?? null;
   let frozenTurnsLeft = state.frozenTurnsLeft ?? 0;
 
-  // Only eliminate players whose turn is up next — others die when their turn arrives.
-  let safety = 0;
-  while (safety++ < players.length) {
-    const nextPlayer = updatedPlayers[nextIndex];
-    if (nextIndex === currentPlayerIndex || nextPlayer.isEliminated) break;
-    if (getValidMoves(grid, nextPlayer.row, nextPlayer.col).length > 0) break;
-    updatedPlayers = updatedPlayers.map((p) =>
-      p.id === nextPlayer.id ? { ...markEliminated(p), finishTurn: turnCount } : p
-    );
-    nextIndex = advanceToNextActive(updatedPlayers, nextIndex);
-  }
-
-  // Skip frozen player and tick down their counter.
-  // When turnsLeft hits 0, keep the badge alive until the player's real turn arrives.
+  // Skip frozen player before the trap check so they aren't eliminated on a turn they can't act.
   if (frozenPlayerId !== null) {
     const fp = updatedPlayers.find(p => p.id === frozenPlayerId);
     if (!fp || fp.isEliminated) {
@@ -173,6 +160,18 @@ function completeTurn(state) {
         frozenPlayerId = null;
       }
     }
+  }
+
+  // Only eliminate players whose turn is up next — others die when their turn arrives.
+  let safety = 0;
+  while (safety++ < players.length) {
+    const nextPlayer = updatedPlayers[nextIndex];
+    if (nextIndex === currentPlayerIndex || nextPlayer.isEliminated) break;
+    if (getValidMoves(grid, nextPlayer.row, nextPlayer.col).length > 0) break;
+    updatedPlayers = updatedPlayers.map((p) =>
+      p.id === nextPlayer.id ? { ...markEliminated(p), finishTurn: turnCount } : p
+    );
+    nextIndex = advanceToNextActive(updatedPlayers, nextIndex);
   }
 
   const stillAlive = updatedPlayers.filter((p) => !p.isEliminated);
