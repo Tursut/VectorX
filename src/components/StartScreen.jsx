@@ -126,8 +126,12 @@ export default function StartScreen({
           Four players. One grid. Only one walks away smiling.
         </p>
 
-        {/* Mode switcher — hidden for joiners (share-link minimal view) */}
-        {onlineAvailable && !isJoiner && (
+        {/* Tile row + drawer wrapped in one container so the parent's
+            `gap: 20px` doesn't pry them apart — inside here they can touch,
+            letting the active tile merge into the drawer visually. */}
+        <div className="mode-block">
+          {/* Mode switcher — hidden for joiners (share-link minimal view) */}
+          {onlineAvailable && !isJoiner && (
           <div className="mode-switcher" role="tablist" aria-label="Game mode">
             <button
               type="button"
@@ -292,6 +296,7 @@ export default function StartScreen({
               </motion.div>
             )}
           </AnimatePresence>
+        </div>
         </div>
 
         {/* Magic / Classic toggle — hidden entirely for share-link joiners */}

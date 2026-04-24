@@ -2093,6 +2093,15 @@
 
 /* ---------- Online status screen + mode switcher + online form ---------- */
 
+/* Wraps the tile row + drawer so the parent's flex `gap` doesn't pry them
+   apart. Inside .mode-block the two children sit flush, letting the active
+   tile merge into the drawer. */
+.mode-block {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
 /* Mode switcher — 3-tile segmented control on StartScreen. The active tile
    is visually "docked" to the .mode-drawer below: same bg, same blue
    border, and a -2 px overlap so the tile's bottom edge sits over the
@@ -2101,7 +2110,6 @@
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   gap: 10px;
-  margin: 16px 0 0;  /* collapse bottom gap — drawer touches the row */
   width: 100%;
 }
 .mode-switcher-tile {
@@ -2148,7 +2156,6 @@
   background: #0f0f23;
   border: 2px solid #7a8cff;
   border-radius: 10px;
-  margin-bottom: 20px;
   position: relative;
   box-sizing: border-box;
 }
