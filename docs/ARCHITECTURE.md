@@ -4,7 +4,7 @@ Living snapshot of the current app. Update this file at the end of any step (in 
 
 ## What it is
 
-VectorX (internal package name `gridmind`) is a turn-based grid-claiming game. Four characters start in the four corners of a 10×10 grid. On each turn, the active player must claim one empty cell **8-way adjacent** to their current position. A player is eliminated when they have no adjacent empty cell to move to (trapped). Last one standing wins.
+VectorX (public name **Mind the Grid**, npm package name `mind-the-grid`) is a turn-based grid-claiming game. Four characters start in the four corners of a 10×10 grid. On each turn, the active player must claim one empty cell **8-way adjacent** to their current position. A player is eliminated when they have no adjacent empty cell to move to (trapped). Last one standing wins.
 
 Optional **magic items** (bomb, portal, freeze, swap) spawn periodically and create interesting mid-game swings. The game runs on a single device — one to four real people share it, and **gremlins** (bots) fill any seats not taken by humans (`gremlinCount` 0–3).
 

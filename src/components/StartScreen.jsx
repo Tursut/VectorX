@@ -121,7 +121,7 @@ export default function StartScreen({
         <div className="start-sound-corner">
           <SoundToggle enabled={soundEnabled} onToggle={onToggleSound} />
         </div>
-        <h1 className="start-title">GRIDMIND</h1>
+        <h1 className="start-title">MIND THE GRID</h1>
         <p className="start-subtitle">
           Four players. One grid. Only one walks away smiling.
         </p>

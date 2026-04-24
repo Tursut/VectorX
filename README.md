@@ -1,8 +1,9 @@
-# VectorX
+# Mind the Grid
 
 A turn-based grid-claiming game for 1–4 players. Four characters race to trap each other on a 10×10 grid — last one moving wins. Runs hotseat on a single device, or online with friends over the internet.
 
 **Live at:** [https://tursut.github.io/VectorX/](https://tursut.github.io/VectorX/)
+**Repo name:** `VectorX` (kept for URL stability — the public game name is "Mind the Grid").
 
 ---
 

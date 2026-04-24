@@ -4,7 +4,7 @@ Guidance for Claude Code when working in this repo.
 
 ## The app
 
-VectorX (internal package name `gridmind`) is a React 19 + Vite, single-device turn-based grid-claiming game. Four characters race to trap each other on a 10×10 grid. Bots fill any seats not taken by humans. No backend today.
+VectorX (public name **Mind the Grid**, npm package name `mind-the-grid`) is a React 19 + Vite, single-device turn-based grid-claiming game. Four characters race to trap each other on a 10×10 grid. Bots fill any seats not taken by humans. No backend today.
 
 **Start by reading `docs/ARCHITECTURE.md`** — it's the living overview of what's in the codebase, the state shape, the move lifecycle, and the invariants. Keep it accurate when you change architecture.
 
