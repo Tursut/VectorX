@@ -892,11 +892,10 @@
 
 /* ── Gremlin / Player Setup ── */
 .gremlin-section {
+  /* Border/bg/padding moved to the outer .mode-drawer so the active tile
+     and drawer visually merge into one shape. This inner wrapper just
+     owns the vertical layout of its own content. */
   width: 100%;
-  background: #0f0f23;
-  border: 1px solid #333366;
-  border-radius: 10px;
-  padding: 14px 18px;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -2094,12 +2093,15 @@
 
 /* ---------- Online status screen + mode switcher + online form ---------- */
 
-/* Mode switcher — two-tile segmented control on StartScreen */
+/* Mode switcher — 3-tile segmented control on StartScreen. The active tile
+   is visually "docked" to the .mode-drawer below: same bg, same blue
+   border, and a -2 px overlap so the tile's bottom edge sits over the
+   drawer's top border and merges into one continuous shape. */
 .mode-switcher {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   gap: 10px;
-  margin: 16px 0 20px;
+  margin: 16px 0 0;  /* collapse bottom gap — drawer touches the row */
   width: 100%;
 }
 .mode-switcher-tile {
@@ -2121,10 +2123,34 @@
   border-color: #555588;
 }
 .mode-switcher-tile-active {
-  background: #14142e;
+  /* bg matches .mode-drawer so the tile and drawer share one fill colour */
+  background: #0f0f23;
   border-color: #7a8cff;
   box-shadow: 0 0 16px rgba(122, 140, 255, 0.35);
   color: #c8caff;
+  /* Merge into the drawer below: hide the bottom border, sink by 2px so we
+     sit over the drawer's top border, rounded corners only on top. */
+  border-bottom-color: transparent;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  margin-bottom: -2px;
+  position: relative;
+  z-index: 2;
+}
+
+/* Mode drawer — hosts one of the three per-mode content blocks at a time.
+   Fixed min-height so switching tiles doesn't shift layout below. Same bg
+   + blue border as the active tile so they read as one shape. */
+.mode-drawer {
+  width: 100%;
+  min-height: 200px;
+  padding: 14px 18px;
+  background: #0f0f23;
+  border: 2px solid #7a8cff;
+  border-radius: 10px;
+  margin-bottom: 20px;
+  position: relative;
+  box-sizing: border-box;
 }
 .mode-switcher-icon {
   font-size: 22px;
@@ -2143,17 +2169,15 @@
   font-style: italic;
 }
 
-/* Online form block (replaces "Who's playing?" in online mode) */
+/* Online form block (replaces "Who's playing?" in online mode). Border/bg/
+   padding live on the outer .mode-drawer now; this just owns the stacked
+   name + code layout. */
 .online-section {
   display: flex;
   flex-direction: column;
   gap: 14px;
   max-width: 520px;
-  margin: 0 auto 20px;
-  padding: 16px 20px;
-  background: #0f0f23;
-  border: 1px solid #333366;
-  border-radius: 10px;
+  margin: 0 auto;
   font-family: 'Fredoka One', 'Segoe UI', sans-serif;
 }
 .join-subhint {

@@ -165,132 +165,134 @@ export default function StartScreen({
           </div>
         )}
 
-        {/* Mode-specific drawer — animates height+opacity below the tile row */}
-        <AnimatePresence mode="wait" initial={false}>
-          {mode === 'this-device' && (
-            <motion.div
-              key="this-device-drawer"
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.22 }}
-              style={{ overflow: 'hidden', width: '100%' }}
-            >
-              <div className="gremlin-section">
-                <p className="gremlin-question">Who's playing?</p>
-                <div className="gremlin-slots">
-                  {PLAYERS.map((p) => {
-                    const isGremlin = p.id >= PLAYERS.length - gremlinCount;
-                    return (
-                      <div key={p.id} className={`gremlin-slot ${isGremlin ? 'gremlin-slot-bot' : 'gremlin-slot-human'}`}>
-                        <div
-                          className="gremlin-slot-avatar"
-                          style={isGremlin ? {} : { backgroundColor: p.color }}
-                        >
-                          {isGremlin ? '👾' : p.icon}
+        {/* Mode-specific drawer — crossfades in place at a fixed height so
+            switching tiles doesn't shift the layout below. The outer
+            .mode-drawer owns the border/bg and visually merges with the
+            active tile above (see App.css). */}
+        <div className="mode-drawer">
+          <AnimatePresence mode="wait" initial={false}>
+            {mode === 'this-device' && (
+              <motion.div
+                key="this-device-drawer"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.18 }}
+              >
+                <div className="gremlin-section">
+                  <p className="gremlin-question">Who's playing?</p>
+                  <div className="gremlin-slots">
+                    {PLAYERS.map((p) => {
+                      const isGremlin = p.id >= PLAYERS.length - gremlinCount;
+                      return (
+                        <div key={p.id} className={`gremlin-slot ${isGremlin ? 'gremlin-slot-bot' : 'gremlin-slot-human'}`}>
+                          <div
+                            className="gremlin-slot-avatar"
+                            style={isGremlin ? {} : { backgroundColor: p.color }}
+                          >
+                            {isGremlin ? '👾' : p.icon}
+                          </div>
+                          <span className="gremlin-slot-name" style={isGremlin ? {} : { color: p.color }}>
+                            {p.shortName}
+                          </span>
+                          <span className="gremlin-slot-type">
+                            {isGremlin ? 'gremlin' : 'human'}
+                          </span>
                         </div>
-                        <span className="gremlin-slot-name" style={isGremlin ? {} : { color: p.color }}>
-                          {p.shortName}
-                        </span>
-                        <span className="gremlin-slot-type">
-                          {isGremlin ? 'gremlin' : 'human'}
-                        </span>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="4"
+                    value={4 - gremlinCount}
+                    onChange={(e) => onChangeGremlinCount(4 - Number(e.target.value))}
+                    className="gremlin-slider"
+                  />
+                  <p className="gremlin-sub">{gremlinLabel}</p>
                 </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="4"
-                  value={4 - gremlinCount}
-                  onChange={(e) => onChangeGremlinCount(4 - Number(e.target.value))}
-                  className="gremlin-slider"
-                />
-                <p className="gremlin-sub">{gremlinLabel}</p>
-              </div>
-            </motion.div>
-          )}
+              </motion.div>
+            )}
 
-          {mode === 'create' && (
-            <motion.div
-              key="create-drawer"
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.22 }}
-              style={{ overflow: 'hidden', width: '100%' }}
-            >
-              <div className="online-section">
-                <label className="join-field">
-                  <span>Your name</span>
-                  <input
-                    type="text"
-                    value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
-                    placeholder="e.g. Alice"
-                    maxLength={20}
-                    autoComplete="off"
-                    autoFocus
-                  />
-                </label>
-                {onlineError && (
-                  <p className="online-error" role="alert">
-                    Couldn't reach the server: {onlineError}
-                  </p>
-                )}
-              </div>
-            </motion.div>
-          )}
+            {mode === 'create' && (
+              <motion.div
+                key="create-drawer"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.18 }}
+              >
+                <div className="online-section">
+                  <label className="join-field">
+                    <span>Your name</span>
+                    <input
+                      type="text"
+                      value={displayName}
+                      onChange={(e) => setDisplayName(e.target.value)}
+                      placeholder="e.g. Alice"
+                      maxLength={20}
+                      autoComplete="off"
+                      autoFocus
+                    />
+                  </label>
+                  {onlineError && (
+                    <p className="online-error" role="alert">
+                      Couldn't reach the server: {onlineError}
+                    </p>
+                  )}
+                </div>
+              </motion.div>
+            )}
 
-          {mode === 'join' && (
-            <motion.div
-              key="join-drawer"
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.22 }}
-              style={{ overflow: 'hidden', width: '100%' }}
-            >
-              <div className="online-section">
-                <label className="join-field">
-                  <span>Your name</span>
-                  <input
-                    type="text"
-                    value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
-                    placeholder="e.g. Alice"
-                    maxLength={20}
-                    autoComplete="off"
-                    autoFocus
-                  />
-                </label>
-                <label className="join-field">
-                  <span>Room code</span>
-                  <input
-                    type="text"
-                    value={code}
-                    onChange={handleCodeChange}
-                    onPaste={handleCodePaste}
-                    placeholder="ABCDE"
-                    inputMode="text"
-                    autoCapitalize="characters"
-                    autoCorrect="off"
-                    spellCheck={false}
-                    autoComplete="off"
-                    maxLength={5}
-                    aria-label="Room code"
-                  />
-                </label>
-                {onlineError && (
-                  <p className="online-error" role="alert">
-                    Couldn't reach the server: {onlineError}
-                  </p>
-                )}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            {mode === 'join' && (
+              <motion.div
+                key="join-drawer"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.18 }}
+              >
+                <div className="online-section">
+                  <label className="join-field">
+                    <span>Your name</span>
+                    <input
+                      type="text"
+                      value={displayName}
+                      onChange={(e) => setDisplayName(e.target.value)}
+                      placeholder="e.g. Alice"
+                      maxLength={20}
+                      autoComplete="off"
+                      autoFocus
+                    />
+                  </label>
+                  <label className="join-field">
+                    <span>Room code</span>
+                    <input
+                      type="text"
+                      value={code}
+                      onChange={handleCodeChange}
+                      onPaste={handleCodePaste}
+                      placeholder="ABCDE"
+                      inputMode="text"
+                      autoCapitalize="characters"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      autoComplete="off"
+                      maxLength={5}
+                      aria-label="Room code"
+                    />
+                  </label>
+                  {onlineError && (
+                    <p className="online-error" role="alert">
+                      Couldn't reach the server: {onlineError}
+                    </p>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
 
         {/* Magic / Classic toggle — hidden entirely for share-link joiners */}
         {!isJoiner && (
