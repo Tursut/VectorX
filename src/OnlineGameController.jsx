@@ -13,6 +13,7 @@
 // LocalGameController. This component only owns the socket + lobby shell.
 
 import { useEffect, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { wsUrl } from './config';
 import { useNetworkGame } from './net/useNetworkGame';
 import { useDerivedAnimations } from './game/useDerivedAnimations';
@@ -41,6 +42,7 @@ export default function OnlineGameController({
 
   const [magicItems, setMagicItems] = useState(initialMagicItems);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [exitConfirm, setExitConfirm] = useState(false);
 
   // Derived animation overlays + item-pickup sounds; fed to GameScreen.
   const { bombBlast, portalJump, swapFlash, flyingFreeze } = useDerivedAnimations(gameState);
@@ -95,6 +97,41 @@ export default function OnlineGameController({
     return <StatusScreen label={`Joining room ${code}…`} onBack={onExit} />;
   }
 
+  // Exit confirm gate. Skip on gameover — the game is already over, nothing
+  // to warn about. Mirrors LocalGameController's pattern.
+  const inGameover = gameState?.phase === 'gameover';
+  const requestExit = inGameover ? onExit : () => setExitConfirm(true);
+  const exitConfirmModal = (
+    <AnimatePresence>
+      {exitConfirm && (
+        <motion.div
+          className="exit-confirm-overlay"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.18 }}
+        >
+          <motion.div
+            className="exit-confirm-card"
+            initial={{ scale: 0.85, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.85, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 340, damping: 26 }}
+          >
+            <p className="exit-confirm-title">Exit to menu?</p>
+            <p className="exit-confirm-sub">
+              {gameState ? 'Your current game will be lost.' : "You'll leave this room."}
+            </p>
+            <div className="exit-confirm-btns">
+              <button className="exit-confirm-yes" onClick={onExit}>Yes, exit</button>
+              <button className="exit-confirm-no" onClick={() => setExitConfirm(false)}>Keep playing</button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+
   // ---------- In-game ----------
 
   if (gameState && (gameState.phase === 'playing' || gameState.phase === 'gameover')) {
@@ -105,7 +142,7 @@ export default function OnlineGameController({
           gameState={gameState}
           mySeats={mySeats}
           onMove={move}
-          onExit={onExit}
+          onExit={requestExit}
           soundEnabled={soundEnabled}
           onToggleSound={toggleSound}
           bombBlast={bombBlast}
@@ -113,6 +150,7 @@ export default function OnlineGameController({
           swapFlash={swapFlash}
           flyingFreeze={flyingFreeze}
         />
+        {exitConfirmModal}
       </div>
     );
   }
@@ -120,14 +158,17 @@ export default function OnlineGameController({
   // ---------- Lobby (pre-START) ----------
 
   return (
-    <Lobby
-      code={code}
-      players={lobby.players}
-      hostId={lobby.hostId}
-      mySeatId={mySeatId}
-      onStart={() => { sounds.resumeAudio(); start(magicItems); }}
-      onLeave={onExit}
-    />
+    <>
+      <Lobby
+        code={code}
+        players={lobby.players}
+        hostId={lobby.hostId}
+        mySeatId={mySeatId}
+        onStart={() => { sounds.resumeAudio(); start(magicItems); }}
+        onLeave={() => setExitConfirm(true)}
+      />
+      {exitConfirmModal}
+    </>
   );
 }
 
