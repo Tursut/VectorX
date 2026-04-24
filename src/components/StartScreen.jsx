@@ -75,6 +75,9 @@ export default function StartScreen({
 
   const isOnline = mode === 'online';
   const hasCode = isCodeValid(code);
+  // A "joiner" landed on a share link: online + valid code pre-filled.
+  // We strip the screen down to just name + code + JOIN for them.
+  const isJoiner = isOnline && hasCode;
   // In online mode, submit needs a valid name + (empty code OR a valid code).
   const canSubmitOnline =
     isDisplayNameValid(displayName) && (code === '' || hasCode);
@@ -127,8 +130,8 @@ export default function StartScreen({
           Four players. One grid. Only one walks away smiling.
         </p>
 
-        {/* Mode switcher — only when online is available */}
-        {onlineAvailable && (
+        {/* Mode switcher — only when online is available, and hidden for joiners */}
+        {onlineAvailable && !isJoiner && (
           <div className="mode-switcher" role="tablist" aria-label="Game mode">
             <button
               type="button"
@@ -232,7 +235,8 @@ export default function StartScreen({
           </div>
         )}
 
-        {/* Magic / Classic toggle — hidden when the user is a non-host joiner */}
+        {/* Magic / Classic toggle — hidden entirely for share-link joiners */}
+        {!isJoiner && (
         <div className="mode-section">
           {showMagicToggle ? (
             <div className="mode-selector">
@@ -276,15 +280,20 @@ export default function StartScreen({
             </div>
           )}
         </div>
+        )}
 
-        <div className="start-rules">
-          <p>🗺️ Move onto any adjacent square — including diagonally.</p>
-          <p>🔒 Claimed squares are locked forever. No take-backs.</p>
-          <p>💀 No moves left? You're out. Try not to corner yourself.</p>
-          <p>🏆 Last one moving wins. Simple. Clever. Perfect.</p>
-        </div>
+        {!isJoiner && (
+          <div className="start-rules">
+            <p>🗺️ Move onto any adjacent square — including diagonally.</p>
+            <p>🔒 Claimed squares are locked forever. No take-backs.</p>
+            <p>💀 No moves left? You're out. Try not to corner yourself.</p>
+            <p>🏆 Last one moving wins. Simple. Clever. Perfect.</p>
+          </div>
+        )}
 
-        <p className="start-footnote">Starting player chosen by fate (it's random).</p>
+        {!isJoiner && (
+          <p className="start-footnote">Starting player chosen by fate (it's random).</p>
+        )}
         {!isOnline && (
           <button className="sandbox-entry-btn" onClick={onSandbox}>🧪 testing ground</button>
         )}
