@@ -77,6 +77,13 @@ export function useNetworkGame({ url }) {
             return;
           }
           case 'ERROR': {
+            // NOT_YOUR_TURN / INVALID_MOVE are routine races between a client
+            // click and a server broadcast that already advanced the turn.
+            // The server's next GAME_STATE resyncs us; no user-visible work.
+            if (msg.code === 'NOT_YOUR_TURN' || msg.code === 'INVALID_MOVE') {
+              console.warn(`[useNetworkGame] transient ${msg.code}`, msg.message ?? '');
+              return;
+            }
             setLastError({ code: msg.code, message: msg.message });
             return;
           }

@@ -197,7 +197,7 @@ describe('useNetworkGame — imperative senders', () => {
 });
 
 describe('useNetworkGame — last error', () => {
-  it('sets lastError from an ERROR message', () => {
+  it('sets lastError from a fatal ERROR message', () => {
     const { result } = renderHook(() => useNetworkGame({ url: 'ws://x/y' }));
 
     act(() =>
@@ -205,6 +205,25 @@ describe('useNetworkGame — last error', () => {
     );
 
     expect(result.current.lastError).toEqual({ code: 'ROOM_FULL', message: undefined });
+  });
+
+  it('ignores transient NOT_YOUR_TURN and INVALID_MOVE errors', () => {
+    // Server-authoritative state sync corrects the client via the next
+    // GAME_STATE broadcast — no need to surface a full-screen error.
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { result } = renderHook(() => useNetworkGame({ url: 'ws://x/y' }));
+
+    act(() => capturedOnMessage({ type: 'ERROR', code: 'NOT_YOUR_TURN' }));
+    expect(result.current.lastError).toBeNull();
+
+    act(() => capturedOnMessage({ type: 'ERROR', code: 'INVALID_MOVE' }));
+    expect(result.current.lastError).toBeNull();
+
+    // A fatal error after transient ones is still surfaced.
+    act(() => capturedOnMessage({ type: 'ERROR', code: 'UNAUTHORIZED' }));
+    expect(result.current.lastError).toEqual({ code: 'UNAUTHORIZED', message: undefined });
+
+    warn.mockRestore();
   });
 });
 

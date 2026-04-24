@@ -51,10 +51,18 @@ export default function OnlineGameController({
     mySeatId !== null && mySeatId !== undefined ? [mySeatId] : [],
   );
 
-  // Send HELLO exactly once when the socket first becomes OPEN.
+  // Send HELLO on every transition INTO 'open'. The ref is reset on any other
+  // state so auto-reconnects (wifi blip, mobile Safari tab-backgrounding) get
+  // re-authenticated — the underlying WS is new, and the server gave the old
+  // socket's seat up when it closed. Without this, the first MOVE after a
+  // reconnect hits UNAUTHORIZED.
   const helloSent = useRef(false);
   useEffect(() => {
-    if (connectionState === 'open' && !helloSent.current) {
+    if (connectionState !== 'open') {
+      helloSent.current = false;
+      return;
+    }
+    if (!helloSent.current) {
       helloSent.current = true;
       join(displayName);
     }
@@ -67,22 +75,20 @@ export default function OnlineGameController({
   }
 
   // ---------- Status screens ----------
+  // Priority: initial connect → reconnecting → fatal error → joining.
+  // `lastError` comes AFTER the reconnect check so a stray non-transient error
+  // during a reconnect doesn't hide the "Reconnecting…" status.
 
   if (connectionState === 'connecting' || !helloSent.current) {
     return <StatusScreen label={`Connecting to room ${code}…`} onBack={onExit} />;
   }
 
-  if (lastError) {
-    return (
-      <StatusScreen
-        label={`Error: ${lastError.code}${lastError.message ? ` — ${lastError.message}` : ''}`}
-        onBack={onExit}
-      />
-    );
-  }
-
   if (connectionState === 'closed' || connectionState === 'destroyed') {
     return <StatusScreen label="Connection lost. Reconnecting…" onBack={onExit} />;
+  }
+
+  if (lastError) {
+    return <StatusScreen label={fatalErrorLabel(lastError)} onBack={onExit} />;
   }
 
   if (!lobby) {
@@ -123,6 +129,20 @@ export default function OnlineGameController({
       onLeave={onExit}
     />
   );
+}
+
+// Map a server-side ERROR payload to a readable status line. Transient codes
+// (NOT_YOUR_TURN, INVALID_MOVE) are filtered upstream in useNetworkGame and
+// never reach this function.
+function fatalErrorLabel({ code, message }) {
+  switch (code) {
+    case 'UNAUTHORIZED':     return 'Your session ended. Return to menu.';
+    case 'ROOM_FULL':        return 'This room is full.';
+    case 'DUPLICATE_NAME':   return 'That name is already taken in this room.';
+    case 'ALREADY_STARTED':  return 'This game has already started.';
+    case 'BAD_PAYLOAD':      return 'Unexpected message from the server.';
+    default:                 return `Error: ${code}${message ? ` — ${message}` : ''}`;
+  }
 }
 
 // Tiny "waiting" screen used for connection transitions.
