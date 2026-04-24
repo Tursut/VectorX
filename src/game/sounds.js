@@ -68,7 +68,7 @@ function makeReverb(c, delayTime = 0.06, feedback = 0.22, wet = 0.18) {
 // than the effects that run through masterGain directly. No synth fallback;
 // if the sample fails to load, the bg just stays silent.
 
-const BG_VOLUME = 0.7;
+const BG_VOLUME = 0.56; // bg music sits quiet under effects (originally 0.7, knocked down another 20%).
 const BG_FILE = `${import.meta.env.BASE_URL}bg-spring.mp3`;
 
 let bgPlaying = false;
