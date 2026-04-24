@@ -86,11 +86,13 @@ function makeReverb(c, delayTime = 0.06, feedback = 0.22, wet = 0.18) {
 }
 
 // ── Background theme ──────────────────────────────────────────────────────────
-// Music is split into variants. Each variant owns a `scheduleBeat(c, t, beat)`
-// function that schedules everything for one beat, plus a tempo (seconds per
-// beat) and loopBeats (how many beats before the pattern repeats). The module
-// keeps a single `currentVariantId`; switching at runtime restarts the loop
-// from beat 0 at the next scheduler tick.
+// Variants come in two flavors:
+//   - Synth: owns `{ tempo, loopBeats, scheduleBeat(c, t, beat, tempo) }`. The
+//     scheduler loop schedules one beat at a time.
+//   - Sample: owns `{ file }`. A looping AudioBufferSource is created once the
+//     sample is fetched + decoded; scheduleBg is a no-op for these.
+// `currentVariantId` is a single module-level pointer; switching restarts the
+// correct playback path cleanly.
 
 const LOOK_AHEAD = 0.28;
 const SCHED_MS   = 110;
@@ -101,21 +103,75 @@ let bgBeatIdx  = 0;
 let bgTimer    = null;
 let currentVariantId = 'explorer';
 
+// Cache for decoded audio samples (url → AudioBuffer) + the live source so
+// we can stop it on variant switch or stopBgTheme.
+const sampleCache = new Map();
+let currentSampleSource = null;
+// Token prevents a late-arriving decode from starting playback for a variant
+// the user has since switched away from.
+let sampleLoadToken = 0;
+
 export const BG_VARIANT_LIST = [
   { id: 'explorer', name: 'Explorer',       desc: 'Upbeat C pentatonic — the current theme' },
   { id: 'march',    name: 'Heroic March',   desc: 'Epic battle anthem in D minor, 120 BPM' },
   { id: 'mystic',   name: 'Mystic Grove',   desc: 'Sparse shimmering arpeggio in A minor' },
   { id: 'rally',    name: 'Rallying Cry',   desc: 'Driving triumphant E major, 140 BPM' },
   { id: 'tense',    name: 'Tense Standoff', desc: 'Moody slow pulse in F# minor' },
+  { id: 'spring',   name: 'First Days of Spring', desc: 'Geoff Harvey — modern classical (mp3)' },
 ];
+
+function stopSampleIfAny() {
+  if (currentSampleSource) {
+    try { currentSampleSource.stop(); } catch (_) { /* already stopped */ }
+    try { currentSampleSource.disconnect(); } catch (_) {}
+    currentSampleSource = null;
+  }
+}
+
+async function loadSample(url) {
+  if (sampleCache.has(url)) return sampleCache.get(url);
+  const c = getCtx();
+  if (!c) return null;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`sample ${url} failed: ${res.status}`);
+  const arr = await res.arrayBuffer();
+  const buf = await c.decodeAudioData(arr);
+  sampleCache.set(url, buf);
+  return buf;
+}
+
+async function startSampleVariant(url, token) {
+  let buf;
+  try { buf = await loadSample(url); } catch (_) { return; }
+  // User may have switched variants or stopped playback while we were decoding.
+  if (!buf || !bgPlaying || token !== sampleLoadToken) return;
+  const c = getCtx();
+  if (!c) return;
+  stopSampleIfAny();
+  const src = c.createBufferSource();
+  src.buffer = buf;
+  src.loop = true;
+  src.connect(masterGain);
+  src.start(c.currentTime + 0.02);
+  currentSampleSource = src;
+}
 
 export function setBgVariant(id) {
   if (!BG_VARIANTS[id] || currentVariantId === id) return;
   currentVariantId = id;
-  if (bgPlaying) {
+  if (!bgPlaying) return;
+  // Stop whatever was running, then start the new variant's playback path.
+  if (bgTimer) { clearTimeout(bgTimer); bgTimer = null; }
+  stopSampleIfAny();
+  const v = BG_VARIANTS[id];
+  if (v.file) {
+    sampleLoadToken += 1;
+    startSampleVariant(v.file, sampleLoadToken);
+  } else {
     bgBeatIdx = 0;
     const c = getCtx();
     if (c) bgNextBeat = c.currentTime + 0.05;
+    scheduleBg();
   }
 }
 
@@ -414,16 +470,19 @@ const BG_VARIANTS = {
   mystic:   { tempo: 0.60, loopBeats: 24, scheduleBeat: scheduleMysticBeat },
   rally:    { tempo: 0.43, loopBeats: 32, scheduleBeat: scheduleRallyBeat },
   tense:    { tempo: 0.67, loopBeats: 16, scheduleBeat: scheduleTenseBeat },
+  spring:   { file: '/bg-spring.mp3' },
 };
 
 function scheduleBg() {
   if (!bgPlaying) return;
+  const v = BG_VARIANTS[currentVariantId] || BG_VARIANTS.explorer;
+  // Sample variants don't use the beat scheduler.
+  if (v.file) return;
   const c = getCtx();
   if (!c || c.state !== 'running') {
     bgTimer = setTimeout(scheduleBg, 500);
     return;
   }
-  const v = BG_VARIANTS[currentVariantId] || BG_VARIANTS.explorer;
   const now = c.currentTime;
   if (bgNextBeat < now || bgNextBeat > now + 5) bgNextBeat = now + 0.05;
 
@@ -444,6 +503,12 @@ export function startBgTheme(variantId) {
   if (variantId && BG_VARIANTS[variantId]) currentVariantId = variantId;
   if (bgPlaying) return;
   bgPlaying = true;
+  const v = BG_VARIANTS[currentVariantId];
+  if (v && v.file) {
+    sampleLoadToken += 1;
+    startSampleVariant(v.file, sampleLoadToken);
+    return;
+  }
   const c = getCtx();
   bgNextBeat = c ? c.currentTime + 0.12 : 0.12;
   bgBeatIdx  = 0;
@@ -453,6 +518,8 @@ export function startBgTheme(variantId) {
 export function stopBgTheme() {
   bgPlaying = false;
   if (bgTimer) { clearTimeout(bgTimer); bgTimer = null; }
+  sampleLoadToken += 1; // invalidate any in-flight decode
+  stopSampleIfAny();
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
