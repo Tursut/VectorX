@@ -1236,6 +1236,51 @@
   border-color: #5555aa;
 }
 
+.sandbox-bgmusic-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.sandbox-bgmusic-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  background: #0e0e22;
+  border: 1px solid #252545;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-family: 'Fredoka One', 'Segoe UI', sans-serif;
+  color: #8888aa;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.sandbox-bgmusic-btn:hover {
+  background: #1a1a38;
+  color: #ccccee;
+  border-color: #5555aa;
+}
+.sandbox-bgmusic-btn-active {
+  background: #161638;
+  border-color: #7a8cff;
+  color: #c8caff;
+  box-shadow: 0 0 10px rgba(122, 140, 255, 0.25);
+}
+.sandbox-bgmusic-name {
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+.sandbox-bgmusic-desc {
+  font-size: 10px;
+  color: #6b6b8c;
+  font-family: 'Segoe UI', sans-serif;
+  font-style: italic;
+}
+.sandbox-bgmusic-btn-active .sandbox-bgmusic-desc {
+  color: #9a9ac0;
+}
+
 .start-footnote {
   font-size: 11px;
   color: #666688;
