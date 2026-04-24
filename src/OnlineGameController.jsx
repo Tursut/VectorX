@@ -15,6 +15,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { wsUrl } from './config';
+import { TURN_TIME } from './game/constants';
 import { useNetworkGame } from './net/useNetworkGame';
 import { useDerivedAnimations } from './game/useDerivedAnimations';
 import { useGameplaySounds } from './game/useGameplaySounds';
@@ -45,9 +46,33 @@ export default function OnlineGameController({
   const [magicItems] = useState(initialMagicItems);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [exitConfirm, setExitConfirm] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(TURN_TIME);
 
   // Derived animation overlays + item-pickup sounds; fed to GameScreen.
   const { bombBlast, portalJump, swapFlash, flyingFreeze } = useDerivedAnimations(gameState);
+
+  // Turn-timer visualization. The server is authoritative — it schedules the
+  // real alarm and forfeits the seat on expiry — we just drive the indicator
+  // bar with a client-local tick so the player can see time running down.
+  // Mirrors LocalGameController's pattern; no TIMEOUT dispatch since the
+  // server owns that. Tick sound plays only on my own turn's last 3 seconds.
+  useEffect(() => {
+    if (!gameState || gameState.phase !== 'playing') return;
+    setTimeLeft(TURN_TIME);
+    const isMyTurn = mySeatId !== null && mySeatId !== undefined
+      && gameState.currentPlayerIndex === mySeatId;
+    const interval = setInterval(() => {
+      setTimeLeft((t) => {
+        if (isMyTurn && t <= 3 && t > 1) sounds.playTick((4 - t) / 3);
+        if (t <= 1) {
+          clearInterval(interval);
+          return 0;
+        }
+        return t - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [gameState?.currentPlayerIndex, gameState?.phase, mySeatId]);
 
   // Gameplay sound effects (bg theme, move/claim/your-turn chime, freeze/swap).
   useGameplaySounds(
@@ -147,6 +172,8 @@ export default function OnlineGameController({
           onExit={requestExit}
           soundEnabled={soundEnabled}
           onToggleSound={toggleSound}
+          timeLeft={timeLeft}
+          totalTime={TURN_TIME}
           bombBlast={bombBlast}
           portalJump={portalJump}
           swapFlash={swapFlash}
