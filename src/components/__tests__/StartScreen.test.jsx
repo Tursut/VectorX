@@ -1,12 +1,12 @@
 // StartScreen — mode switcher + online entry tests.
 //
-// The merged screen has two modes ("Same device" / "Online"). The switcher
-// appears only when online handlers are provided (i.e. ENABLE_ONLINE=true
-// at build time). In online mode the "Who's playing?" bots slider is
-// replaced by Name + Code inputs, and the primary button's label flips
-// between CREATE ROOM (empty code) and JOIN ROOM (valid code).
+// Three modes: `this-device` (hotseat + bots slider), `create` (host a new
+// online room: name input only), `join` (join someone else's room: name + code
+// inputs). The switcher renders only when both online handlers are passed in.
+// Joiners (join + valid code) get a stripped view — the Magic/Classic block,
+// rules list, and footnote are all hidden.
 
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import StartScreen from '../StartScreen.jsx';
@@ -24,7 +24,6 @@ const baseProps = {
   onToggleSound: () => {},
 };
 
-// Helpers for the online online-handlers pair.
 function withOnline(extra = {}) {
   return {
     ...baseProps,
@@ -42,24 +41,36 @@ describe('StartScreen — mode switcher visibility', () => {
     expect(screen.queryByRole('tablist', { name: /game mode/i })).toBeNull();
   });
 
-  it('renders the mode switcher when both online handlers are provided', () => {
+  it('renders three mode tiles when both online handlers are provided', () => {
     render(<StartScreen {...withOnline()} />);
-    expect(screen.getByRole('tab', { name: /same device/i })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /online/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /this device/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /create room/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /join room/i })).toBeInTheDocument();
   });
 
-  it('defaults to Same device mode — bots slider visible, online inputs absent', () => {
+  it('defaults to This Device mode — bots slider visible, online inputs absent', () => {
     render(<StartScreen {...withOnline()} />);
     expect(screen.getByText(/who's playing/i)).toBeInTheDocument();
     expect(screen.queryByRole('textbox', { name: /your name/i })).toBeNull();
     expect(screen.queryByLabelText(/room code/i)).toBeNull();
   });
 
-  it('clicking the Online tile hides "Who\'s playing?" and shows Name + Code inputs', async () => {
+  it('clicking Create Room shows the Name input only (no code field)', async () => {
     const user = userEvent.setup();
     render(<StartScreen {...withOnline()} />);
-    await user.click(screen.getByRole('tab', { name: /online/i }));
-    expect(screen.queryByText(/who's playing/i)).toBeNull();
+    await user.click(screen.getByRole('tab', { name: /create room/i }));
+    // AnimatePresence mode="wait" keeps the previous drawer mounted during its
+    // exit animation; poll until the this-device drawer is actually gone.
+    await waitFor(() => expect(screen.queryByText(/who's playing/i)).toBeNull());
+    expect(screen.getByRole('textbox', { name: /your name/i })).toBeInTheDocument();
+    expect(screen.queryByLabelText(/room code/i)).toBeNull();
+  });
+
+  it('clicking Join Room shows both Name and Code inputs', async () => {
+    const user = userEvent.setup();
+    render(<StartScreen {...withOnline()} />);
+    await user.click(screen.getByRole('tab', { name: /join room/i }));
+    await waitFor(() => expect(screen.queryByText(/who's playing/i)).toBeNull());
     expect(screen.getByRole('textbox', { name: /your name/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/room code/i)).toBeInTheDocument();
   });
@@ -68,13 +79,21 @@ describe('StartScreen — mode switcher visibility', () => {
 // ---------- Default mode (cold-open from share link) ----------
 
 describe('StartScreen — defaultMode + defaultCode (cold-open)', () => {
-  it('starts in Online mode when defaultMode="online"', () => {
-    render(<StartScreen {...withOnline({ defaultMode: 'online' })} />);
+  it('starts in Create mode when defaultMode="create"', () => {
+    render(<StartScreen {...withOnline({ defaultMode: 'create' })} />);
     expect(screen.getByRole('textbox', { name: /your name/i })).toBeInTheDocument();
+    // In create mode there's no code input.
+    expect(screen.queryByLabelText(/room code/i)).toBeNull();
+  });
+
+  it('starts in Join mode when defaultMode="join"', () => {
+    render(<StartScreen {...withOnline({ defaultMode: 'join' })} />);
+    expect(screen.getByRole('textbox', { name: /your name/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/room code/i)).toBeInTheDocument();
   });
 
   it('pre-fills the code input from defaultCode (uppercased + filtered)', () => {
-    render(<StartScreen {...withOnline({ defaultMode: 'online', defaultCode: 'abcde' })} />);
+    render(<StartScreen {...withOnline({ defaultMode: 'join', defaultCode: 'abcde' })} />);
     expect(screen.getByLabelText(/room code/i).value).toBe('ABCDE');
   });
 });
@@ -82,41 +101,53 @@ describe('StartScreen — defaultMode + defaultCode (cold-open)', () => {
 // ---------- Primary button label ----------
 
 describe('StartScreen — primary button label', () => {
-  it('is "START THE GAME" in Same device mode', () => {
+  it('is "START THE GAME" in This Device mode', () => {
     render(<StartScreen {...withOnline()} />);
     expect(screen.getByRole('button', { name: /start the game/i })).toBeInTheDocument();
   });
 
-  it('is "CREATE ROOM" in Online mode with empty code', async () => {
+  it('is "CREATE ROOM" in Create mode', async () => {
     const user = userEvent.setup();
     render(<StartScreen {...withOnline()} />);
-    await user.click(screen.getByRole('tab', { name: /online/i }));
-    expect(screen.getByRole('button', { name: /create room/i })).toBeInTheDocument();
+    await user.click(screen.getByRole('tab', { name: /create room/i }));
+    // Scope to the primary button bar to distinguish from the Create tab button.
+    expect(
+      screen.getByRole('button', { name: /create room →/i }),
+    ).toBeInTheDocument();
   });
 
-  it('is "JOIN ROOM" in Online mode with a valid code', async () => {
-    const user = userEvent.setup();
-    render(<StartScreen {...withOnline({ defaultMode: 'online', defaultCode: 'Q7K4N' })} />);
-    expect(screen.getByRole('button', { name: /join room/i })).toBeInTheDocument();
+  it('is "JOIN ROOM" in Join mode with a valid code', () => {
+    render(
+      <StartScreen {...withOnline({ defaultMode: 'join', defaultCode: 'Q7K4N' })} />,
+    );
+    expect(
+      screen.getByRole('button', { name: /join room →/i }),
+    ).toBeInTheDocument();
   });
 });
 
 // ---------- Magic/Classic visibility for joiners ----------
 
 describe('StartScreen — magic toggle visibility', () => {
-  it('hides Magic/Classic toggle when online + code is filled (joiner)', async () => {
-    const user = userEvent.setup();
-    render(<StartScreen {...withOnline({ defaultMode: 'online' })} />);
-    await user.type(screen.getByLabelText(/room code/i), 'Q7K4N');
-    expect(screen.queryByRole('button', { name: /^classic$/i })).toBeNull();
-    expect(screen.getByText(/host picks magic items/i)).toBeInTheDocument();
+  it('hides the entire Magic/Classic section for joiners (join + valid code)', () => {
+    // Joiner view: defaultMode='join' + pre-filled code → stripped-down UI.
+    render(
+      <StartScreen {...withOnline({ defaultMode: 'join', defaultCode: 'Q7K4N' })} />,
+    );
+    // Button's accessible name prefixes the label with "✨ " / "⚔️ " from the
+    // emoji span, so anchored regex won't match; unanchored is fine because
+    // only these two buttons contain "magic" / "classic" on the joiner screen.
+    expect(screen.queryByRole('button', { name: /magic/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /classic/i })).toBeNull();
   });
 
-  it('shows Magic/Classic toggle when online + code is empty (creator)', async () => {
+  it('shows the Magic/Classic toggle in Create mode', async () => {
     const user = userEvent.setup();
     render(<StartScreen {...withOnline()} />);
-    await user.click(screen.getByRole('tab', { name: /online/i }));
-    expect(screen.getByRole('button', { name: /magic/i })).toBeInTheDocument();
+    await user.click(screen.getByRole('tab', { name: /create room/i }));
+    expect(
+      await screen.findByRole('button', { name: /magic/i }),
+    ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /classic/i })).toBeInTheDocument();
   });
 });
@@ -124,30 +155,32 @@ describe('StartScreen — magic toggle visibility', () => {
 // ---------- Submit gating + callbacks ----------
 
 describe('StartScreen — online submit gating', () => {
-  it('disables the primary button until name is valid', async () => {
+  it('disables the primary button in Create mode until name is valid', async () => {
     const user = userEvent.setup();
-    render(<StartScreen {...withOnline()} />);
-    await user.click(screen.getByRole('tab', { name: /online/i }));
-    const btn = screen.getByRole('button', { name: /create room/i });
+    render(<StartScreen {...withOnline({ defaultMode: 'create' })} />);
+    const btn = screen.getByRole('button', { name: /create room →/i });
     expect(btn).toBeDisabled();
 
     await user.type(screen.getByRole('textbox', { name: /your name/i }), 'Alice');
     expect(btn).not.toBeDisabled();
   });
 
-  it('disables JOIN until code reaches 5 alphabet chars', async () => {
+  it('disables JOIN until both name and a 5-char code are filled', async () => {
     const user = userEvent.setup();
-    render(<StartScreen {...withOnline({ defaultMode: 'online' })} />);
-    const btn = screen.getByRole('button', { name: /create room|join room/i });
+    render(<StartScreen {...withOnline({ defaultMode: 'join' })} />);
+    const btn = screen.getByRole('button', { name: /join room →/i });
+
+    // Nothing filled — disabled.
+    expect(btn).toBeDisabled();
+    // Name only — still disabled (code missing).
     await user.type(screen.getByRole('textbox', { name: /your name/i }), 'Alice');
-    // With no code the button is CREATE ROOM and enabled.
-    expect(screen.getByRole('button', { name: /create room/i })).not.toBeDisabled();
-    // Type only 3 chars → code is not-empty-not-valid → submit disabled.
+    expect(btn).toBeDisabled();
+    // Code only 3 chars — still disabled.
     await user.type(screen.getByLabelText(/room code/i), 'ABC');
     expect(btn).toBeDisabled();
-    // Two more alphabet chars → valid → submit enabled as JOIN ROOM.
+    // Fifth char → enabled.
     await user.type(screen.getByLabelText(/room code/i), 'DE');
-    expect(screen.getByRole('button', { name: /join room/i })).not.toBeDisabled();
+    expect(btn).not.toBeDisabled();
   });
 });
 
@@ -159,13 +192,13 @@ describe('StartScreen — online callbacks', () => {
       <StartScreen
         {...withOnline({
           onCreateOnline,
-          defaultMode: 'online',
+          defaultMode: 'create',
           magicItems: true,
         })}
       />,
     );
     await user.type(screen.getByRole('textbox', { name: /your name/i }), '  Alice  ');
-    await user.click(screen.getByRole('button', { name: /create room/i }));
+    await user.click(screen.getByRole('button', { name: /create room →/i }));
     expect(onCreateOnline).toHaveBeenCalledWith({
       displayName: 'Alice',
       magicItems: true,
@@ -177,12 +210,12 @@ describe('StartScreen — online callbacks', () => {
     const onJoinOnline = vi.fn();
     render(
       <StartScreen
-        {...withOnline({ onJoinOnline, defaultMode: 'online' })}
+        {...withOnline({ onJoinOnline, defaultMode: 'join' })}
       />,
     );
     await user.type(screen.getByRole('textbox', { name: /your name/i }), 'Alice');
     await user.type(screen.getByLabelText(/room code/i), 'Q7K4N');
-    await user.click(screen.getByRole('button', { name: /join room/i }));
+    await user.click(screen.getByRole('button', { name: /join room →/i }));
     expect(onJoinOnline).toHaveBeenCalledWith({
       displayName: 'Alice',
       code: 'Q7K4N',
@@ -193,9 +226,9 @@ describe('StartScreen — online callbacks', () => {
 // ---------- URL paste extraction ----------
 
 describe('StartScreen — code paste', () => {
-  it('extracts a code from a pasted share link in Online mode', async () => {
+  it('extracts a code from a pasted share link in Join mode', async () => {
     const user = userEvent.setup();
-    render(<StartScreen {...withOnline({ defaultMode: 'online' })} />);
+    render(<StartScreen {...withOnline({ defaultMode: 'join' })} />);
     const code = screen.getByLabelText(/room code/i);
     code.focus();
     await user.paste('https://example.com/VectorX/#/r/Q7K4N');
@@ -206,15 +239,22 @@ describe('StartScreen — code paste', () => {
 // ---------- Testing ground visibility ----------
 
 describe('StartScreen — testing ground link', () => {
-  it('shows the testing-ground link in Same device mode', () => {
+  it('shows the testing-ground link in This Device mode', () => {
     render(<StartScreen {...withOnline()} />);
     expect(screen.getByRole('button', { name: /testing ground/i })).toBeInTheDocument();
   });
 
-  it('hides the testing-ground link in Online mode', async () => {
+  it('hides the testing-ground link in Create mode', async () => {
     const user = userEvent.setup();
     render(<StartScreen {...withOnline()} />);
-    await user.click(screen.getByRole('tab', { name: /online/i }));
+    await user.click(screen.getByRole('tab', { name: /create room/i }));
+    expect(screen.queryByRole('button', { name: /testing ground/i })).toBeNull();
+  });
+
+  it('hides the testing-ground link in Join mode', async () => {
+    const user = userEvent.setup();
+    render(<StartScreen {...withOnline()} />);
+    await user.click(screen.getByRole('tab', { name: /join room/i }));
     expect(screen.queryByRole('button', { name: /testing ground/i })).toBeNull();
   });
 });
@@ -222,10 +262,10 @@ describe('StartScreen — testing ground link', () => {
 // ---------- Online error surfacing ----------
 
 describe('StartScreen — onlineError', () => {
-  it('renders onlineError in Online mode', async () => {
+  it('renders onlineError in Create mode', async () => {
     const user = userEvent.setup();
     render(<StartScreen {...withOnline({ onlineError: 'Server returned 500' })} />);
-    await user.click(screen.getByRole('tab', { name: /online/i }));
-    expect(screen.getByRole('alert')).toHaveTextContent(/500/);
+    await user.click(screen.getByRole('tab', { name: /create room/i }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(/500/);
   });
 });

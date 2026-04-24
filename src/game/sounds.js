@@ -78,10 +78,28 @@ let bgBuffer = null;
 // the user has since cancelled (stopBgTheme/quick-toggle).
 let bgLoadToken = 0;
 
+// Kicked off at module load so the 4 MB download happens in parallel with the
+// rest of app init — by the time the user starts a game, this promise is
+// usually already resolved. Decoded on first play (can't decode without an
+// AudioContext, which only exists after a user gesture). index.html also
+// carries a <link rel="preload" as="audio"> that starts the request even
+// earlier, during HTML parsing; that + this both hit the HTTP cache so the
+// second request is free.
+let bgRawPromise = null;
+function primeBgRaw() {
+  if (bgRawPromise) return bgRawPromise;
+  if (typeof fetch === 'undefined') return Promise.resolve(null);
+  bgRawPromise = fetch(BG_FILE)
+    .then((res) => (res.ok ? res.arrayBuffer() : null))
+    .catch(() => null);
+  return bgRawPromise;
+}
+primeBgRaw();
+
 function stopBgSourceIfAny() {
   if (bgSource) {
-    try { bgSource.stop(); } catch (_) { /* already stopped */ }
-    try { bgSource.disconnect(); } catch (_) {}
+    try { bgSource.stop(); } catch { /* already stopped */ }
+    try { bgSource.disconnect(); } catch { /* already disconnected */ }
     bgSource = null;
   }
 }
@@ -90,16 +108,18 @@ async function loadBgBuffer() {
   if (bgBuffer) return bgBuffer;
   const c = getCtx();
   if (!c) return null;
-  const res = await fetch(BG_FILE);
-  if (!res.ok) throw new Error(`bg ${BG_FILE} failed: ${res.status}`);
-  const arr = await res.arrayBuffer();
-  bgBuffer = await c.decodeAudioData(arr);
+  const arr = await primeBgRaw();
+  if (!arr) throw new Error(`bg ${BG_FILE} failed to preload`);
+  // decodeAudioData detaches the ArrayBuffer; the promise cache holds the
+  // same buffer for reuse, so pass a clone on first decode. Subsequent calls
+  // return the cached AudioBuffer before reaching this point.
+  bgBuffer = await c.decodeAudioData(arr.slice(0));
   return bgBuffer;
 }
 
 async function startBgSource(token) {
   let buf;
-  try { buf = await loadBgBuffer(); } catch (_) { return; }
+  try { buf = await loadBgBuffer(); } catch { return; }
   if (!buf || !bgPlaying || token !== bgLoadToken) return;
   const c = getCtx();
   if (!c) return;

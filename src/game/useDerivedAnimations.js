@@ -40,20 +40,23 @@ export function useDerivedAnimations(gameState) {
   }, [flyingFreeze]);
 
   // Flying-freeze projectile — fires when lastEvent changes to a freeze event.
+  // The setState here is intentional: a discriminated-union change on lastEvent
+  // is an *event*, not derived state, and the animation overlay needs a
+  // re-render to mount. react-hooks/set-state-in-effect can't see that.
   useEffect(() => {
     const ev = gameState?.lastEvent;
     if (!ev || ev.type !== 'freeze') return;
     const collector = gameState.players.find((p) => p.id === ev.byId);
     const frozen = gameState.players.find((p) => p.id === ev.targetId);
-    if (collector && frozen) {
-      setFlyingFreeze({
-        fromRow: collector.row,
-        fromCol: collector.col,
-        toRow: frozen.row,
-        toCol: frozen.col,
-      });
-    }
-  }, [gameState?.lastEvent]);
+    if (!collector || !frozen) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setFlyingFreeze({
+      fromRow: collector.row,
+      fromCol: collector.col,
+      toRow: frozen.row,
+      toCol: frozen.col,
+    });
+  }, [gameState?.lastEvent, gameState?.players]);
 
   // Main state-diff: detect item pickups, portal jumps, swap flashes from the
   // (prev → current) turn transition. Item-pickup sounds fire here too.
