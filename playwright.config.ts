@@ -11,7 +11,9 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? 'github' : 'list',
+  timeout: 30_000,
   use: {
+    baseURL: 'http://localhost:5173',
     trace: 'retain-on-failure',
   },
   projects: [
@@ -21,6 +23,22 @@ export default defineConfig({
         ...devices['Desktop Chrome'],
         launchOptions: chromiumExecutable ? { executablePath: chromiumExecutable } : undefined,
       },
+    },
+  ],
+  webServer: [
+    {
+      // Wrangler dev: Worker + Durable Objects on port 8787.
+      command: 'npm run dev:server',
+      url: 'http://localhost:8787/ping',
+      reuseExistingServer: !process.env.CI,
+      timeout: 30_000,
+    },
+    {
+      // Vite dev with online flag enabled. Port pinned to match baseURL.
+      command: 'VITE_ENABLE_ONLINE=true npx vite --port 5173 --strictPort',
+      url: 'http://localhost:5173/VectorX/',
+      reuseExistingServer: !process.env.CI,
+      timeout: 30_000,
     },
   ],
 });

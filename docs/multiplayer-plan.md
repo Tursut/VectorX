@@ -370,13 +370,21 @@ Each step is a single commit-sized unit of work. Every step ends with an automat
 
 ### End-to-end validation (step 17)
 
-**Step 17 — Playwright E2E suite.** Five specs, each a single file:
+**Step 17 — Playwright E2E suite. ✅** Five specs, each a single file:
 - `happy-path.spec.ts` — two contexts, create+join via share link, play 3 turns, identical state.
 - `bot-fill.spec.ts` — 1 human + 3 bots → `GAME_OVER` with a winner.
 - `disconnect.spec.ts` — close ctx B mid-game → ctx A sees elimination toast.
 - `share-link.spec.ts` — cold open of generated URL works.
 - `reconnect.spec.ts` — toggle offline/online on ctx B → session cookie restores seat.
 - **Verify:** `npm run test:e2e` → all five green. CI runs them with `wrangler dev` + `vite preview` as fixtures.
+
+**Step 17 deviations:**
+- **4 specs instead of 5.** `reconnect.spec.ts` is omitted — Step 13 explicitly deferred session-cookie reconnect identity. No stub was written since a placeholder would pass vacuously and give false confidence.
+- **`bot-fill` tests presence, not game completion.** The plan said "bot fill → GAME_OVER". In practice each bot turn takes 800–1400ms and a full 4-player game can last 60–100 turns — well beyond a reasonable CI budget. The spec instead verifies: (1) lobby shows exactly 3 empty-slot placeholders, (2) game board appears after start, (3) all 4 starting-corner cells are pre-claimed (proving `initGame` ran correctly on the server). Bot-loop correctness is already validated by `room-bots.test.ts`'s all-bots simulation.
+- **`disconnect` asserts a skull, not a toast.** The plan mentioned "elimination toast" but the client renders a `.death-marker` skull on the board cell, not a toast. The spec asserts `.death-marker` is visible on the remaining player's board.
+- **`playwright.config.ts` webServer uses `vite dev` + `wrangler dev`, not `vite preview`.** `vite dev` with `VITE_ENABLE_ONLINE=true` is simpler to auto-start in CI than a prior `npm run build` step. The `url` readiness probe is `http://localhost:5173/VectorX/` (matching Vite's `base: '/VectorX/'` config). `reuseExistingServer: !process.env.CI` lets developers run servers manually in local workflows.
+- **`data-testid="game-board"` added to `GameBoard.jsx`** outer div — the only testid addition needed; all other selectors use existing ARIA labels, CSS classes, and placeholder text.
+- **5 E2E tests pass in 19 s** (including server + Vite startup via webServer). All 93 unit tests still green.
 
 ### Deploy + harden (steps 18–20)
 

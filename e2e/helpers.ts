@@ -1,0 +1,63 @@
+// Shared helpers for the online E2E suite.
+//
+// APP and SERVER match the webServer ports in playwright.config.ts. Both must
+// be running before tests execute (the webServer config handles this).
+
+import type { Page } from '@playwright/test';
+
+export const SERVER = 'http://localhost:8787';
+export const APP = 'http://localhost:5173/VectorX/';
+
+// Create a room via the HTTP API (not the browser). Returns the 5-char code.
+export async function createRoom(): Promise<string> {
+  const res = await fetch(`${SERVER}/rooms`, { method: 'POST' });
+  if (!res.ok) throw new Error(`POST /rooms returned ${res.status}`);
+  const body = await res.json() as { code: string };
+  return body.code;
+}
+
+export async function gotoApp(page: Page): Promise<void> {
+  await page.goto(APP);
+}
+
+// Click the ONLINE mode tab on the start screen.
+export async function selectOnlineMode(page: Page): Promise<void> {
+  await page.getByRole('tab', { name: /online/i }).click();
+}
+
+// Fill the online form. `code` is optional — when the URL hash pre-filled it,
+// pass nothing (the field is already populated).
+export async function fillOnlineForm(
+  page: Page,
+  name: string,
+  code?: string,
+): Promise<void> {
+  await page.getByPlaceholder('e.g. Alice').fill(name);
+  if (code) {
+    await page.getByLabel('Room code').fill(code);
+  }
+}
+
+export async function clickPrimary(page: Page): Promise<void> {
+  await page.locator('.start-button').click();
+}
+
+// Wait for the lobby waiting-room section to become visible.
+export async function waitForLobby(page: Page): Promise<void> {
+  await page.waitForSelector('[aria-label="Waiting room"]', { timeout: 10_000 });
+}
+
+// Extract the 5-char room code from the lobby hero section.
+export async function getLobbyCode(page: Page): Promise<string> {
+  const text = await page.locator('.lobby-code').textContent();
+  return text?.trim() ?? '';
+}
+
+// Click the first valid-move cell on the game board (role="button" is only
+// added to cells where the current player can legally move).
+export async function clickFirstValidCell(page: Page): Promise<void> {
+  await page
+    .locator('[data-testid="game-board"] [role="button"]')
+    .first()
+    .click({ timeout: 8_000 });
+}

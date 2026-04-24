@@ -35,7 +35,7 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
     : null;
 
   return (
-    <div className="board" style={{ '--player-color': playerColor, position: 'relative' }}>
+    <div className="board" data-testid="game-board" style={{ '--player-color': playerColor, position: 'relative' }}>
       {grid.map((row, ri) =>
         row.map((cell, ci) => {
           const key = `${ri},${ci}`;

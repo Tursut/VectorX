@@ -311,7 +311,12 @@ server/                          ← Cloudflare Worker + RoomDurableObject + wir
   __tests__/room-timer.test.ts   ← 3 cases covering the human turn timer: alarm size is ~TURN_TIME_MS when current seat is human, firing the alarm forfeits via eliminateCurrentPlayer (isEliminated + deathCell + finishTurn set; currentPlayerIndex advances), and bot-to-human handoff correctly switches the alarm size from 800–1400ms to TURN_TIME_MS.
   __tests__/room-disconnect.test.ts ← 4 cases covering disconnect=elimination during `playing` phase: non-current player disconnect (marked eliminated, turn unchanged), current-player disconnect (eliminated + turn advances), last-human-in-1h3b disconnect (bots play out to GAME_OVER via alarms), and post-GAME_OVER disconnect (no-op, no alarm, no broadcast).
 e2e/                             ← Playwright specs
-  sanity.spec.ts                 ← trivial harness-wired test
+  sanity.spec.ts                 ← trivial harness-wired test (no server needed)
+  helpers.ts                     ← shared helpers: createRoom(), APP/SERVER constants, page interaction utilities
+  share-link.spec.ts             ← cold-open of a share URL pre-fills room code + shows JOIN ROOM button
+  happy-path.spec.ts             ← two contexts: create room, join via share URL, both see same game board after start
+  bot-fill.spec.ts               ← 1 human + 3 bots: lobby shows 3 bot placeholders, game starts, 4 corners pre-claimed
+  disconnect.spec.ts             ← closing a context mid-game → remaining player sees a skull on the board
 vitest.config.js                 ← client/jsdom Vitest config
 vitest.setup.js                  ← jest-dom matchers
 playwright.config.ts             ← Playwright config (chromium-only, executablePath override via env)
@@ -411,7 +416,7 @@ Three suites, all wired in Step 1 with trivial "is this connected?" tests:
 
 - **Client unit/component** — Vitest + jsdom + `@testing-library/react`. Config: `vitest.config.js`. Tests live at `src/**/*.test.{js,jsx}`. Run with `npm test` (or `npm run test:watch`).
 - **Server** — Vitest running inside the Cloudflare `workerd` runtime via `@cloudflare/vitest-pool-workers`. Config: `server/vitest.config.ts`, registered as a Vite plugin: `plugins: [cloudflareTest({ wrangler: { configPath } })]` (the `cloudflareTest` plugin wires up the pool runner **and** the virtual `cloudflare:test` module — pass `cloudflarePool` alone and `import { SELF } from 'cloudflare:test'` will fail to resolve). Tests live at `server/**/*.test.ts`. Requires `server/wrangler.toml`. Run with `npm run test:server`.
-- **End-to-end** — Playwright (`@playwright/test`). Config: `playwright.config.ts`. Specs live at `e2e/**/*.spec.ts`. Chromium only for now. Run with `npm run test:e2e`. In sandboxed dev environments where `playwright install` can't reach the CDN, set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` to point at a pre-installed chromium binary.
+- **End-to-end** — Playwright (`@playwright/test`). Config: `playwright.config.ts`. Specs live at `e2e/**/*.spec.ts`. Chromium only for now. Run with `npm run test:e2e`. The config has a `webServer` array that auto-starts `npm run dev:server` (wrangler on port 8787) and the Vite dev server with `VITE_ENABLE_ONLINE=true` (port 5173) before any spec runs. In sandboxed dev environments where `playwright install` can't reach the CDN, set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` to point at a pre-installed chromium binary. Four online specs: share-link (cold-open), happy-path (two-context create+join+sync), bot-fill (1h3b lobby+start), disconnect (close-tab → skull).
 
 CI: `.github/workflows/test.yml` runs all three as separate jobs on pushes to the multiplayer feature branch and on all PRs.
 
@@ -419,7 +424,7 @@ CI: `.github/workflows/test.yml` runs all three as separate jobs on pushes to th
 
 **Online play works end-to-end in a browser.** Run `npx wrangler dev` + `VITE_ENABLE_ONLINE=true VITE_SERVER_URL=http://localhost:8787 npm run dev`, click Play online → Create Room → Alice → Start game, and a real 1h3b game plays out against the server-driven bots. Second tab with the share link joins a second human. Steps 0–16 together shipped the full stack.
 
-What's still missing for a real deploy: Playwright E2E tests (Step 17) validating the browser flow end-to-end; Cloudflare `wrangler deploy` + a `gh-pages-preview` branch (Step 18, first Cloudflare signup); production cutover (Step 19); abuse + hygiene hardening (Step 20). No visible turn-timer countdown on the client (server enforces the deadline).
+What's still missing for a real deploy: Cloudflare `wrangler deploy` + a `gh-pages-preview` branch (Step 18, first Cloudflare signup); production cutover (Step 19); abuse + hygiene hardening (Step 20). No visible turn-timer countdown on the client (server enforces the deadline).
 
 The in-game surface is now unified between local and online: both mount the shared `<GameScreen>` and call `useDerivedAnimations`, so sounds, bomb/portal/swap flashes, flying-freeze, and the trap/death animation chain all fire identically in both modes without a protocol change.
 
