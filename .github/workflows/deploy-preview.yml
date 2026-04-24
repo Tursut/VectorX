@@ -50,7 +50,7 @@ jobs:
           # grep -m 1 stops after one match (no SIGPIPE to upstream); || true
           # keeps pipefail happy when the regex misses and we fall through to
           # the explicit empty-check below.
-          WORKER_URL=$(echo "$DEPLOY_LOG" | grep -m 1 -oE 'https://[a-z0-9-]+\.workers\.dev' || true)
+          WORKER_URL=$(echo "$DEPLOY_LOG" | grep -m 1 -oE 'https://[a-z0-9.-]+\.workers\.dev' || true)
           if [ -z "$WORKER_URL" ]; then
             echo "::error::Failed to extract worker URL from wrangler output"
             exit 1
