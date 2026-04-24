@@ -388,8 +388,17 @@ Each step is a single commit-sized unit of work. Every step ends with an automat
 
 ### Deploy + harden (steps 18–20)
 
-**Step 18 — Preview deploy.** `wrangler deploy` Worker to `*.workers.dev`. Add GitHub Actions job that deploys the feature branch to `gh-pages-preview` with `VITE_ENABLE_ONLINE=true` pointing at the preview Worker URL. `main` is untouched, still at `VITE_ENABLE_ONLINE=false`.
+**Step 18 — Preview deploy. ✅** `wrangler deploy` Worker to `*.workers.dev`. Add GitHub Actions job that deploys the feature branch to `gh-pages-preview` with `VITE_ENABLE_ONLINE=true` pointing at the preview Worker URL. `main` is untouched, still at `VITE_ENABLE_ONLINE=false`.
 - **Verify:** Open preview URL in two browsers, play a full online game. Main game URL is unchanged — verify by loading it and seeing no online buttons.
+
+**Step 18 deviations:**
+- **No `account_id` in `server/wrangler.toml`.** Wrangler reads `CLOUDFLARE_API_TOKEN` from the env and resolves the account from the token's scope. Keeps credentials out of version control; only the token secret needs to be configured in GitHub.
+- **Worker URL captured from `wrangler deploy` stdout in CI.** Wrangler prints `https://<name>.<subdomain>.workers.dev` on every deploy; a grep + job output passes it to the client-build job. Avoids hard-coding an account-specific URL or requiring a separate repo variable. Falls-back to a clear CI error if the grep misses (format change in a future wrangler).
+- **Preview client deployed to a `gh-pages-preview` branch via `peaceiris/actions-gh-pages@v3`**, not GitHub's native `actions/deploy-pages@v4`. Reason: the native action requires a configured `github-pages` environment, and GitHub Pages allows only one active source per repo — sharing it with the main deploy would be fragile. The `peaceiris` action just pushes `dist/` to a branch; the owner configures Pages to serve from `gh-pages-preview` temporarily when they want a public preview URL, or verifies locally by pointing `npm run dev` at the deployed Worker.
+- **Added `/ping` smoke-test after `wrangler deploy`.** Quick sanity check that the Worker is actually reachable; fails the job clearly if the URL is unreachable (DNS propagation, wrong subdomain extracted, etc.) before CI bothers building the client.
+- **Two npm scripts (`deploy:preview`, `deploy:prod`) are identical today.** Both are `wrangler deploy --config server/wrangler.toml`. Step 19 will differentiate them (`deploy:prod` will use `--env production` or similar). Keeping both now makes the eventual Step-19 diff minimal.
+- **No test changes.** 93 client tests + 4 Playwright specs + server suite still green — Step 18 is purely infra.
+- **User must perform a one-time credential setup before CI works:** (1) create Cloudflare account, (2) generate an "Edit Cloudflare Workers" API token, (3) add it as the `CLOUDFLARE_API_TOKEN` GitHub secret, (4) run `npm run deploy:preview` locally once to confirm credentials work. The workflow documents these steps in its header comment.
 
 **Step 19 — Production cutover.** Merge the feature branch to `main`. Flip production build env var `VITE_ENABLE_ONLINE=true`. Point client at production Worker URL.
 - **Verify:** Load the live Pages URL; online buttons appear; create a room; play a full game with a friend. CI green.

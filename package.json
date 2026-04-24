@@ -13,7 +13,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:server": "vitest run --config server/vitest.config.ts",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "deploy:preview": "wrangler deploy --config server/wrangler.toml",
+    "deploy:prod": "wrangler deploy --config server/wrangler.toml"
   },
   "dependencies": {
     "framer-motion": "^12.38.0",

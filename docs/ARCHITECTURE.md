@@ -254,7 +254,7 @@ Server-side TS imports these `.js` files via a relative path (`../../src/game/lo
 - **Tests:** `npm run test:server` runs the full suite inside the real `workerd` runtime via `@cloudflare/vitest-pool-workers`. The pool is registered in `server/vitest.config.ts` as `plugins: [cloudflareTest({...})]`; test files hit the Worker via `import { SELF } from 'cloudflare:test'`, and DO state is inspected via `runInDurableObject(stub, (instance, state) => {…})`. Pure-logic tests (e.g. `logic.test.ts`) don't touch `SELF` or `env` — they just import the shared game module and assert.
 - **DO binding discovery:** `wrangler.toml` declares `[[durable_objects.bindings]] name = "ROOM" class_name = "RoomDurableObject"` plus a `[[migrations]] tag = "v1" new_classes = ["RoomDurableObject"]` block (required the first time a DO class is introduced). `wrangler dev` and the Vitest pool both read these from the same toml.
 - **TypeScript:** `server/tsconfig.json` extends `@cloudflare/workers-types` and `@cloudflare/vitest-pool-workers` types (no DOM). `allowJs: true` + `include: ["**/*.ts", "../src/game/**/*.js"]` for the shared game module. `noEmit: true` — types are for editors + type-aware tooling only; runtime transpilation goes through esbuild (Vitest) and wrangler.
-- **Deploy:** not wired yet. Step 18 adds `wrangler deploy` → `*.workers.dev`; Step 19 points the production client at it.
+- **Deploy:** `.github/workflows/deploy-preview.yml` (Step 18) deploys the Worker to `*.workers.dev` on every push to the multiplayer feature branch, then builds a client with `VITE_ENABLE_ONLINE=true` + `VITE_SERVER_URL=<worker-url>` and pushes `dist/` to the `gh-pages-preview` branch via `peaceiris/actions-gh-pages@v3`. The worker URL is extracted from `wrangler deploy` stdout and passed to the client-build job as a workflow output. Requires `CLOUDFLARE_API_TOKEN` GitHub secret (one-time setup by the repo owner; see the workflow file's header comment). Local manual deploy: `npm run deploy:preview`. Step 19 will extend this for production cutover.
 
 ## Directory map
 
@@ -320,7 +320,8 @@ e2e/                             ← Playwright specs
 vitest.config.js                 ← client/jsdom Vitest config
 vitest.setup.js                  ← jest-dom matchers
 playwright.config.ts             ← Playwright config (chromium-only, executablePath override via env)
-.github/workflows/deploy.yml     ← GitHub Pages deploy (triggers on a single branch — see Deploy section)
+.github/workflows/deploy.yml     ← GitHub Pages deploy for the live hotseat game (triggers on `claude/grid-territory-game-design-433J8`)
+.github/workflows/deploy-preview.yml ← Step 18 preview deploy. Triggers on pushes to the multiplayer feature branch. Two jobs: (1) `wrangler deploy` Worker → capture `*.workers.dev` URL from stdout, (2) build client with `VITE_ENABLE_ONLINE=true` + `VITE_SERVER_URL=<url>` and push `dist/` to `gh-pages-preview` branch via `peaceiris/actions-gh-pages`. Requires `CLOUDFLARE_API_TOKEN` repo secret.
 .github/workflows/test.yml       ← runs the three test suites on the feature branch + all PRs
 ```
 
@@ -424,7 +425,7 @@ CI: `.github/workflows/test.yml` runs all three as separate jobs on pushes to th
 
 **Online play works end-to-end in a browser.** Run `npx wrangler dev` + `VITE_ENABLE_ONLINE=true VITE_SERVER_URL=http://localhost:8787 npm run dev`, click Play online → Create Room → Alice → Start game, and a real 1h3b game plays out against the server-driven bots. Second tab with the share link joins a second human. Steps 0–16 together shipped the full stack.
 
-What's still missing for a real deploy: Cloudflare `wrangler deploy` + a `gh-pages-preview` branch (Step 18, first Cloudflare signup); production cutover (Step 19); abuse + hygiene hardening (Step 20). No visible turn-timer countdown on the client (server enforces the deadline).
+What's still missing for a real deploy: production cutover (Step 19 — flip main branch to `VITE_ENABLE_ONLINE=true`); abuse + hygiene hardening (Step 20). No visible turn-timer countdown on the client (server enforces the deadline). The preview deploy pipeline (Step 18) is in place and needs only a one-time Cloudflare credential setup by the repo owner (`CLOUDFLARE_API_TOKEN` secret) to become active.
 
 The in-game surface is now unified between local and online: both mount the shared `<GameScreen>` and call `useDerivedAnimations`, so sounds, bomb/portal/swap flashes, flying-freeze, and the trap/death animation chain all fire identically in both modes without a protocol change.
 
