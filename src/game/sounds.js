@@ -470,7 +470,7 @@ const BG_VARIANTS = {
   mystic:   { tempo: 0.60, loopBeats: 24, scheduleBeat: scheduleMysticBeat },
   rally:    { tempo: 0.43, loopBeats: 32, scheduleBeat: scheduleRallyBeat },
   tense:    { tempo: 0.67, loopBeats: 16, scheduleBeat: scheduleTenseBeat },
-  spring:   { file: '/bg-spring.mp3' },
+  spring:   { file: `${import.meta.env.BASE_URL}bg-spring.mp3` },
 };
 
 function scheduleBg() {
