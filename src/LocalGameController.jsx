@@ -115,6 +115,14 @@ export default function LocalGameController({
     const currentPlayerId = gameState.players[gameState.currentPlayerIndex].id;
     if (currentPlayerId < PLAYERS.length - gc) return; // human turn
 
+    // Trapped bot: skip the fake-thinking delay and eliminate on the next paint.
+    if (getCurrentValidMoves(gameState).length === 0) {
+      const t = setTimeout(() => {
+        dispatch({ type: 'TIMEOUT', playerIndex: gameState.currentPlayerIndex });
+      }, 80);
+      return () => clearTimeout(t);
+    }
+
     const rafId = requestAnimationFrame(() => setIsThinking(true));
     const humanCount = PLAYERS.length - gc;
     const anyHumanAlive = gameState.players.some(p => !p.isEliminated && p.id < humanCount);

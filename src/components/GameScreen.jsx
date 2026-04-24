@@ -136,11 +136,8 @@ export default function GameScreen({
       ? gameState.players.find((p) => p.id === gameState.winner)
       : null;
 
-  // Highlight the winner during the trap wind-down when a human wins.
-  const winnerPlayer =
-    trapPlaying && winnerState && !isBotPlayer(gameState, winnerState)
-      ? winnerState
-      : null;
+  // Highlight any winner (human or bot) during the last-death wind-down.
+  const winnerPlayer = trapPlaying && winnerState ? winnerState : null;
 
   return (
     <AnimatePresence mode="wait">
