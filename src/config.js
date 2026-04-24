@@ -22,3 +22,11 @@ export function wsUrl(code) {
   const base = SERVER_URL.replace(/^http/, 'ws');
   return `${base}/rooms/${code}/ws`;
 }
+
+// Baked into the bundle by vite.config.js's `define` block. Shown on the start
+// screen so anyone can eyeball whether a deploy has actually landed. Vitest
+// doesn't run through Vite's define pass, so guard with typeof to avoid a
+// ReferenceError in test runs.
+/* global __BUILD_TIME__ */
+export const BUILD_TIME =
+  typeof __BUILD_TIME__ === 'undefined' ? 'dev' : __BUILD_TIME__;

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { PLAYERS, ITEM_TYPES } from '../game/constants';
+import { BUILD_TIME } from '../config';
 import SoundToggle from './SoundToggle';
 
 // Room-code alphabet mirrors server/protocol.ts. Filter as the user types;
@@ -298,6 +299,8 @@ export default function StartScreen({
           {primaryLabel}
         </button>
       </div>
+
+      <p className="start-build-stamp">built {BUILD_TIME}</p>
     </div>
   );
 }
