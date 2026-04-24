@@ -250,7 +250,11 @@ describe('all-bots simulation', () => {
 
     const final = await peekGameAndAlarm(code);
     expect(final.game!.phase).toBe('gameover');
-    expect(final.alarm).toBeNull();
+    // Post-GAME_OVER the server schedules a reaper alarm 10 min out so stale
+    // rooms don't accumulate. Assert it's roughly that far in the future, not
+    // that it's null.
+    expect(final.alarm).not.toBeNull();
+    expect(final.alarm! - Date.now()).toBeGreaterThan(9 * 60 * 1000);
 
     const alive = final.game!.players.filter((p) => !p.isEliminated);
     // Winner is the lone survivor; winner field on game state matches.

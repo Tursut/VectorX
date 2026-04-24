@@ -234,7 +234,9 @@ describe('disconnect during playing: last human leaves a 1h3b', () => {
     expect(alive).toHaveLength(1);
     // Alice (seat 0) was eliminated by disconnect, so she can't be the winner.
     expect(final.game!.winner).not.toBe(0);
-    expect(final.alarm).toBeNull();
+    // Post-GAME_OVER reaper alarm is scheduled ~10 min out (Step 20).
+    expect(final.alarm).not.toBeNull();
+    expect(final.alarm! - Date.now()).toBeGreaterThan(9 * 60 * 1000);
   }, 30_000);
 });
 
@@ -285,6 +287,11 @@ describe('disconnect after GAME_OVER is a no-op', () => {
 
     const snap = await peekGameAndAlarm(code);
     expect(snap.game!.phase).toBe('gameover');
+    // The test seeded GAME_OVER directly and then deleteAlarm'd it, so no
+    // reaper was scheduled. webSocketClose for a non-'playing' game is a
+    // no-op, so the alarm stays null — that's the invariant we're asserting.
+    // (Real gameover paths go through maybeScheduleTurnAlarm, which DOES
+    // schedule the 10-min reaper — see the bot-simulation test above.)
     expect(snap.alarm).toBeNull();
   });
 });

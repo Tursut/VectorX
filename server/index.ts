@@ -53,6 +53,66 @@ const WS_PATH_RE = /^\/rooms\/([A-Z2-9]{5})\/ws$/;
 
 const MAX_PLAYERS = 4;
 
+// ----- Step 20: abuse hardening -----
+
+// Allowed browser origins for POST /rooms and WS upgrades. Non-browser callers
+// (curl, SELF.fetch in workers-pool tests, server-to-server fetches) omit the
+// Origin header entirely — we allow those through so debugging and tests keep
+// working. Anything with a NON-empty Origin that isn't in this set → 403.
+const ALLOWED_ORIGINS = new Set([
+  'https://tursut.github.io',
+  'http://localhost:5173', // Vite dev server
+  'http://localhost:4173', // Vite preview server
+]);
+
+function originAllowed(request: Request): boolean {
+  const origin = request.headers.get('Origin');
+  if (origin === null) return true;
+  return ALLOWED_ORIGINS.has(origin);
+}
+
+// Per-IP sliding-window rate limiter. Isolate-local Map, so a griefer bouncing
+// between Cloudflare data centres gets a fresh bucket per isolate — acceptable
+// for our threat model, and costs zero DO requests (unlike a RateLimiter DO).
+// Keys: `${scope}:${ip}`. The `scope` prefix lets a single IP hit different
+// routes independently (POST /rooms + WS handshake).
+const RATE_BUCKETS = new Map<string, number[]>();
+const WINDOW_MS = 60_000;
+const ROOM_CREATE_LIMIT = 10;   // per IP per minute
+const WS_HANDSHAKE_LIMIT = 30;  // per IP per minute
+
+function rateLimitAllow(scope: string, ip: string | null, limit: number): boolean {
+  // No IP header (tests, non-CF proxies) → skip rate limiting. Production
+  // always sets CF-Connecting-IP; the absence is a test-harness signal.
+  if (!ip) return true;
+  const key = `${scope}:${ip}`;
+  const now = Date.now();
+  const cutoff = now - WINDOW_MS;
+  const bucket = (RATE_BUCKETS.get(key) ?? []).filter((t) => t > cutoff);
+  if (bucket.length >= limit) {
+    RATE_BUCKETS.set(key, bucket);
+    return false;
+  }
+  bucket.push(now);
+  RATE_BUCKETS.set(key, bucket);
+  return true;
+}
+
+// Test-only: reset the rate-limit map so tests can run with predictable state
+// when they explicitly opt into rate-limit behaviour (by setting an IP).
+export function _resetRateLimiters(): void {
+  RATE_BUCKETS.clear();
+}
+
+// WS frame size cap. Our largest legitimate client→server payload is MOVE,
+// which serialises to <40 bytes. 4 KiB is 100× safety margin; anything bigger
+// is griefing and we close the socket with the "message too big" code.
+const MAX_FRAME_BYTES = 4096;
+
+// Room reaper: delete a finished room's DO storage 10 minutes after the game
+// ends, so storage doesn't accumulate forever. Read in the alarm handler.
+const REAPER_DELAY_MS = 10 * 60 * 1000;
+
 function generateRoomCode(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(5));
   let out = '';
@@ -136,6 +196,19 @@ export class RoomDurableObject extends DurableObject<Env> {
     ws: WebSocket,
     raw: string | ArrayBuffer,
   ): Promise<void> {
+    // Frame-size cap. Largest legit payload is MOVE at ~40 bytes; anything
+    // over 4 KiB is griefing. Close with 1009 (Message Too Big) and don't
+    // even attempt to parse the payload.
+    const size = typeof raw === 'string' ? raw.length : raw.byteLength;
+    if (size > MAX_FRAME_BYTES) {
+      try {
+        ws.close(1009, 'Message too big');
+      } catch {
+        // Socket already dead; nothing to do.
+      }
+      return;
+    }
+
     // Binary frames aren't part of the text-JSON protocol.
     if (typeof raw !== 'string') {
       this.sendError(ws, 'BAD_PAYLOAD');
@@ -241,6 +314,24 @@ export class RoomDurableObject extends DurableObject<Env> {
   // human between scheduling and firing). Chains consecutive bot turns by
   // re-scheduling at the end.
   override async alarm(): Promise<void> {
+    // Reaper check first: if a post-GAME_OVER reaper was scheduled and the
+    // 10-minute grace is up, drain sockets and wipe all storage. Subsequent
+    // WS upgrades for this room code will 404 (storage.get('code') is now
+    // undefined).
+    const reaperAt = await this.ctx.storage.get<number>('reaperAt');
+    if (reaperAt !== undefined && Date.now() >= reaperAt) {
+      for (const ws of this.ctx.getWebSockets()) {
+        try {
+          ws.close(1000, 'Room closed');
+        } catch {
+          // Socket already torn down — nothing to do.
+        }
+      }
+      await this.ctx.storage.deleteAll();
+      await this.ctx.storage.deleteAlarm();
+      return;
+    }
+
     const code = await this.ctx.storage.get<string>('code');
     const lobby = await this.ctx.storage.get<LobbyStorage>('lobby');
     let game = await this.ctx.storage.get<GameStorage>('game');
@@ -456,7 +547,16 @@ export class RoomDurableObject extends DurableObject<Env> {
     lobby: LobbyStorage,
   ): Promise<void> {
     if (game.phase !== 'playing') {
-      await this.ctx.storage.deleteAlarm();
+      // Game over (or otherwise not playing). Replace any pending turn alarm
+      // with the room reaper, if we haven't already scheduled it. reaperAt
+      // is persisted so concurrent triggers (close + alarm) don't race the
+      // schedule; once set, it's not re-bumped.
+      const existing = await this.ctx.storage.get<number>('reaperAt');
+      if (existing === undefined) {
+        const target = Date.now() + REAPER_DELAY_MS;
+        await this.ctx.storage.put('reaperAt', target);
+        await this.ctx.storage.setAlarm(target);
+      }
       return;
     }
     const currentPlayer = game.players[game.currentPlayerIndex];
@@ -602,6 +702,16 @@ export default {
       if (request.method !== 'POST') {
         return new Response(null, { status: 405, headers: { allow: 'POST' } });
       }
+      if (!originAllowed(request)) {
+        return new Response('Origin not allowed', { status: 403 });
+      }
+      const ip = request.headers.get('CF-Connecting-IP');
+      if (!rateLimitAllow('rooms', ip, ROOM_CREATE_LIMIT)) {
+        return new Response('Too Many Requests', {
+          status: 429,
+          headers: { 'retry-after': '60' },
+        });
+      }
       // Up to 5 retries on DO 409 (collision). With 33.5M space and a clean
       // uniform generator, this branch effectively never re-loops in practice.
       for (let attempt = 0; attempt < 5; attempt++) {
@@ -635,6 +745,16 @@ export default {
     if (wsMatch) {
       if (request.method !== 'GET') {
         return new Response(null, { status: 405, headers: { allow: 'GET' } });
+      }
+      if (!originAllowed(request)) {
+        return new Response('Origin not allowed', { status: 403 });
+      }
+      const ip = request.headers.get('CF-Connecting-IP');
+      if (!rateLimitAllow('ws', ip, WS_HANDSHAKE_LIMIT)) {
+        return new Response('Too Many Requests', {
+          status: 429,
+          headers: { 'retry-after': '60' },
+        });
       }
       if (request.headers.get('upgrade') !== 'websocket') {
         return new Response('Upgrade Required', {

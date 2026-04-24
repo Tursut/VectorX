@@ -413,7 +413,16 @@ Each step is a single commit-sized unit of work. Every step ends with an automat
 - **`test.yml` trigger changed to `main`** (was the multiplayer feature branch). PRs still trigger it as before.
 - **Feature branch stays around for history.** Can be deleted any time; not in the way.
 
-**Step 20 — Abuse & hygiene hardening.** Not "enterprise security" — just the minimum so a bored stranger can't trivially grief or exhaust the server.
+**Step 20 — Abuse & hygiene hardening. ✅** Not "enterprise security" — just the minimum so a bored stranger can't trivially grief or exhaust the server.
+
+**Step 20 deviations:**
+- **Scope trimmed.** The original plan listed 5 defence categories; we shipped 4 and skipped the per-socket message rate limiter (authenticated MOVE spam is already cheap — existing `NOT_YOUR_TURN` / `INVALID_MOVE` guards reject without state change) and the lobby-idle TTL (small per-room storage; covered indirectly by the reaper whenever a room reaches game-over).
+- **Rate limiter is isolate-local, not a RateLimiterDO.** A Map in module scope, per-IP keys, sliding window. Costs zero DO requests (unlike a dedicated DO would), which matters because the free-tier DO quota is the budget we're trying to protect. A griefer routed to a different Cloudflare data-centre gets a fresh bucket — acceptable for the threat model.
+- **Origin allow-list permits null Origin.** `curl`, `SELF.fetch` in the workers-pool tests, and server-to-server callers all omit the `Origin` header. Rejecting them would break the test harness and any future CLI tooling, so null is allowed; only NON-empty Origins not in the allow-list are rejected.
+- **Reaper alarm multiplexes with the existing turn alarm.** We have exactly one DO alarm channel. During playing phase it's the turn timer. On transition to `gameover`, `maybeScheduleTurnAlarm` writes `reaperAt` + `setAlarm(now + 10 min)`. When the alarm fires, the handler checks `reaperAt` first and takes the reap branch (drain sockets, `storage.deleteAll()`) if the grace is up.
+- **Two pre-existing tests updated.** `room-bots.test.ts` and `room-disconnect.test.ts` previously asserted `alarm === null` after GAME_OVER; both now assert the reaper alarm is scheduled ~10 min out. One test (`disconnect after GAME_OVER is a no-op`) keeps the null assertion because it seeds gameover state directly and explicitly `deleteAlarm`s — it's testing the webSocketClose no-op invariant, not the scheduling path.
+- **Tests: 9 new in `security.test.ts`** covering all four defences. Full suite: 111 server (102 + 9), 94 client, 5 E2E — all green.
+- **Zero Cloudflare dashboard changes.** No new bindings, no new env vars, no new secrets. Wrangler.toml is unchanged.
 
 *Categories + mitigations:*
 

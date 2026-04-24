@@ -236,6 +236,17 @@ Online is a thin socket + lobby shell that reuses the in-game renderer. After th
 - 5-char codes → 32⁵ ≈ 33.5M combinations.
 - Generated via `crypto.getRandomValues(new Uint8Array(5))` + `byte & 0x1F` lookup (unbiased — 5 bits out of 8 independently uniform).
 
+### Abuse hardening (Step 20)
+
+Four cheap, layered defences — all in `server/index.ts`, zero new bindings or secrets. Goal: keep a casual griefer from burning through free-tier quotas.
+
+- **Origin allow-list.** `POST /rooms` and `GET /rooms/:code/ws` check the `Origin` header. `https://tursut.github.io`, `http://localhost:5173`, and `http://localhost:4173` are allowed; so is a missing header (CLI / server-to-server). Anything else → `403`. Declared in `ALLOWED_ORIGINS` near the top of `server/index.ts`.
+- **Per-IP rate limit** — isolate-local sliding-window Map keyed by `${scope}:${ip}` from `CF-Connecting-IP`. `POST /rooms`: 10/minute/IP. `GET /rooms/:code/ws`: 30/minute/IP. Over-budget → `429` with `retry-after: 60`. No DO calls, so it doesn't eat our DO quota. A griefer routed to a different Cloudflare data-centre gets a fresh bucket — fuzzy, but enough for our threat model. Tests call `_resetRateLimiters()` (exported only for test use) in `beforeEach`.
+- **WS frame size cap** — `webSocketMessage` rejects frames > 4 KiB by closing with `1009` (Message Too Big) before parsing. Legit payloads are < 40 bytes; the cap is 100× safety margin.
+- **Room reaper** — on transition into `gameover`, `maybeScheduleTurnAlarm` writes `reaperAt = Date.now() + 10 min` to storage and `setAlarm(reaperAt)`. When the alarm fires, `alarm()` checks `reaperAt` first: if elapsed, drain sockets (`close(1000)`) and `storage.deleteAll()`. Subsequent WS upgrades for the same code `404` because `storage.get('code')` is now undefined. Multiplexed with the turn-timer alarm (which was the previous sole user of the alarm channel).
+
+Free-tier safety: Cloudflare cannot bill without a credit card on file. The absolute worst-case after all defences are bypassed is hitting Workers (100k/day) or DO (1M/month) quotas and receiving `429`/`1015` from Cloudflare — the game degrades, no bill. Tests: `server/__tests__/security.test.ts`.
+
 ### Shared game module (`src/game/`)
 
 The server imports the existing pure game module directly — no copy. Single source of truth; client and server can never drift.

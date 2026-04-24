@@ -290,7 +290,7 @@ The Worker itself has no runtime secrets — it's stateless per-request and all 
 
 - **No session identity across reconnects.** If your WebSocket closes mid-game, the server treats it as a disconnect and eliminates your character. A reconnecting socket starts fresh (re-HELLO + new seat). A sticky-session fix exists in the long-term plan but isn't shipped.
 - **No visible turn-timer countdown on the client.** The server enforces the 10-second deadline via an alarm, but the client doesn't render a "5 seconds left" bar yet. The bar shown on screen is the hotseat timer; online renders a static bar.
-- **No abuse hardening yet.** There's no origin allow-list, no rate limits, no WS frame-size cap, and no room TTL. Fine for a game shared by code with friends — less fine if the URL ever gets posted publicly. Planned as "Step 20" in `docs/multiplayer-plan.md`.
+- **Abuse hardening is minimal, not enterprise-grade.** We ship an Origin allow-list, per-IP rate limits on room creation (10/min) and WS handshake (30/min), a 4 KiB WS frame cap, and a 10-minute post-`GAME_OVER` storage reaper. That's enough to stop a casual griefer; a determined attacker with rotating IPs could still exhaust free-tier quotas (at which point Cloudflare returns `429`/`1015` and the game stops working — it **cannot** bill us without a credit card on file). See `docs/ARCHITECTURE.md` → "Abuse hardening" for details.
 - **Room capacity hard-coded at 4.** Changing this is a nontrivial change to the `PLAYERS` array (which defines starting corners) and the bot-fill logic.
 - **5-char room codes.** ~33 M possible codes; guessing an active room requires millions of attempts per active minute. Not secret, but slow.
 
