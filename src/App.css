@@ -1940,7 +1940,9 @@
   display: flex;
   flex-direction: column;
   gap: 18px;
-  max-width: 520px;
+  /* Match .start-content's max-width so the visual frame doesn't shrink
+     when the user transitions start screen → lobby (issue #18). */
+  max-width: 560px;
   /* Bottom margin clears the sticky .start-button-bar (~80 px tall on its
      fade gradient + button + safe-area) so the last lobby element isn't
      covered. Top margin unchanged. */

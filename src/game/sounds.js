@@ -26,13 +26,16 @@ export function setMuted(val) {
   if (masterGain) masterGain.gain.value = val ? 0 : 1;
 }
 
-// Must be called from a user-gesture handler (touchstart / click).
-// Recreates the context if closed/missing (iOS can close it when backgrounded),
-// then resumes and restarts bg music if it was playing.
+// Must be called from a user-gesture handler (touchstart / click) or from
+// any of the page-visibility-style events. Recreates the context if closed,
+// resumes a suspended one, and rebuilds the bg-source if iOS killed it
+// while the page was backgrounded.
 export function resumeAudio() {
   if (!ctx || ctx.state === 'closed') {
     const wasPlaying = bgPlaying;
     bgPlaying = false;
+    bgSource = null;
+    bgSourceEnded = false;
     createContext();
     if (wasPlaying) {
       ctx.resume().then(() => startBgTheme()).catch(() => {});
@@ -43,6 +46,39 @@ export function resumeAudio() {
   }
   if (ctx.state === 'suspended') {
     ctx.resume().catch(() => {});
+  }
+  // ctx is up — but the bg-source under it might have been terminated by
+  // iOS during a background period. If we expected music to be playing and
+  // the source is missing or onended fired, rebuild it.
+  if (bgPlaying && (bgSource === null || bgSourceEnded)) {
+    bgLoadToken += 1;
+    bgSourceEnded = false;
+    startBgSource(bgLoadToken);
+  }
+}
+
+// Global audio-recovery listeners — issue #17.
+// iOS Safari (and Chrome iOS) suspends the AudioContext when the page is
+// backgrounded and sometimes outright closes it after a longer absence.
+// Touch / click cover the case where the user taps something on return,
+// but if they just look at the screen the context stays dead. Hooking
+// visibilitychange + focus + pageshow lets us resume the moment the page
+// is brought back into view, without waiting for a tap.
+//
+// Registered at module load so the listeners persist across mounts of the
+// game controllers and don't depend on React lifecycle.
+if (typeof document !== 'undefined') {
+  const onResumeIntent = () => resumeAudio();
+  const onVisibilityChange = () => {
+    if (document.visibilityState === 'visible') resumeAudio();
+  };
+  document.addEventListener('touchstart', onResumeIntent, { passive: true });
+  document.addEventListener('touchend',   onResumeIntent, { passive: true });
+  document.addEventListener('click',      onResumeIntent);
+  document.addEventListener('visibilitychange', onVisibilityChange);
+  if (typeof window !== 'undefined') {
+    window.addEventListener('focus',   onResumeIntent);
+    window.addEventListener('pageshow', onResumeIntent);
   }
 }
 
@@ -77,6 +113,12 @@ let bgBuffer = null;
 // Token prevents a late-arriving decode from starting playback for a request
 // the user has since cancelled (stopBgTheme/quick-toggle).
 let bgLoadToken = 0;
+// True once iOS / the runtime has fired the current bgSource's `onended`
+// event. Loop sources with `loop = true` shouldn't end on their own, so a
+// fired onended means the runtime killed the source — typically because
+// the page was backgrounded for too long. resumeAudio inspects this flag
+// and rebuilds the source if needed.
+let bgSourceEnded = false;
 
 // Kicked off at module load so the 4 MB download happens in parallel with the
 // rest of app init — by the time the user starts a game, this promise is
@@ -98,10 +140,14 @@ primeBgRaw();
 
 function stopBgSourceIfAny() {
   if (bgSource) {
+    // Detach onended first so an explicit stop() doesn't spuriously
+    // signal "iOS killed the source" (which would trigger recovery).
+    bgSource.onended = null;
     try { bgSource.stop(); } catch { /* already stopped */ }
     try { bgSource.disconnect(); } catch { /* already disconnected */ }
     bgSource = null;
   }
+  bgSourceEnded = false;
 }
 
 async function loadBgBuffer() {
@@ -131,6 +177,13 @@ async function startBgSource(token) {
   src.buffer = buf;
   src.loop = true;
   src.connect(gain);
+  // onended only fires for a looping source if something killed it (iOS
+  // background, runtime resource pressure, ctx close). Flagging this lets
+  // resumeAudio detect a dead source and rebuild it on the next gesture.
+  src.onended = () => {
+    if (bgSource === src) bgSourceEnded = true;
+  };
+  bgSourceEnded = false;
   src.start(c.currentTime + 0.02);
   bgSource = src;
 }

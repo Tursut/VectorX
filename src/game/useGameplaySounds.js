@@ -19,18 +19,9 @@ function isBotPlayer(gameState, player) {
 export function useGameplaySounds(gameState, mySeats = []) {
   const prevTurnRef = useRef(null);
 
-  // iOS audio recovery: resume context on any user interaction.
-  useEffect(() => {
-    const resume = () => sounds.resumeAudio();
-    document.addEventListener('touchstart', resume, { passive: true });
-    document.addEventListener('touchend',   resume, { passive: true });
-    document.addEventListener('click',      resume);
-    return () => {
-      document.removeEventListener('touchstart', resume, { passive: true });
-      document.removeEventListener('touchend',   resume, { passive: true });
-      document.removeEventListener('click',      resume);
-    };
-  }, []);
+  // (iOS audio-recovery listeners now live at module load in sounds.js so
+  // they persist across mounts and also catch visibilitychange / focus /
+  // pageshow — see issue #17.)
 
   // Background theme. Cleanup on unmount silences the theme when the
   // controller unmounts without ever transitioning to a non-'playing' phase
