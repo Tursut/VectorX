@@ -20,9 +20,11 @@ export async function gotoApp(page: Page): Promise<void> {
   await page.goto(APP);
 }
 
-// Click the ONLINE mode tab on the start screen.
+// Switch the start screen into create-a-room mode (the entry path every
+// online-mode E2E spec uses — share-link join tests cold-open into JOIN
+// mode directly, so they don't go through this helper).
 export async function selectOnlineMode(page: Page): Promise<void> {
-  await page.getByRole('tab', { name: /online/i }).click();
+  await page.getByRole('tab', { name: /create room/i }).click();
 }
 
 // Fill the online form. `code` is optional — when the URL hash pre-filled it,
