@@ -29,55 +29,60 @@ export default function Lobby({
   }
 
   return (
-    <section className="lobby" aria-label="Waiting room">
+    <div className="lobby-wrap">
+      <section className="lobby" aria-label="Waiting room">
 
-      <div className="lobby-hero">
-        <h1 className="lobby-title">LOBBY</h1>
-        <p className="lobby-room-line">
-          Room <span className="lobby-code">{code}</span>
-        </p>
-      </div>
+        <div className="lobby-hero">
+          <h1 className="lobby-title">LOBBY</h1>
+          <p className="lobby-room-line">
+            Room <span className="lobby-code">{code}</span>
+          </p>
+        </div>
 
-      <div className="lobby-invite">
-        <span className="lobby-invite-label">Invite friends</span>
-        <a className="lobby-invite-url" href={shareLink}>{shareLink}</a>
-        <button
-          type="button"
-          className={`lobby-copy-btn${copied ? ' lobby-copy-btn-done' : ''}`}
-          onClick={copyLink}
-          aria-label="Copy invite link"
-        >
-          {copied ? '✓ Copied!' : '📋 Copy link'}
-        </button>
-      </div>
+        <div className="lobby-invite">
+          <span className="lobby-invite-label">Invite friends</span>
+          <a className="lobby-invite-url" href={shareLink}>{shareLink}</a>
+          <button
+            type="button"
+            className={`lobby-copy-btn${copied ? ' lobby-copy-btn-done' : ''}`}
+            onClick={copyLink}
+            aria-label="Copy invite link"
+          >
+            {copied ? '✓ Copied!' : '📋 Copy link'}
+          </button>
+        </div>
 
-      <ul className="lobby-players" aria-label="Players">
-        {players.map((p) => (
-          <li key={p.id} className="lobby-player">
-            <span className="lobby-player-name">{p.displayName}</span>
-            {p.id === hostId && <span className="lobby-badge-host" aria-label="host"> 👑</span>}
-            {p.id === mySeatId && <span className="lobby-badge-you"> (you)</span>}
-          </li>
-        ))}
-        {Array.from({ length: emptySeats }, (_, i) => (
-          <li key={`empty-${i}`} className="lobby-player lobby-empty-seat">
-            🤖 Bot will fill this slot
-          </li>
-        ))}
-      </ul>
+        <ul className="lobby-players" aria-label="Players">
+          {players.map((p) => (
+            <li key={p.id} className="lobby-player">
+              <span className="lobby-player-name">{p.displayName}</span>
+              {p.id === hostId && <span className="lobby-badge-host" aria-label="host"> 👑</span>}
+              {p.id === mySeatId && <span className="lobby-badge-you"> (you)</span>}
+            </li>
+          ))}
+          {Array.from({ length: emptySeats }, (_, i) => (
+            <li key={`empty-${i}`} className="lobby-player lobby-empty-seat">
+              🤖 Bot will fill this slot
+            </li>
+          ))}
+        </ul>
 
-      {isHost && (
-        <p className="lobby-host-note">
-          Start now — empty slots will be filled by bots.
-        </p>
-      )}
+        {isHost && (
+          <p className="lobby-host-note">
+            Start now — empty slots will be filled by bots.
+          </p>
+        )}
 
-      {!isHost && (
-        <p className="lobby-wait-note">Waiting for the host to start…</p>
-      )}
+        {!isHost && (
+          <p className="lobby-wait-note">Waiting for the host to start…</p>
+        )}
+      </section>
 
+      {/* Exit-to-menu button sits OUTSIDE the lobby card so it visually
+          matches the GameScreen's exit-game-btn (same class, same styling,
+          same on-page-bg position) — issue #19. */}
       {onLeave && (
-        <button type="button" className="lobby-leave-btn" onClick={onLeave}>
+        <button type="button" className="exit-game-btn" onClick={onLeave}>
           ← Exit to menu
         </button>
       )}
@@ -97,6 +102,6 @@ export default function Lobby({
           </button>
         </div>
       )}
-    </section>
+    </div>
   );
 }

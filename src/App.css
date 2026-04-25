@@ -1936,20 +1936,26 @@
   cursor: not-allowed;
 }
 
+/* Wraps the lobby card + the exit-to-menu button as a vertical stack.
+   The width/margin live on the wrap so the exit button sits on the page
+   bg below the card (mirroring .exit-game-btn's position below the game
+   board), but stays horizontally aligned with the card's left edge. */
+.lobby-wrap {
+  width: min(100% - 40px, 560px);
+  /* Bottom margin clears the sticky .start-button-bar (~80 px tall on its
+     fade gradient + button + safe-area) so the last lobby element isn't
+     covered. */
+  margin: 48px auto 120px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
 .lobby {
   display: flex;
   flex-direction: column;
   gap: 18px;
-  /* On small screens, leave a 20 px gutter on each side so the card's
-     outer edges line up with the START GAME button below (which lives
-     in .start-button-bar with `padding: 14px 20px 20px`). On wider
-     screens, cap at 560 px and let margin:auto centre — same max as
-     .start-content (issue #18 / follow-up). */
-  width: min(100% - 40px, 560px);
-  /* Bottom margin clears the sticky .start-button-bar (~80 px tall on its
-     fade gradient + button + safe-area) so the last lobby element isn't
-     covered. Top margin unchanged. */
-  margin: 48px auto 120px;
+  width: 100%;
   padding: 24px;
   background: #0f0f23;
   border: 2px solid #333366;
@@ -2097,19 +2103,8 @@
   font-family: 'Segoe UI', sans-serif;
 }
 
-.lobby-leave-btn {
-  align-self: flex-start;
-  background: none;
-  border: none;
-  color: #556;
-  font-size: 13px;
-  font-family: inherit;
-  cursor: pointer;
-  padding: 2px 4px;
-  letter-spacing: 0.03em;
-  transition: color 0.15s;
-}
-.lobby-leave-btn:hover { color: #aab; }
+/* (.lobby-leave-btn removed — the lobby's exit-to-menu button now reuses
+    the same .exit-game-btn class as GameScreen for visual parity.) */
 
 /* ---------- Online status screen + mode switcher + online form ---------- */
 
