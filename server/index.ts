@@ -626,12 +626,21 @@ export class RoomDurableObject extends DurableObject<Env> {
       return;
     }
 
-    // Drop any seats still in the lobby grace window — if a player hasn't
-    // re-attached by START they're not actually playing, and bots should fill
-    // the slot. Compact the survivors so seat IDs are 0..N-1 implicitly via
-    // the existing gremlinCount convention.
-    const activeLobbyPlayers = lobby.players.filter(
-      (p) => p.disconnectedAt === null,
+    // Carry every seat — including the ones still inside the lobby grace
+    // window — into the playing phase. The single-phone test from issue #22
+    // exposed a hard-to-spot bug here: filtering out the suspended joiner
+    // at START removed them from `lobby.players` entirely, so when their
+    // tab woke up and re-HELLO'd, the playing-phase recovery path had no
+    // seat to match them against and bounced them with ALREADY_STARTED.
+    //
+    // Instead we keep their seat AND refresh their `disconnectedAt` to now
+    // so the playing-phase grace window (PLAYING_GRACE_MS) starts fresh
+    // from START — otherwise a player who'd been disconnected for 80 s in
+    // a 90 s lobby grace would be already-expired the moment the game
+    // begins and get killed by the immediate-grace-sweep alarm.
+    const startMs = Date.now();
+    const updatedPlayers = lobby.players.map((p) =>
+      p.disconnectedAt === null ? p : { ...p, disconnectedAt: startMs },
     );
 
     // gremlinCount tells initGame how many of the last seats are bots by
@@ -640,12 +649,12 @@ export class RoomDurableObject extends DurableObject<Env> {
     // getGremlinMove. isBot on each outbound GamePlayer is derived from the
     // lobby roster (see buildGameState) — not the gremlinCount convention —
     // so lobby gaps are still honest on the wire even today.
-    const gremlinCount = 4 - activeLobbyPlayers.length;
+    const gremlinCount = 4 - updatedPlayers.length;
     const game = initGame(msg.magicItems, gremlinCount) as GameStorage;
 
     const updatedLobby: LobbyStorage = {
       ...lobby,
-      players: activeLobbyPlayers,
+      players: updatedPlayers,
       phase: 'playing',
       magicItems: msg.magicItems,
     };

@@ -279,6 +279,83 @@ describe('grace expiry mid-game eliminates the seat', () => {
   });
 });
 
+describe('player disconnected in lobby survives across START', () => {
+  // The exact repro the issue surfaced: host on Chrome creates the room,
+  // joiner on Safari joins, user switches back to Chrome to tap START.
+  // Safari's tab is now backgrounded → its WS suspends → the joiner is
+  // marked disconnected in lobby. Pre-fix, handleStart filtered them out
+  // and the playing-phase recovery had no seat to match against. Now the
+  // seat carries through with a refreshed disconnectedAt.
+  it('reconnect after START reattaches the carried-over disconnected seat', async () => {
+    const code = await createRoom();
+
+    const { ws: alice, inbox: aliceInbox } = await openWs(code);
+    await hello(alice, 'Alice');
+    await waitForInbox(aliceInbox, (m) => m.type === 'LOBBY_STATE');
+
+    const { ws: bob, inbox: bobInbox } = await openWs(code);
+    await hello(bob, 'Bob');
+    await waitForInbox(
+      bobInbox,
+      (m) =>
+        m.type === 'LOBBY_STATE' &&
+        Array.isArray(m.players) &&
+        (m.players as unknown[]).length === 2,
+    );
+
+    // Bob's tab backgrounds in lobby — abnormal close keeps the seat in
+    // grace.
+    abnormalClose(bob);
+
+    // Wait for the close to land server-side.
+    const stub = env.ROOM.get(env.ROOM.idFromName(code));
+    for (let i = 0; i < 50; i++) {
+      const flagged = await runInDurableObject(stub, async (_x, state) => {
+        const l = (await state.storage.get('lobby')) as {
+          players: Array<{ id: number; disconnectedAt: number | null }>;
+        };
+        return l.players.find((p) => p.id === 1)?.disconnectedAt !== null;
+      });
+      if (flagged) break;
+      await new Promise((r) => setTimeout(r, 10));
+    }
+
+    // Alice (host) taps START. Bob's seat must NOT be filtered out.
+    alice.send(JSON.stringify({ type: 'START', magicItems: false }));
+    await waitForInbox(aliceInbox, (m) => m.type === 'GAME_STATE');
+
+    // Server: Bob's seat carried through with fresh disconnectedAt; his
+    // game.players entry is alive (not eliminated).
+    const startSnap = await runInDurableObject(stub, async (_x, state) => ({
+      lobby: (await state.storage.get('lobby')) as {
+        players: Array<{ id: number; displayName: string; disconnectedAt: number | null }>;
+      },
+      game: (await state.storage.get('game')) as {
+        players: Array<{ id: number; isEliminated: boolean }>;
+      },
+    }));
+    const bobLobby = startSnap.lobby.players.find((p) => p.displayName === 'Bob');
+    expect(bobLobby).toBeDefined();
+    expect(bobLobby!.disconnectedAt).not.toBeNull();
+    expect(startSnap.game.players.find((p) => p.id === bobLobby!.id)?.isEliminated).toBe(false);
+
+    // Bob comes back: new socket, same name → reattach + GAME_STATE.
+    const { ws: bobReconnect, inbox: bobReconnectInbox } = await openWs(code);
+    await hello(bobReconnect, 'Bob');
+    const gs = await waitForInbox(bobReconnectInbox, (m) => m.type === 'GAME_STATE');
+    expect(gs).toMatchObject({ type: 'GAME_STATE' });
+
+    // After reconnect: Bob's flag cleared, still alive in the game.
+    const recoveredSnap = await runInDurableObject(stub, async (_x, state) => ({
+      lobby: (await state.storage.get('lobby')) as {
+        players: Array<{ id: number; displayName: string; disconnectedAt: number | null }>;
+      },
+    }));
+    const bobAfter = recoveredSnap.lobby.players.find((p) => p.displayName === 'Bob');
+    expect(bobAfter!.disconnectedAt).toBeNull();
+  });
+});
+
 describe('clean close (code 1000) mid-game eliminates immediately', () => {
   it('still flips isEliminated on close; matches pre-grace behaviour for deliberate exits', async () => {
     const { code, seats } = await startGameWithHumans(['Alice', 'Bob']);
