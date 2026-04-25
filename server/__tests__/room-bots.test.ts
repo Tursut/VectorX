@@ -19,6 +19,7 @@ import {
 } from 'cloudflare:test';
 import { afterEach, describe, expect, it } from 'vitest';
 import { initGame } from '../../src/game/logic';
+import { computeTurnDelay } from '../index';
 
 // ---------- Harness ----------
 
@@ -261,6 +262,76 @@ describe('all-bots simulation', () => {
     expect(alive).toHaveLength(1);
     expect(final.game!.winner).toBe(alive[0].id);
   }, 30_000);
+});
+
+describe('computeTurnDelay (bot pacing)', () => {
+  // Pure helper, so we test it without dragging in real alarms or a real bot
+  // move (whose outcome is non-deterministic). The integration coverage —
+  // that maybeScheduleTurnAlarm actually calls this — comes for free from the
+  // existing all-bots simulation: it relies on the speed-run path completing
+  // in seconds, which is what shipped this branch in the first place.
+
+  it('returns the human turn budget for a human seat', () => {
+    const game = initGame(false, 3) as {
+      players: Array<{ id: number; isEliminated: boolean }>;
+      currentPlayerIndex: number;
+    };
+    game.currentPlayerIndex = 0; // human
+    const lobby = {
+      players: [
+        { id: 0, displayName: 'Alice', isBot: false, disconnectedAt: null },
+      ],
+    };
+    expect(computeTurnDelay(game, lobby)).toBe(10_000);
+  });
+
+  it('returns the slow thinking pace (800–1400 ms) while a human is alive', () => {
+    const game = initGame(false, 3) as {
+      players: Array<{ id: number; isEliminated: boolean }>;
+      currentPlayerIndex: number;
+    };
+    game.currentPlayerIndex = 1; // bot
+    const lobby = {
+      players: [
+        { id: 0, displayName: 'Alice', isBot: false, disconnectedAt: null },
+      ],
+    };
+    for (let i = 0; i < 50; i++) {
+      const d = computeTurnDelay(game, lobby);
+      expect(d).toBeGreaterThanOrEqual(800);
+      expect(d).toBeLessThan(1400);
+    }
+  });
+
+  it('returns the speed-run pace (120–200 ms) once every human is eliminated', () => {
+    const game = initGame(false, 3) as {
+      players: Array<{ id: number; isEliminated: boolean }>;
+      currentPlayerIndex: number;
+    };
+    game.players[0].isEliminated = true;
+    game.currentPlayerIndex = 1; // bot
+    const lobby = {
+      players: [
+        { id: 0, displayName: 'Alice', isBot: false, disconnectedAt: null },
+      ],
+    };
+    for (let i = 0; i < 50; i++) {
+      const d = computeTurnDelay(game, lobby);
+      expect(d).toBeGreaterThanOrEqual(120);
+      expect(d).toBeLessThan(200);
+    }
+  });
+
+  it('treats a fully-bots room (lobby has no humans) as speed-run', () => {
+    const game = initGame(false, 4) as {
+      players: Array<{ id: number; isEliminated: boolean }>;
+      currentPlayerIndex: number;
+    };
+    game.currentPlayerIndex = 0;
+    const lobby = { players: [] };
+    const d = computeTurnDelay(game, lobby);
+    expect(d).toBeLessThan(200);
+  });
 });
 
 describe('seat recycling invariant', () => {

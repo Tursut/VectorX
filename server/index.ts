@@ -696,11 +696,7 @@ export class RoomDurableObject extends DurableObject<Env> {
       await this.ctx.storage.deleteAlarm();
       return;
     }
-    const isHuman = lobby.players.some((p) => p.id === currentPlayer.id);
-    const delay = isHuman
-      ? TURN_TIME_MS
-      : 800 + Math.floor(Math.random() * 600);
-    await this.ctx.storage.setAlarm(Date.now() + delay);
+    await this.ctx.storage.setAlarm(Date.now() + computeTurnDelay(game, lobby));
   }
 
   private buildLobbyState(code: string, lobby: LobbyStorage): LobbyStateMsg {
@@ -813,6 +809,31 @@ export class RoomDurableObject extends DurableObject<Env> {
       // socket gone — nothing to do
     }
   }
+}
+
+// Bot thinking-delay schedule. Exported so the timing branches are unit-
+// testable without driving real alarms (which would also run a non-
+// deterministic bot move and complicate any "what's the next delay?"
+// assertion). Mirrors LocalGameController's branch:
+//   - human's turn → full TURN_TIME budget for them to move
+//   - bot's turn, at least one human still alive → 800–1400 ms thinking pace
+//   - bot's turn, no humans left → 120–200 ms speed-run pace
+export function computeTurnDelay(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  game: any,
+  lobby: { players: Array<{ id: number }> },
+): number {
+  const currentPlayer = game.players[game.currentPlayerIndex];
+  const isHuman = lobby.players.some((p) => p.id === currentPlayer.id);
+  if (isHuman) return TURN_TIME_MS;
+  const humanIds = new Set(lobby.players.map((p) => p.id));
+  const anyHumanAlive = game.players.some(
+    (p: { id: number; isEliminated: boolean }) =>
+      !p.isEliminated && humanIds.has(p.id),
+  );
+  return anyHumanAlive
+    ? 800 + Math.floor(Math.random() * 600)
+    : 120 + Math.floor(Math.random() * 80);
 }
 
 function lowestUnusedId(used: number[]): number {
