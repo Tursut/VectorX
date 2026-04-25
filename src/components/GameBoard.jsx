@@ -178,9 +178,12 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
         </motion.div>
       )}
 
-      {/* ── Player icon layer — one persistent element per player, animated via layout ── */}
+      {/* ── Player icon layer — one persistent element per player, animated via layout ──
+           When a winner-celebration is on screen, hide that player's static icon —
+           the wobbly celebration motion.div above (z-index 4) is the only avatar
+           we want during the wind-down, otherwise we'd render two stacked icons. */}
       <AnimatePresence>
-        {players.filter(p => !p.isEliminated).map(p => (
+        {players.filter(p => !p.isEliminated && p.id !== winnerPlayer?.id).map(p => (
           <motion.div
             key={`icon-${p.id}`}
             layout
