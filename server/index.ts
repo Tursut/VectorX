@@ -530,7 +530,24 @@ export class RoomDurableObject extends DurableObject<Env> {
         await this.maybeScheduleTurnAlarm(game, updated);
         return;
       }
-      this.sendError(ws, 'ALREADY_STARTED');
+      // Diagnostic context for the bounce: which name we got, what's in the
+      // lobby, who's disconnected with how much grace left. Used by the
+      // client's debug overlay to figure out why a real-world reconnect
+      // didn't recover. Truncated to fit comfortably under MAX_FRAME_BYTES
+      // (and a fairly small zod schema budget on the message field).
+      const now = Date.now();
+      const summary = lobby.players
+        .map((p) => {
+          if (p.disconnectedAt === null) return p.displayName;
+          const age = ((now - p.disconnectedAt) / 1000).toFixed(1);
+          return `${p.displayName}[disc ${age}s]`;
+        })
+        .join(',');
+      this.sendError(
+        ws,
+        'ALREADY_STARTED',
+        `name="${msg.displayName}" lobby=[${summary}]`,
+      );
       return;
     }
 

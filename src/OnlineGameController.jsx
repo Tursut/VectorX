@@ -59,6 +59,20 @@ export default function OnlineGameController({
   const [exitConfirm, setExitConfirm] = useState(false);
   const [timeLeft, setTimeLeft] = useState(TURN_TIME);
 
+  // Debug panel context. Tracked via refs so writing them doesn't trigger
+  // re-renders. Surfaced on any fatal-error StatusScreen so we can see why
+  // a real-world reconnect bounce happened. NOT shown for clean
+  // "Connecting…" or "Reconnecting…" overlays.
+  const mountAtRef = useRef(Date.now());
+  const stateHistoryRef = useRef(/** @type {string[]} */([]));
+  useEffect(() => {
+    if (!connectionState) return;
+    const now = Date.now();
+    const stamp = ((now - mountAtRef.current) / 1000).toFixed(1);
+    stateHistoryRef.current.push(`+${stamp}s ${connectionState}`);
+    if (stateHistoryRef.current.length > 8) stateHistoryRef.current.shift();
+  }, [connectionState]);
+
   // Derived animation overlays + item-pickup sounds; fed to GameScreen.
   const { bombBlast, portalJump, swapFlash, flyingFreeze } = useDerivedAnimations(gameState);
 
@@ -162,7 +176,22 @@ export default function OnlineGameController({
     if (ROUTABLE_JOIN_ERROR_CODES.has(lastError.code) && typeof onJoinFailed === 'function') {
       return null;
     }
-    return <StatusScreen label={fatalErrorLabel(lastError)} onBack={onExit} />;
+    const debug = {
+      code: lastError.code,
+      message: lastError.message,
+      room: code,
+      displayName,
+      mySeatId,
+      stateHistory: stateHistoryRef.current.slice(),
+      lifetimeSec: ((Date.now() - mountAtRef.current) / 1000).toFixed(1),
+    };
+    return (
+      <StatusScreen
+        label={fatalErrorLabel(lastError)}
+        onBack={onExit}
+        debug={debug}
+      />
+    );
   }
 
   if (!lobby) {
@@ -261,10 +290,30 @@ function fatalErrorLabel({ code, message }) {
 }
 
 // Tiny "waiting" screen used for connection transitions.
-function StatusScreen({ label, onBack }) {
+//
+// `debug`, when present, renders a monospace context block under the label.
+// Surfaced only on fatal-error landings (not on the routine "Connecting…"
+// transitions) so we have something to inspect when a real-world reconnect
+// is rejected. The server attaches a diagnostic `message` to ALREADY_STARTED
+// (current lobby roster + per-player grace-age) — that, plus the client-
+// side state-history log, should be enough to figure out why the server
+// didn't accept the recovery.
+function StatusScreen({ label, onBack, debug }) {
   return (
     <div className="online-status">
       <p>{label}</p>
+      {debug && (
+        <pre className="online-status-debug" aria-label="Debug context">
+{`code:        ${debug.code}
+message:     ${debug.message ?? '(none)'}
+room:        ${debug.room}
+displayName: ${debug.displayName}
+mySeatId:    ${debug.mySeatId === null || debug.mySeatId === undefined ? '(none)' : debug.mySeatId}
+lifetime:    ${debug.lifetimeSec}s
+states:
+  ${debug.stateHistory.length ? debug.stateHistory.join('\n  ') : '(empty)'}`}
+        </pre>
+      )}
       {onBack && (
         <button className="online-back-btn" onClick={onBack}>
           ← Back
