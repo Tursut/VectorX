@@ -2251,6 +2251,34 @@
   font-size: 13px;
   margin-top: 16px;
 }
+
+/* Inline submit-time validation hint (e.g. "Enter your name to continue.").
+   Sits under the offending input; appears when the user taps the primary
+   button with that field empty/invalid, clears as soon as they fix it. */
+.field-error {
+  color: #ff8899;
+  font-size: 13px;
+  margin: 6px 0 0;
+  font-family: 'Segoe UI', sans-serif;
+}
+
+/* Red border on the offending input mirrors the error message colour. */
+.input-error {
+  border-color: #ff8899 !important;
+}
+
+/* Brief horizontal shake to draw attention. The animation only runs once
+   per error toggle (forwards keeps the final state at translateX(0)). */
+.input-shake {
+  animation: input-shake 0.32s ease-in-out;
+}
+@keyframes input-shake {
+  0%, 100% { transform: translateX(0); }
+  20%      { transform: translateX(-6px); }
+  40%      { transform: translateX(6px); }
+  60%      { transform: translateX(-4px); }
+  80%      { transform: translateX(4px); }
+}
 .online-status {
   max-width: 420px;
   margin: 72px auto;

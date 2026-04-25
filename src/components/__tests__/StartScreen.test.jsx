@@ -155,32 +155,54 @@ describe('StartScreen — magic toggle visibility', () => {
 // ---------- Submit gating + callbacks ----------
 
 describe('StartScreen — online submit gating', () => {
-  it('disables the primary button in Create mode until name is valid', async () => {
-    const user = userEvent.setup();
-    render(<StartScreen {...withOnline({ defaultMode: 'create' })} />);
-    const btn = screen.getByRole('button', { name: /create room →/i });
-    expect(btn).toBeDisabled();
+  // The primary button stays clickable even when fields are invalid — tapping
+  // it shows an inline "Enter your name…" error, focuses the offending input,
+  // and runs a brief shake animation. The error clears as soon as the field
+  // becomes valid. This is the issue-#11 feedback pattern.
 
+  it('does not call onCreateOnline when name is empty; surfaces a name error', async () => {
+    const user = userEvent.setup();
+    const onCreateOnline = vi.fn();
+    render(<StartScreen {...withOnline({ defaultMode: 'create', onCreateOnline })} />);
+    const btn = screen.getByRole('button', { name: /create room →/i });
+
+    await user.click(btn);
+    expect(onCreateOnline).not.toHaveBeenCalled();
+    expect(await screen.findByRole('alert')).toHaveTextContent(/enter your name/i);
+
+    // Typing clears the error and re-enables the submit path.
     await user.type(screen.getByRole('textbox', { name: /your name/i }), 'Alice');
-    expect(btn).not.toBeDisabled();
+    expect(screen.queryByRole('alert')).toBeNull();
+    await user.click(btn);
+    expect(onCreateOnline).toHaveBeenCalledOnce();
   });
 
-  it('disables JOIN until both name and a 5-char code are filled', async () => {
+  it('JOIN surfaces a name error first, then a code error, before submitting', async () => {
     const user = userEvent.setup();
-    render(<StartScreen {...withOnline({ defaultMode: 'join' })} />);
+    const onJoinOnline = vi.fn();
+    render(<StartScreen {...withOnline({ defaultMode: 'join', onJoinOnline })} />);
     const btn = screen.getByRole('button', { name: /join room →/i });
 
-    // Nothing filled — disabled.
-    expect(btn).toBeDisabled();
-    // Name only — still disabled (code missing).
+    // Nothing filled → name error first.
+    await user.click(btn);
+    expect(onJoinOnline).not.toHaveBeenCalled();
+    expect(await screen.findByRole('alert')).toHaveTextContent(/enter your name/i);
+
+    // Fill the name; clicking again now flags the code (still empty).
     await user.type(screen.getByRole('textbox', { name: /your name/i }), 'Alice');
-    expect(btn).toBeDisabled();
-    // Code only 3 chars — still disabled.
+    await user.click(btn);
+    expect(onJoinOnline).not.toHaveBeenCalled();
+    expect(await screen.findByRole('alert')).toHaveTextContent(/room code/i);
+
+    // Partial code (3 chars) is still invalid.
     await user.type(screen.getByLabelText(/room code/i), 'ABC');
-    expect(btn).toBeDisabled();
-    // Fifth char → enabled.
+    await user.click(btn);
+    expect(onJoinOnline).not.toHaveBeenCalled();
+
+    // Fifth char → submit path runs.
     await user.type(screen.getByLabelText(/room code/i), 'DE');
-    expect(btn).not.toBeDisabled();
+    await user.click(btn);
+    expect(onJoinOnline).toHaveBeenCalledOnce();
   });
 });
 

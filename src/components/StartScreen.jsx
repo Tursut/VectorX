@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { PLAYERS, ITEM_TYPES } from '../game/constants';
 import { BUILD_TIME } from '../config';
@@ -58,6 +58,12 @@ export default function StartScreen({
   const [mode, setMode] = useState(onlineAvailable ? defaultMode : 'this-device');
   const [code, setCode] = useState(filterCode(defaultCode));
   const [displayName, setDisplayName] = useState('');
+  // 'name' | 'code' | null. Set when the user submits with that field still
+  // invalid; rendered as an inline message + a brief shake on the input.
+  // Clears as soon as the offending field becomes valid (via useEffect below).
+  const [submitError, setSubmitError] = useState(null);
+  const nameInputRef = useRef(null);
+  const codeInputRef = useRef(null);
 
   const humanCount = PLAYERS.length - gremlinCount;
   const gremlinLabel =
@@ -91,14 +97,41 @@ export default function StartScreen({
     }
   }
 
+  // When the offending field becomes valid (user starts typing), drop the error
+  // so the inline message + shake disappear without waiting for another submit.
+  useEffect(() => {
+    if (submitError === 'name' && isDisplayNameValid(displayName)) {
+      setSubmitError(null);
+    } else if (submitError === 'code' && hasCode) {
+      setSubmitError(null);
+    }
+  }, [submitError, displayName, hasCode]);
+
   function handlePrimaryClick() {
     if (isCreate) {
-      if (!canSubmitCreate) return;
+      if (!isDisplayNameValid(displayName)) {
+        setSubmitError('name');
+        nameInputRef.current?.focus();
+        return;
+      }
+      setSubmitError(null);
       onCreateOnline({ displayName: displayName.trim(), magicItems });
       return;
     }
     if (isJoin) {
-      if (!canSubmitJoin) return;
+      // Validate name first, then code — focus the first invalid field so the
+      // user only has to fix one thing at a time.
+      if (!isDisplayNameValid(displayName)) {
+        setSubmitError('name');
+        nameInputRef.current?.focus();
+        return;
+      }
+      if (!hasCode) {
+        setSubmitError('code');
+        codeInputRef.current?.focus();
+        return;
+      }
+      setSubmitError(null);
       onJoinOnline({ displayName: displayName.trim(), code });
       return;
     }
@@ -231,6 +264,7 @@ export default function StartScreen({
                   <label className="join-field">
                     <span>Your name</span>
                     <input
+                      ref={nameInputRef}
                       type="text"
                       value={displayName}
                       onChange={(e) => setDisplayName(e.target.value)}
@@ -238,8 +272,13 @@ export default function StartScreen({
                       maxLength={20}
                       autoComplete="off"
                       autoFocus
+                      className={submitError === 'name' ? 'input-shake input-error' : ''}
+                      aria-invalid={submitError === 'name'}
                     />
                   </label>
+                  {submitError === 'name' && (
+                    <p className="field-error" role="alert">Enter your name to continue.</p>
+                  )}
                   {onlineError && (
                     <p className="online-error" role="alert">
                       Couldn't reach the server: {onlineError}
@@ -261,6 +300,7 @@ export default function StartScreen({
                   <label className="join-field">
                     <span>Your name</span>
                     <input
+                      ref={nameInputRef}
                       type="text"
                       value={displayName}
                       onChange={(e) => setDisplayName(e.target.value)}
@@ -268,11 +308,17 @@ export default function StartScreen({
                       maxLength={20}
                       autoComplete="off"
                       autoFocus
+                      className={submitError === 'name' ? 'input-shake input-error' : ''}
+                      aria-invalid={submitError === 'name'}
                     />
                   </label>
+                  {submitError === 'name' && (
+                    <p className="field-error" role="alert">Enter your name to continue.</p>
+                  )}
                   <label className="join-field">
                     <span>Room code</span>
                     <input
+                      ref={codeInputRef}
                       type="text"
                       value={code}
                       onChange={handleCodeChange}
@@ -285,8 +331,13 @@ export default function StartScreen({
                       autoComplete="off"
                       maxLength={5}
                       aria-label="Room code"
+                      className={submitError === 'code' ? 'input-shake input-error' : ''}
+                      aria-invalid={submitError === 'code'}
                     />
                   </label>
+                  {submitError === 'code' && (
+                    <p className="field-error" role="alert">Enter a 5-character room code.</p>
+                  )}
                   {onlineError && (
                     <p className="online-error" role="alert">
                       Couldn't reach the server: {onlineError}
@@ -364,7 +415,7 @@ export default function StartScreen({
         <button
           className="start-button"
           onClick={handlePrimaryClick}
-          disabled={!canSubmit}
+          aria-disabled={!canSubmit}
         >
           {primaryLabel}
         </button>
