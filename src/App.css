@@ -2166,11 +2166,14 @@
      differentiation comes from its squared bottom corners, brighter text
      colour, the 2 px sink that merges it into the drawer below, and a
      lavender glow halo (matches the Magic/Classic mode-btn-active treatment
-     just with the lavender hue instead of orange/purple). */
+     just with the lavender hue instead of orange/purple). The clip-path
+     allows the glow to bloom on the top, left, and right but cuts it dead
+     at the tile's bottom edge so it doesn't bleed into the drawer below. */
   background: #0f0f23;
   border-color: #333366;
   color: #c8caff;
   box-shadow: 0 0 24px rgba(122, 140, 255, 0.45);
+  clip-path: inset(-30px -30px 0 -30px);
   /* Merge into the drawer below: hide the bottom border, sink 2 px so the
      tile's bg paints over the drawer's 2 px top border in this column.
      margin-bottom doesn't work here because the tile is a grid child —
