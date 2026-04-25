@@ -8,6 +8,35 @@ function buildShareLink(code) {
   return `${origin}${pathname}#/r/${code}`;
 }
 
+// Display form of the share link. The host says/shares the code (HB2UM) — the
+// URL is just for tap-to-join, so we drop the protocol to keep it on one line
+// at typical phone widths.
+function displayShareLink(href) {
+  return href.replace(/^https?:\/\//, '');
+}
+
+// Two-overlapping-rectangles "copy" glyph (same visual vocabulary as
+// flaticon #126498 / Lucide / Heroicons). Inline SVG so it inherits
+// currentColor and avoids an asset round-trip.
+function CopyIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="9" y="9" width="11" height="11" rx="2" />
+      <path d="M5 15V6a2 2 0 0 1 2-2h9" />
+    </svg>
+  );
+}
+
 export default function Lobby({
   code,
   players = [],
@@ -39,16 +68,23 @@ export default function Lobby({
         <div className="lobby-invite">
           <p className="lobby-invite-code" aria-label={`Room code ${code}`}>{code}</p>
           <div className="lobby-invite-row">
-            <a className="lobby-invite-url" href={shareLink}>{shareLink}</a>
+            <a className="lobby-invite-url" href={shareLink}>{displayShareLink(shareLink)}</a>
             <button
               type="button"
               className={`lobby-copy-btn${copied ? ' lobby-copy-btn-done' : ''}`}
               onClick={copyLink}
               aria-label={copied ? 'Invite link copied' : 'Copy invite link'}
             >
-              {copied ? '✓' : '📋'}
+              {copied ? '✓' : <CopyIcon />}
             </button>
           </div>
+          <p
+            className={`lobby-copy-feedback${copied ? ' lobby-copy-feedback-shown' : ''}`}
+            role="status"
+            aria-live="polite"
+          >
+            {copied ? '✓ Link copied!' : ''}
+          </p>
         </div>
 
         <ul className="lobby-players" aria-label="Players">
