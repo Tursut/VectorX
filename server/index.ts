@@ -506,18 +506,41 @@ export class RoomDurableObject extends DurableObject<Env> {
     }
 
     if (lobby.phase !== 'lobby') {
-      // In-game recovery: a still-disconnected seat with this displayName
-      // can re-attach. We reuse the same seat id, clear the flag, and push
-      // the current GAME_STATE so the returning player picks up wherever
-      // the rest of the table is. Anything else is a true late-comer →
-      // ALREADY_STARTED bounces them back to the start screen.
+      // In-game recovery: a HELLO with a displayName that matches any seat
+      // already in the lobby is treated as that player rejoining, even if
+      // we never observed a close on their previous socket. iOS sometimes
+      // kills a backgrounded Safari tab WITHOUT the WebSocket emitting a
+      // close frame, so the server's lobby state stays `disconnectedAt:
+      // null` and our older stricter check (which required disconnectedAt
+      // !== null) bounced the rejoin with ALREADY_STARTED — exactly what
+      // the user hit after a few rounds of Chrome↔Safari testing.
+      //
+      // Name-only match is safe at this point: lobby.phase !== 'lobby' so
+      // no fresh joins can land here, and DUPLICATE_NAME during the lobby
+      // phase already prevented two real players from sharing a name.
+      // The only remaining caller is "the same player on a new socket".
+      // A previous server-side socket for the same seat (if still alive)
+      // gets explicitly closed below so we don't keep broadcasting to it.
       const recovering = lobby.players.find(
-        (p) => p.disconnectedAt !== null && p.displayName === msg.displayName,
+        (p) => p.displayName === msg.displayName,
       );
       const game = recovering
         ? await this.ctx.storage.get<GameStorage>('game')
         : null;
       if (recovering && game) {
+        // Drop any other server-side socket still attached to the same
+        // seat — the new socket replaces it. Clear the OLD socket's seat
+        // attachment FIRST so its eventual close-handler invocation sees
+        // a null seat and exits early; otherwise the close-with-1000 we
+        // emit here would trigger the deliberate-exit branch in
+        // webSocketClose and eliminate the seat we just recovered.
+        for (const other of this.ctx.getWebSockets()) {
+          if (other === ws) continue;
+          if (this.getAttachedSeatId(other) === recovering.id) {
+            try { other.serializeAttachment({}); } catch { /* hibernation race */ }
+            try { other.close(1000, 'replaced'); } catch { /* already closed */ }
+          }
+        }
         const players = lobby.players.map((p) =>
           p.id === recovering.id ? { ...p, disconnectedAt: null } : p,
         );

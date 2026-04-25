@@ -356,6 +356,51 @@ describe('player disconnected in lobby survives across START', () => {
   });
 });
 
+describe('silent-tab-kill: name match recovers even without a close event', () => {
+  // Real-world failure mode debug-panel'd back to us: iOS sometimes kills
+  // a backgrounded Safari tab without the WebSocket emitting a close
+  // frame. Server's webSocketClose never runs, so the seat stays
+  // disconnectedAt: null. When the tab reopens and re-HELLOs, the older
+  // strict-recovery check (disconnectedAt !== null) bounced with
+  // ALREADY_STARTED. Now name-only match is sufficient mid-game; the
+  // stale server-side socket gets explicitly replaced.
+  it('reattaches by name even when server-side seat shows disconnectedAt: null', async () => {
+    const { code, seats } = await startGameWithHumans(['Alice', 'Bob']);
+
+    // Confirm the lobby reports Bob as connected (no grace state yet).
+    const stub = env.ROOM.get(env.ROOM.idFromName(code));
+    const before = await runInDurableObject(stub, async (_x, state) => ({
+      lobby: (await state.storage.get('lobby')) as {
+        players: Array<{ id: number; displayName: string; disconnectedAt: number | null }>;
+      },
+    }));
+    expect(before.lobby.players.find((p) => p.displayName === 'Bob')!.disconnectedAt).toBeNull();
+
+    // Bob "comes back" on a fresh socket. The old socket is still alive
+    // server-side (seats[1].ws); we never closed it. New HELLO with the
+    // same name should still recover.
+    const { ws: bobNew, inbox: bobNewInbox } = await openWs(code);
+    await hello(bobNew, 'Bob');
+
+    const gs = await waitForInbox(bobNewInbox, (m) => m.type === 'GAME_STATE');
+    expect(gs).toMatchObject({ type: 'GAME_STATE' });
+
+    // The old socket got explicitly closed by the server; remove it from
+    // afterEach's drain queue so it doesn't double-close.
+    const i = openSockets.indexOf(seats[1].ws);
+    if (i >= 0) openSockets.splice(i, 1);
+
+    // Bob's seat in the game is still alive (NOT eliminated by the
+    // replacement-close — we cleared the attachment before closing).
+    const after = await runInDurableObject(stub, async (_x, state) => ({
+      game: (await state.storage.get('game')) as {
+        players: Array<{ id: number; isEliminated: boolean }>;
+      },
+    }));
+    expect(after.game.players.find((p) => p.id === 1)?.isEliminated).toBe(false);
+  });
+});
+
 describe('clean close (code 1000) mid-game eliminates immediately', () => {
   it('still flips isEliminated on close; matches pre-grace behaviour for deliberate exits', async () => {
     const { code, seats } = await startGameWithHumans(['Alice', 'Bob']);
