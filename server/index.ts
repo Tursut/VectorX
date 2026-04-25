@@ -119,7 +119,15 @@ const REAPER_DELAY_MS = 10 * 60 * 1000;
 // leave. We hold the seat for this long; if a HELLO with the same displayName
 // arrives in the window the player resumes their seat. On expiry the alarm
 // drops the seat (and reassigns host if needed) just like a hard leave.
-const LOBBY_GRACE_MS = 20 * 1000;
+//
+// Sized for the dominant pre-START flow: the host opens the room, switches
+// apps to share the link via Snap/SMS, types a message, hits send, switches
+// back. That round-trip is realistically 30–60 s of foreground-elsewhere; iOS
+// will have suspended the tab within seconds. 90 s comfortably covers it
+// without holding abandoned seats long enough to block 4-player rooms — and
+// a deliberate exit (close code 1000 from the wrapper's close()) still drops
+// the seat instantly.
+const LOBBY_GRACE_MS = 90 * 1000;
 
 function generateRoomCode(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(5));

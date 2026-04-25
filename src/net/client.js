@@ -7,32 +7,43 @@
 //     against `ServerMsg`; malformed traffic is dropped and logged without
 //     crashing the caller.
 //   - An in-memory send queue: calling `send()` before the socket is OPEN
-//     (or during a reconnect) buffers messages in FIFO order and flushes
-//     them once the socket reaches OPEN.
+//     buffers messages in FIFO order and flushes them once the socket reaches
+//     OPEN. The queue is CLEARED on every disconnect — pre-disconnect user
+//     actions (a tap on START / a pending MOVE) are dropped rather than
+//     replayed against a fresh socket where they'd land before the new HELLO
+//     and trip UNAUTHORIZED.
+//   - A `bootstrap` callback that runs on every WS open BEFORE the queue
+//     flushes. The hook returns a HELLO message from it, guaranteeing HELLO
+//     is always the first frame on every connection — protects against the
+//     reconnect race where a user tap is queued and then sent before HELLO.
 //   - Auto-reconnect with jittered exponential backoff: unexpected closes
 //     schedule a reconnect at 500ms → 1s → 2s → 4s → 8s → 16s → 30s cap,
-//     each with ±25% jitter. Backoff resets on a successful OPEN event.
+//     each with ±25% jitter. Backoff resets on a successful OPEN event,
+//     and the next reconnect is forced immediately whenever the document
+//     transitions to `visible` (covers iOS Safari tab-foreground without
+//     waiting out the backoff window).
 //   - Explicit `close()`: after an explicit close the wrapper never
 //     reconnects — avoids reconnect storms when the caller tears down.
 //
-// What this wrapper does NOT do (scope limits Step 13):
-//   - No session/identity across reconnects. The server treats a reconnected
-//     socket as a fresh connection; a caller that wants to reclaim their seat
-//     must re-send HELLO and hope the original seat is either vacant or the
-//     eliminate-on-disconnect path didn't cull them. A future step can add
-//     a server-side session layer (cookie or in-HELLO token) if seat-sticky
-//     reconnects become desirable.
-//   - No awareness of the game state. That's the `useNetworkGame` hook's job
-//     (Step 14), which builds a reducer-shaped state on top of this wrapper.
+// What this wrapper does NOT do:
+//   - No client-side session token / identity persistence across reconnects.
+//     The server identifies the caller by displayName on each HELLO; the
+//     lobby-grace mechanism (server-side) is what makes seat reattachment
+//     work for now. A session-token layer is a future step if we want
+//     seat-stickiness across full tab close → reopen.
+//   - No awareness of the game state. That's the `useNetworkGame` hook's
+//     job, which builds a reducer-shaped state on top of this wrapper.
 //
 // API:
-//   createClient({ url, onMessage, onStateChange }) → { send, close, getState }
+//   createClient({ url, onMessage, onStateChange, bootstrap })
+//     → { send, close, getState }
 //
 //   onMessage(msg)       — invoked with each zod-validated ServerMsg.
-//   onStateChange(state) — 'connecting' | 'open' | 'closed'. Closed is
-//                          transient between reconnect attempts and terminal
-//                          after an explicit close; callers can tell them
-//                          apart via `getState()` return value `'destroyed'`.
+//   onStateChange(state) — 'connecting' | 'open' | 'closed' | 'destroyed'.
+//                          Closed is transient between reconnect attempts;
+//                          destroyed is terminal after an explicit close.
+//   bootstrap()          — optional. Called on every WS open; the returned
+//                          message (or null) is sent BEFORE the queue flushes.
 //
 // @typedef {import('../../server/protocol').ClientMsg} ClientMsg
 // @typedef {import('../../server/protocol').ServerMsg} ServerMsg
@@ -48,9 +59,10 @@ const JITTER = 0.25;
  *   url: string,
  *   onMessage?: (msg: ServerMsg) => void,
  *   onStateChange?: (state: 'connecting' | 'open' | 'closed' | 'destroyed') => void,
+ *   bootstrap?: () => (ClientMsg | null | undefined),
  * }} opts
  */
-export function createClient({ url, onMessage, onStateChange } = {}) {
+export function createClient({ url, onMessage, onStateChange, bootstrap } = {}) {
   if (!url) throw new Error('createClient: url is required');
 
   /** @type {ClientMsg[]} — FIFO send queue while socket isn't OPEN */
@@ -62,6 +74,11 @@ export function createClient({ url, onMessage, onStateChange } = {}) {
   // callback — otherwise the equality-short-circuit below hides it.
   let state = null;
   let destroyed = false;
+  // True once the wrapper has reached OPEN at least once. Distinguishes
+  // "initial connecting (queue is fine)" from "reconnecting (drop sends)" so
+  // a user tap during a transient disconnect doesn't sit in the queue and
+  // fire against post-reconnect state where the action is no longer valid.
+  let everConnected = false;
 
   function setState(next) {
     if (state === next) return;
@@ -82,13 +99,45 @@ export function createClient({ url, onMessage, onStateChange } = {}) {
     }, delay);
   }
 
+  // Force a reconnect now: cancel any pending backoff timer, reset the
+  // attempt counter, and call connect() immediately if we're not currently
+  // open. Used by the visibilitychange listener so returning to a
+  // foregrounded tab feels instant instead of waiting out the backoff.
+  function reconnectNow() {
+    if (destroyed) return;
+    if (state === 'open' || state === 'connecting') return;
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
+    attempts = 0;
+    connect();
+  }
+
   function connect() {
     setState('connecting');
     ws = new WebSocket(url);
     ws.addEventListener('open', () => {
       if (destroyed) return;
       attempts = 0;
+      everConnected = true;
       setState('open');
+      // Bootstrap goes FIRST on every connection — this is what makes
+      // "HELLO is always the first frame on a new socket" a property of
+      // the wrapper, not a happy-path React-effect ordering accident.
+      // Bypassing the queue ensures any queued initial-connect messages
+      // can never beat HELLO to the wire (server UNAUTHORIZED otherwise).
+      if (bootstrap) {
+        try {
+          const boot = bootstrap();
+          if (boot) {
+            const valid = ClientMsg.parse(boot);
+            ws.send(JSON.stringify(valid));
+          }
+        } catch (err) {
+          console.warn('[net/client] bootstrap threw', err);
+        }
+      }
       flushQueue();
     });
     ws.addEventListener('message', (event) => {
@@ -106,6 +155,18 @@ export function createClient({ url, onMessage, onStateChange } = {}) {
     ws.addEventListener('error', () => {
       // The close event follows; reconnect schedules there.
     });
+  }
+
+  // iOS Safari suspends backgrounded tabs and drops their WebSockets within
+  // seconds. Returning to the foreground triggers visibilitychange before
+  // any of our backoff timers expire — kick a reconnect immediately so the
+  // user perceives an instant recovery.
+  let visibilityListener = null;
+  if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+    visibilityListener = () => {
+      if (document.visibilityState === 'visible') reconnectNow();
+    };
+    document.addEventListener('visibilitychange', visibilityListener);
   }
 
   function handleInbound(data) {
@@ -143,17 +204,29 @@ export function createClient({ url, onMessage, onStateChange } = {}) {
    * Queue + send a client message. Validates against ClientMsg synchronously;
    * passing a malformed shape throws — this is a developer error, never a
    * runtime failure mode.
+   *
+   * Drop semantics: messages sent while the socket isn't OPEN are queued
+   * during the INITIAL connect (everConnected === false), then flushed on
+   * first OPEN. After the first OPEN, sends while not OPEN are DROPPED —
+   * they would fire against post-reconnect state where the action may no
+   * longer be valid (host status changed, turn advanced, …). The caller
+   * can re-tap once the next 'open' event arrives.
    * @param {ClientMsg} msg
    */
   function send(msg) {
     // ClientMsg.parse throws on validation failure; let it propagate.
     const valid = ClientMsg.parse(msg);
+    const isOpen = ws && ws.readyState === WebSocket.OPEN;
+    if (!isOpen && everConnected) {
+      console.warn('[net/client] dropping send while disconnected', valid.type);
+      return;
+    }
     queue.push(valid);
-    if (ws && ws.readyState === WebSocket.OPEN) {
+    if (isOpen) {
       flushQueue();
     }
-    // If readyState is CONNECTING or CLOSED, the queue will flush on the next
-    // OPEN event. That's how pre-connect sends and reconnect-recovery work.
+    // If readyState is CONNECTING (initial only), the queue will flush on
+    // the first OPEN event.
   }
 
   /**
@@ -164,6 +237,10 @@ export function createClient({ url, onMessage, onStateChange } = {}) {
     if (reconnectTimer) {
       clearTimeout(reconnectTimer);
       reconnectTimer = null;
+    }
+    if (visibilityListener && typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', visibilityListener);
+      visibilityListener = null;
     }
     if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
       try { ws.close(1000); } catch { /* already closed */ }

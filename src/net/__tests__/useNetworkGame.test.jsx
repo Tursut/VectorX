@@ -24,11 +24,13 @@ import { initGame } from '../../game/logic';
 let mockClient;
 let capturedOnMessage;
 let capturedOnStateChange;
+let capturedBootstrap;
 
 vi.mock('../client.js', () => ({
   createClient: vi.fn((opts) => {
     capturedOnMessage = opts.onMessage;
     capturedOnStateChange = opts.onStateChange;
+    capturedBootstrap = opts.bootstrap;
     mockClient = {
       send: vi.fn(),
       close: vi.fn(),
@@ -45,6 +47,7 @@ beforeEach(() => {
   mockClient = undefined;
   capturedOnMessage = undefined;
   capturedOnStateChange = undefined;
+  capturedBootstrap = undefined;
 });
 
 afterEach(() => {
@@ -246,5 +249,76 @@ describe('useNetworkGame — cleanup', () => {
     unmount();
 
     expect(mockClient.close).toHaveBeenCalled();
+  });
+});
+
+describe('useNetworkGame — resilience (#22)', () => {
+  it('passes a bootstrap callback that returns HELLO once a name is known', () => {
+    // The client wrapper invokes bootstrap on every WS open BEFORE flushing
+    // the queue; this is what guarantees HELLO is the first frame on every
+    // reconnect (otherwise a queued user tap could race ahead).
+    const { result } = renderHook(() => useNetworkGame({ url: 'ws://x/y' }));
+
+    expect(typeof capturedBootstrap).toBe('function');
+    // No name yet → bootstrap returns null (no HELLO sent).
+    expect(capturedBootstrap()).toBeNull();
+
+    // After join() seeds the name, bootstrap returns HELLO.
+    act(() => result.current.join('Alice'));
+    expect(capturedBootstrap()).toEqual({
+      type: 'HELLO',
+      version: 1,
+      displayName: 'Alice',
+    });
+  });
+
+  it('resets mySeatId whenever the connection leaves OPEN', () => {
+    // After a reconnect the server may give us a fresh seat (grace expired);
+    // freezing mySeatId to its pre-disconnect value silently lies about
+    // host status and current-player checks. We re-discover from the next
+    // LOBBY_STATE.
+    const { result } = renderHook(() => useNetworkGame({ url: 'ws://x/y' }));
+
+    act(() => result.current.join('Alice'));
+    act(() =>
+      capturedOnMessage({
+        type: 'LOBBY_STATE',
+        code: 'ABCDE',
+        players: [{ id: 0, displayName: 'Alice', isBot: false, isHost: true }],
+        hostId: 0,
+        magicItems: false,
+      }),
+    );
+    expect(result.current.mySeatId).toBe(0);
+
+    act(() => capturedOnStateChange('closed'));
+    expect(result.current.mySeatId).toBeNull();
+
+    // Reconnect: a different seat assignment lands; we pick it up from the
+    // next LOBBY_STATE rather than sticking to the stale 0.
+    act(() => capturedOnStateChange('open'));
+    act(() =>
+      capturedOnMessage({
+        type: 'LOBBY_STATE',
+        code: 'ABCDE',
+        players: [
+          { id: 0, displayName: 'Bob', isBot: false, isHost: true },
+          { id: 1, displayName: 'Alice', isBot: false, isHost: false },
+        ],
+        hostId: 0,
+        magicItems: false,
+      }),
+    );
+    expect(result.current.mySeatId).toBe(1);
+  });
+
+  it('clearError() drops lastError so OnlineGameController can recover from transient codes', () => {
+    const { result } = renderHook(() => useNetworkGame({ url: 'ws://x/y' }));
+
+    act(() => capturedOnMessage({ type: 'ERROR', code: 'UNAUTHORIZED' }));
+    expect(result.current.lastError).toEqual({ code: 'UNAUTHORIZED', message: undefined });
+
+    act(() => result.current.clearError());
+    expect(result.current.lastError).toBeNull();
   });
 });

@@ -268,28 +268,32 @@ describe('createClient — auto-reconnect with backoff', () => {
     expect(countNow).toBeGreaterThanOrEqual(3);
   });
 
-  it('flushes the queue after a reconnect', async () => {
+  it('drops sends issued while disconnected after a previous open (#22)', async () => {
+    // Once we've been OPEN at least once, the wrapper switches from
+    // "queue and flush on open" semantics to "drop while not open". Prevents
+    // a tap-during-reconnect from racing the next session's HELLO and
+    // landing on a server state where the action is no longer valid (lost
+    // host status, advanced turn, etc.).
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const client = createClient({ url: 'ws://x/y' });
 
     latestSocket()._simulateOpen();
     client.send({ type: 'HELLO', version: 1, displayName: 'Alice' });
-
     latestSocket()._simulateClose(1006);
 
-    // Queue a send while disconnected.
+    // Send while disconnected — must be dropped.
     client.send({ type: 'MOVE', row: 0, col: 1 });
 
     vi.advanceTimersByTime(700);
     await flushMicrotasks();
 
     const reconnected = latestSocket();
-    expect(reconnected.sentFrames).toEqual([]);
-
     reconnected._simulateOpen();
-    expect(reconnected.sentFrames).toEqual([
-      JSON.stringify({ type: 'MOVE', row: 0, col: 1 }),
-    ]);
-    // HELLO from the pre-close session was already flushed on the first OPEN.
+
+    // Nothing flushed: the queued HELLO was sent on the first OPEN, and
+    // the post-disconnect MOVE was dropped, not buffered.
+    expect(reconnected.sentFrames).toEqual([]);
+    warn.mockRestore();
   });
 });
 
@@ -315,5 +319,88 @@ describe('createClient — explicit close()', () => {
     client.close();
     expect(() => client.close()).not.toThrow();
     expect(client.getState()).toBe('destroyed');
+  });
+});
+
+describe('createClient — bootstrap', () => {
+  it('sends the bootstrap message FIRST on every open, before flushing the queue', async () => {
+    // Pre-#22 the queue flushed before HELLO on reconnect, so a user tap
+    // racing to the queue would land on the server before HELLO and trip
+    // UNAUTHORIZED. Bootstrap-first guarantees HELLO is the first frame.
+    let displayName = null;
+    const client = createClient({
+      url: 'ws://x/y',
+      bootstrap: () => (displayName ? { type: 'HELLO', version: 1, displayName } : null),
+    });
+
+    // Initial connect: no displayName yet, bootstrap returns null. The
+    // caller's send() seeds the queue.
+    latestSocket()._simulateOpen();
+    expect(latestSocket().sentFrames).toEqual([]);
+
+    displayName = 'Alice';
+    client.send({ type: 'HELLO', version: 1, displayName: 'Alice' });
+    expect(latestSocket().sentFrames).toEqual([
+      JSON.stringify({ type: 'HELLO', version: 1, displayName: 'Alice' }),
+    ]);
+
+    // Disconnect, reconnect: bootstrap fires before any flushQueue.
+    latestSocket()._simulateClose(1006);
+    vi.advanceTimersByTime(700);
+    await flushMicrotasks();
+
+    const reconnected = latestSocket();
+    reconnected._simulateOpen();
+
+    // Bootstrap-injected HELLO arrived first. No queue flush needed —
+    // post-first-open send() drops while not OPEN.
+    expect(reconnected.sentFrames).toEqual([
+      JSON.stringify({ type: 'HELLO', version: 1, displayName: 'Alice' }),
+    ]);
+  });
+
+  it('swallows a bootstrap throw without blowing up the open path', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const client = createClient({
+      url: 'ws://x/y',
+      bootstrap: () => { throw new Error('boom'); },
+    });
+    latestSocket()._simulateOpen();
+    expect(client.getState()).toBe('open');
+    warn.mockRestore();
+  });
+});
+
+describe('createClient — visibilitychange reconnect', () => {
+  it('forces an immediate reconnect when the tab becomes visible', async () => {
+    // iOS Safari suspends the WS the moment it backgrounds the tab.
+    // Returning to foreground fires visibilitychange before any backoff
+    // timer expires; we must connect now, not wait for the schedule.
+    let visibility = 'visible';
+    const origDescriptor = Object.getOwnPropertyDescriptor(document, 'visibilityState');
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      get: () => visibility,
+    });
+
+    try {
+      createClient({ url: 'ws://x/y' });
+      latestSocket()._simulateOpen();
+      latestSocket()._simulateClose(1006);
+
+      const before = OPEN_SOCKETS.length;
+
+      // Simulate background → foreground. The wrapper should reconnect
+      // immediately, without waiting for the backoff timer to elapse.
+      visibility = 'visible';
+      document.dispatchEvent(new Event('visibilitychange'));
+      await flushMicrotasks();
+
+      expect(OPEN_SOCKETS.length).toBe(before + 1);
+    } finally {
+      if (origDescriptor) {
+        Object.defineProperty(document, 'visibilityState', origDescriptor);
+      }
+    }
   });
 });

@@ -80,7 +80,7 @@ Steps 7–12 will grow this into a zod-validated protocol, ported `src/game/logi
 - `MOVE`: returns `ERROR INVALID_MOVE` with `"Game not started"` until Step 10 replaces this branch.
 - Parse failure / unknown type → `ERROR BAD_PAYLOAD`.
 
-`webSocketClose` during `phase: 'lobby'` branches on the close code. **Code 1000** (deliberate `client.close()` from the wrapper, e.g. exit-to-menu) drops the seat immediately, reassigns `hostId` if the leaver was host, and broadcasts the new `LOBBY_STATE`. **Any other code** (1006 from iOS Safari tab suspension, 1001 going-away, 1011 errors, …) is treated as transient: the seat is held with `disconnectedAt` set and a grace alarm is scheduled at `disconnectedAt + LOBBY_GRACE_MS` (20 s); no broadcast happens, so observers see no change. A re-HELLO with the same `displayName` inside the window resumes the same seat (clears the flag, sends LOBBY_STATE back). The alarm sweeps any seat whose grace expired, reassigns host if needed, and broadcasts. `handleStart` filters out any still-disconnected seats before booting the game so abandoned grace seats don't take a slot from a bot. During `phase: 'playing'` (Step 12) `webSocketClose` calls `eliminatePlayer(game, seatId)`, stores, broadcasts `GAME_STATE`, and reschedules the turn alarm — see **Turn alarm driver** below for the full handoff.
+`webSocketClose` during `phase: 'lobby'` branches on the close code. **Code 1000** (deliberate `client.close()` from the wrapper, e.g. exit-to-menu) drops the seat immediately, reassigns `hostId` if the leaver was host, and broadcasts the new `LOBBY_STATE`. **Any other code** (1006 from iOS Safari tab suspension, 1001 going-away, 1011 errors, …) is treated as transient: the seat is held with `disconnectedAt` set and a grace alarm is scheduled at `disconnectedAt + LOBBY_GRACE_MS` (90 s — sized for the dominant flow of host-opens-Snap-to-share-the-link-and-comes-back); no broadcast happens, so observers see no change. A re-HELLO with the same `displayName` inside the window resumes the same seat (clears the flag, sends LOBBY_STATE back). The alarm sweeps any seat whose grace expired, reassigns host if needed, and broadcasts. `handleStart` filters out any still-disconnected seats before booting the game so abandoned grace seats don't take a slot from a bot. During `phase: 'playing'` (Step 12) `webSocketClose` calls `eliminatePlayer(game, seatId)`, stores, broadcasts `GAME_STATE`, and reschedules the turn alarm — see **Turn alarm driver** below for the full handoff.
 
 Three private helpers on the class: `broadcast(msg, {excludeSeatId?})` iterates `this.ctx.getWebSockets()` and sends (skips only sockets in terminal state; one bad socket doesn't abort the loop); `buildLobbyState(code, lobby)` annotates `isHost` and assembles a `LobbyStateMsg`; `getAttachedSeatId(ws)` safely extracts the attachment.
 
@@ -177,20 +177,21 @@ The DO handler (Step 9) uses it server-side; the client WebSocket wrapper (`src/
 Step 13. A small factory wrapping the browser `WebSocket`:
 
 ```js
-const client = createClient({ url, onMessage, onStateChange });
+const client = createClient({ url, onMessage, onStateChange, bootstrap });
 client.send(clientMsg);   // validated with ClientMsg.parse; throws on garbage
 client.close();           // sticky: no reconnect after this
 ```
 
 - **Outbound** goes through `ClientMsg.parse` (strict — throws). Developer-error guard; not a runtime failure mode.
 - **Inbound** goes through `ServerMsg.safeParse` (permissive — log-and-drop). A server protocol bug can't kill the client.
-- **Send queue** buffers messages while the socket is `CONNECTING` / `CLOSED`; flushes FIFO on `OPEN`, including after a reconnect.
-- **Auto-reconnect** on unexpected close. Jittered exponential backoff `[500, 1000, 2000, 4000, 8000, 16000, 30000]` ms ± 25%. Resets on a successful `open`.
-- **`close()` is sticky** — once called, no further reconnect attempts. State transitions to `'destroyed'` to distinguish from transient `'closed'`.
+- **Bootstrap callback** (issue #22) fires on every WS `open` BEFORE the queue flushes. The hook returns a `HELLO` from it, guaranteeing HELLO is the first frame on every connection — protects against the reconnect race where a queued user tap (e.g. the host pressed START while their tab was suspended) would otherwise beat HELLO to the wire and trip server `UNAUTHORIZED`.
+- **Send queue, post-#22**: buffers messages only during the *initial* connect (before the first `OPEN`). After the wrapper has been `OPEN` once, sends issued while the socket isn't open are **dropped on the floor** — replaying stale user actions against post-reconnect server state would mean acting on assumptions (host status, current turn) that may no longer hold. Caller can re-tap once `'open'` returns.
+- **Auto-reconnect** on unexpected close. Jittered exponential backoff `[500, 1000, 2000, 4000, 8000, 16000, 30000]` ms ± 25%. Resets on a successful `open`. Also force-reconnects (cancel pending backoff timer + reset attempt counter + `connect()` now) on `document.visibilitychange → visible` so iOS Safari tab-foreground feels instant.
+- **`close()` is sticky** — once called, no further reconnect attempts. State transitions to `'destroyed'` to distinguish from transient `'closed'`. Cleans up the `visibilitychange` listener.
 
 Scope limits (deferred to later):
 
-- **No session identity across reconnects** — except for **lobby-phase displayName recovery**. The wrapper itself doesn't track identity, but the server holds a lobby seat for `LOBBY_GRACE_MS` after an abnormal close, and a re-HELLO with the same `displayName` inside that window reattaches to the same seat (host preserved). This is enough for iOS Safari tab suspension, which is the realistic 95% of "lost" connections in lobby. Mid-game reconnects still re-HELLO into a fresh socket and find their seat already eliminated; full session-token-based seat stickiness is still out of scope.
+- **No session identity across reconnects** — except for **lobby-phase displayName recovery**. The wrapper itself doesn't track identity, but the server holds a lobby seat for `LOBBY_GRACE_MS` (90 s, see Lobby dispatcher above) after an abnormal close, and a re-HELLO with the same `displayName` inside that window reattaches to the same seat (host preserved). The hook layer also resets `mySeatId` whenever `connectionState` leaves `'open'`, so a fresh seat assignment after a grace expiry is picked up correctly from the next LOBBY_STATE. Mid-game reconnects still re-HELLO into a fresh socket and find their seat already eliminated; full session-token-based seat stickiness is still out of scope.
 
 ### Hook (`src/net/useNetworkGame.js`)
 
@@ -279,8 +280,8 @@ src/
   index.css                      ← minimal reset / base
   config.js                      ← build-time feature flags (currently: ENABLE_ONLINE). Single read site for `import.meta.env.VITE_*`.
   net/                           ← client-side networking (Step 13+). No React here; pure transport layer.
-    client.js                    ← createClient({url,onMessage,onStateChange}) → {send,close,getState}. Zod-validated send/recv, send queue, jittered-exponential auto-reconnect, sticky explicit close. No consumer yet; Step 14's useNetworkGame wires it in.
-    __tests__/client.test.js     ← 14 cases via a hand-written MockWebSocket + fake timers: connect transitions, inbound happy-path/malformed/wrong-shape, outbound validation throws, queue FIFO before-and-after reconnect, backoff growth + reset, sticky close.
+    client.js                    ← createClient({url,onMessage,onStateChange,bootstrap}) → {send,close,getState}. Zod-validated send/recv, bootstrap-first-on-open (HELLO race fix #22), drop-while-disconnected send semantics post-first-open, jittered-exponential auto-reconnect with visibilitychange-triggered fast-path, sticky explicit close.
+    __tests__/client.test.js     ← 17 cases via a hand-written MockWebSocket + fake timers: connect transitions, inbound happy-path/malformed/wrong-shape, outbound validation throws, queue flushes the initial-connect buffer, post-first-open sends drop while disconnected (#22), backoff growth + reset, sticky close, bootstrap-first ordering, visibilitychange forces an immediate reconnect.
     useNetworkGame.js            ← React hook wrapping createClient. `gameState` is shape-compatible with useReducer(gameReducer, null); also exposes lobby, connectionState, mySeatId, lastError, and join/start/move senders. Step 16 wires it into OnlineGameController.
     __tests__/useNetworkGame.test.jsx ← 11 cases. Two "contract" checks iterate Object.keys(initGame(false, 3)) and assert each key is present on hook.gameState — that's what guarantees Step 16's useReducer→useNetworkGame swap won't break any component. Other cases cover lobby/mySeatId/senders/error/connection-state/unmount-cleanup. Mocks ../client.js via vi.mock.
   game/                          ← pure game module — no React, no DOM, no window. IMPORTED BY SERVER (see Step 8).

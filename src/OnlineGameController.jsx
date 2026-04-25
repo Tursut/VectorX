@@ -49,6 +49,7 @@ export default function OnlineGameController({
     join,
     start,
     move,
+    clearError,
   } = useNetworkGame({ url });
 
   // setter isn't wired up yet — the host's magic-toggle UI in the lobby would
@@ -119,6 +120,21 @@ export default function OnlineGameController({
     joinFailedFired.current = true;
     onJoinFailed(lastError);
   }, [lastError, onJoinFailed]);
+
+  // Lobby-phase UNAUTHORIZED is recoverable: the user tapped START during a
+  // reconnect race and the server rejected because their socket arrived
+  // pre-HELLO, OR they lost host status mid-grace-expiry and the queued
+  // START found them as a non-host on the new seat. Either way, the right
+  // recovery is to drop the error and stay in the lobby — the next
+  // LOBBY_STATE will repaint with the correct host + seat assignment.
+  // Once gameState exists (game has actually started), UNAUTHORIZED is a
+  // real "your session ended" signal and stays fatal.
+  useEffect(() => {
+    if (!lastError || lastError.code !== 'UNAUTHORIZED') return;
+    if (gameState) return;
+    console.warn('[OnlineGameController] recovering from lobby-phase UNAUTHORIZED');
+    clearError();
+  }, [lastError, gameState, clearError]);
 
   function toggleSound() {
     const next = !soundEnabled;

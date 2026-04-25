@@ -43,7 +43,30 @@ export function useNetworkGame({ url }) {
 
     const client = createClient({
       url,
-      onStateChange: (s) => setConnectionState(s),
+      // Bootstrap fires on EVERY WS open (initial + every reconnect) BEFORE
+      // any queued message flushes. Returning HELLO from here guarantees
+      // the server always sees HELLO first on a fresh socket — without it,
+      // a user tap queued during a disconnect would race to the wire ahead
+      // of HELLO and the server's UNAUTHORIZED check would fire (#22).
+      // Returning null pre-join is fine; the bootstrap is a no-op.
+      bootstrap: () => {
+        const want = myNameRef.current;
+        if (!want) return null;
+        return { type: 'HELLO', version: 1, displayName: want };
+      },
+      onStateChange: (s) => {
+        // Anything other than 'open' means our seat assignment may no
+        // longer be authoritative — the next 'open' will trigger a fresh
+        // HELLO via bootstrap, the server may give us a different seat
+        // (grace expired, etc.), and we re-discover from the next
+        // LOBBY_STATE. Without resetting here, the one-shot guard in
+        // tryDiscoverSeat would freeze mySeatId on the stale value.
+        if (s !== 'open') {
+          mySeatIdRef.current = null;
+          setMySeatId(null);
+        }
+        setConnectionState(s);
+      },
       onMessage: (msg) => {
         switch (msg.type) {
           case 'LOBBY_STATE': {
@@ -117,6 +140,12 @@ export function useNetworkGame({ url }) {
     clientRef.current?.send({ type: 'HELLO', version: 1, displayName });
   }, []);
 
+  // Drop the last server error. Used by OnlineGameController to recover from
+  // recoverable codes (e.g. lobby-phase UNAUTHORIZED — the user pressed
+  // START while their socket was reconnecting and lost host status during
+  // the grace expiry; the next render of the lobby is fine to show).
+  const clearError = useCallback(() => setLastError(null), []);
+
   const start = useCallback((magicItems) => {
     clientRef.current?.send({ type: 'START', magicItems });
   }, []);
@@ -134,5 +163,6 @@ export function useNetworkGame({ url }) {
     join,
     start,
     move,
+    clearError,
   };
 }
