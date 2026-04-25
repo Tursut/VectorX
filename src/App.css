@@ -1947,27 +1947,36 @@
   flex-direction: column;
   gap: 2px;
 }
+/* Sibling of .start-title — same Fredoka One + clamp + glow pulse, scaled
+   down because LOBBY is a sub-screen, not the app's home title. */
 .lobby-title {
-  font-size: 32px;
   font-family: 'Fredoka One', 'Segoe UI', sans-serif;
+  font-size: clamp(28px, 8vw, 48px);
+  font-weight: bold;
   letter-spacing: 4px;
-  color: #e8e8f4;
+  color: #fff;
+  text-shadow: 0 0 16px rgba(255, 255, 255, 0.25), 0 3px 0 #000;
   margin: 0;
+  animation: titlePulse 3s infinite ease-in-out;
 }
 .lobby-room-line {
   font-size: 14px;
   color: #888aaa;
   margin: 0;
 }
+/* Drop monospace — nothing else in the app uses Courier. The 5-char ALL-CAPS
+   reads cleanly in Fredoka One. */
 .lobby-code {
-  font-family: 'Courier New', monospace;
+  font-family: 'Fredoka One', 'Segoe UI', sans-serif;
   letter-spacing: 0.15em;
   color: #ffcc66;
 }
 
-/* Invite card */
+/* Invite card. Transparent bg keeps the lobby's flat-card hierarchy (no
+   nested-card-within-card depth); the 1 px lavender border is enough to
+   group the label + URL + copy button without painting a new surface. */
 .lobby-invite {
-  background: #141428;
+  background: transparent;
   border: 1px solid #333366;
   border-radius: 8px;
   padding: 12px 14px;
@@ -1982,19 +1991,30 @@
   color: #666888;
   font-family: 'Segoe UI', sans-serif;
 }
+/* URL reads as a normal text link — Segoe UI body font, mid-lavender,
+   underlined. No more amber Courier. */
 .lobby-invite-url {
-  font-family: 'Courier New', monospace;
-  font-size: 12px;
-  color: #ffcc66;
+  font-family: 'Segoe UI', sans-serif;
+  font-size: 13px;
+  color: #aaaacc;
   word-break: break-all;
   line-height: 1.4;
-  text-decoration: none;
+  text-decoration: underline;
+  text-decoration-color: #555588;
+  text-underline-offset: 2px;
 }
-.lobby-invite-url:hover { color: #ffe0a0; }
+.lobby-invite-url:hover {
+  color: #e8e8f4;
+  text-decoration-color: #7a8cff;
+}
+/* Secondary outlined button in the lavender palette — same vocabulary as
+   .exit-game-btn / .lobby-leave-btn, just sized as a small action button
+   instead of a flat text-link. The done-state uses the palette's existing
+   green (#2ecc71, also player-2's colour) instead of a one-off green. */
 .lobby-copy-btn {
   align-self: flex-end;
-  background: #1d1d3a;
-  border: 1px solid #4a4d88;
+  background: transparent;
+  border: 1px solid #555588;
   border-radius: 6px;
   color: #aaaacc;
   font-size: 13px;
@@ -2005,14 +2025,14 @@
   white-space: nowrap;
 }
 .lobby-copy-btn:hover {
-  background: #252550;
+  background: rgba(122, 140, 255, 0.08);
   color: #e8e8f4;
   border-color: #7a8cff;
 }
 .lobby-copy-btn-done {
-  border-color: #44aa66;
-  color: #44cc88;
-  background: #0e2418;
+  background: transparent;
+  border-color: #2ecc71;
+  color: #2ecc71;
 }
 
 .lobby-players {
@@ -2024,10 +2044,13 @@
   gap: 8px;
 }
 
+/* Pill rows in the player list. Transparent bg + thin lavender border
+   matches the flat-card hierarchy — no extra surface depth, just a
+   subtle pill shape per player. */
 .lobby-player {
   padding: 10px 14px;
-  background: #14142a;
-  border: 1px solid #333366;
+  background: transparent;
+  border: 1px solid #1f1f3a;
   border-radius: 8px;
 }
 
@@ -2211,20 +2234,20 @@
   margin-right: 6px;
 }
 
-/* Back-button used by the online status screen */
+/* Back-button used by the online status screen — matches the
+   .exit-game-btn / .lobby-leave-btn family (subtle text link, soft hover). */
 .online-back-btn {
   background: none;
   border: none;
-  color: #aaaacc;
+  color: #556;
   font-size: 13px;
   font-family: inherit;
   cursor: pointer;
-  padding: 4px 8px;
-  align-self: flex-start;
+  padding: 2px 4px;
+  letter-spacing: 0.03em;
+  transition: color 0.15s;
 }
-.online-back-btn:hover {
-  color: #e8e8f4;
-}
+.online-back-btn:hover { color: #aab; }
 .online-error {
   color: #ff8899;
   font-size: 13px;
