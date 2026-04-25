@@ -282,15 +282,6 @@ export default function StartScreen({
         <div className="start-sound-corner">
           <SoundToggle enabled={soundEnabled} onToggle={onToggleSound} />
         </div>
-        {isJoiner && (
-          <button
-            type="button"
-            className="start-back-corner exit-game-btn"
-            onClick={backToMenuFromJoiner}
-          >
-            ← Back to menu
-          </button>
-        )}
         <h1 className="start-title">MIND THE GRID</h1>
         <p className="start-subtitle">
           Four players. One grid. Only one walks away smiling.
@@ -452,6 +443,20 @@ export default function StartScreen({
           </AnimatePresence>
         </div>
         </div>
+
+        {/* "← Back to menu" sits below the form card, aligned to its left
+            edge — same vocabulary as the Lobby and GameScreen exit links.
+            Only rendered in the joiner-stripped view (mode-switcher hidden),
+            since otherwise the user can just tap a different mode tile. */}
+        {isJoiner && (
+          <button
+            type="button"
+            className="exit-game-btn"
+            onClick={backToMenuFromJoiner}
+          >
+            ← Back to menu
+          </button>
+        )}
 
         {/* Magic / Classic toggle — hidden entirely for share-link joiners */}
         {!isJoiner && (
