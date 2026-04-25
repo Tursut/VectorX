@@ -174,8 +174,8 @@ export default function StartScreen({
               onClick={() => setMode('this-device')}
             >
               <span className="mode-switcher-icon">🎮</span>
-              <span className="mode-switcher-label">THIS DEVICE</span>
-              <span className="mode-switcher-sub">On this device, bots fill the rest</span>
+              <span className="mode-switcher-label">SAME SCREEN</span>
+              <span className="mode-switcher-sub">Pass-and-play. Bots fill open seats.</span>
             </button>
             <button
               type="button"

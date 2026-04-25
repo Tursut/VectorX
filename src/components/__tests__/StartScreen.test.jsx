@@ -43,12 +43,12 @@ describe('StartScreen — mode switcher visibility', () => {
 
   it('renders three mode tiles when both online handlers are provided', () => {
     render(<StartScreen {...withOnline()} />);
-    expect(screen.getByRole('tab', { name: /this device/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /same screen/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /create room/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /join room/i })).toBeInTheDocument();
   });
 
-  it('defaults to This Device mode — bots slider visible, online inputs absent', () => {
+  it('defaults to Same Screen mode — bots slider visible, online inputs absent', () => {
     render(<StartScreen {...withOnline()} />);
     expect(screen.getByText(/who's playing/i)).toBeInTheDocument();
     expect(screen.queryByRole('textbox', { name: /your name/i })).toBeNull();
@@ -101,7 +101,7 @@ describe('StartScreen — defaultMode + defaultCode (cold-open)', () => {
 // ---------- Primary button label ----------
 
 describe('StartScreen — primary button label', () => {
-  it('is "START THE GAME" in This Device mode', () => {
+  it('is "START THE GAME" in Same Screen mode', () => {
     render(<StartScreen {...withOnline()} />);
     expect(screen.getByRole('button', { name: /start the game/i })).toBeInTheDocument();
   });
@@ -261,7 +261,7 @@ describe('StartScreen — code paste', () => {
 // ---------- Testing ground visibility ----------
 
 describe('StartScreen — testing ground link', () => {
-  it('shows the testing-ground link in This Device mode', () => {
+  it('shows the testing-ground link in Same Screen mode', () => {
     render(<StartScreen {...withOnline()} />);
     expect(screen.getByRole('button', { name: /testing ground/i })).toBeInTheDocument();
   });
