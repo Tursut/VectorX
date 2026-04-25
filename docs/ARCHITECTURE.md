@@ -65,7 +65,7 @@ Steps 7–12 will grow this into a zod-validated protocol, ported `src/game/logi
 ### Durable Object: `RoomDurableObject` (bound as `ROOM`)
 
 - **One DO per room.** Room code → `env.ROOM.idFromName(code)` → stable DO identity. Same code always lands on the same DO, even after the Worker isolate restarts.
-- **Storage today:** `{ code, createdAt, lobby }` where `lobby = { players: [{id, displayName, isBot}], hostId, phase: 'lobby'|'playing', magicItems }`. `isHost` is NOT stored — it's derived at broadcast time from `hostId`, so host reassignment on disconnect is a single field update. Step 10 will add `game` alongside `lobby`.
+- **Storage today:** `{ code, createdAt, lobby }` where `lobby = { players: [{id, displayName, isBot, disconnectedAt}], hostId, phase: 'lobby'|'playing', magicItems }`. `isHost` is NOT stored — it's derived at broadcast time from `hostId`, so host reassignment on disconnect is a single field update. `disconnectedAt` is internal-only (lobby-grace bookkeeping) and stripped at the wire boundary in `buildLobbyState`. Step 10 added `game` alongside `lobby`.
 - **Internal route convention** (Worker-to-DO `stub.fetch`): path mirrors the external path. External `POST /rooms` → internal DO `POST /rooms`. External `GET /rooms/:code/ws` → internal DO `GET /ws` (Worker rewrites the URL via `new Request('http://do/ws', request)` to preserve method + all handshake headers).
 - **Init is atomic, one-shot.** DO's `POST /rooms` refuses to reinitialise (returns `409`) if storage already has a `code`. The Worker regenerates a fresh random code and retries up to 5× — race-safe against two Workers randomly picking the same code.
 - **Per-socket seat identity** lives in `ws.serializeAttachment({ seatId })` (persists across hibernation). `handleHello` writes it on first join; subsequent handlers (`handleStart`, `webSocketClose`) read via `ws.deserializeAttachment()`.
@@ -80,7 +80,7 @@ Steps 7–12 will grow this into a zod-validated protocol, ported `src/game/logi
 - `MOVE`: returns `ERROR INVALID_MOVE` with `"Game not started"` until Step 10 replaces this branch.
 - Parse failure / unknown type → `ERROR BAD_PAYLOAD`.
 
-`webSocketClose` during `phase: 'lobby'` removes the departing seat from `players`, reassigns `hostId` to the lowest-id remaining player if the leaver was host, and broadcasts an updated LOBBY_STATE. During `phase: 'playing'` (Step 12) it calls `eliminatePlayer(game, seatId)`, stores, broadcasts `GAME_STATE`, and reschedules the turn alarm — see **Turn alarm driver** below for the full handoff.
+`webSocketClose` during `phase: 'lobby'` branches on the close code. **Code 1000** (deliberate `client.close()` from the wrapper, e.g. exit-to-menu) drops the seat immediately, reassigns `hostId` if the leaver was host, and broadcasts the new `LOBBY_STATE`. **Any other code** (1006 from iOS Safari tab suspension, 1001 going-away, 1011 errors, …) is treated as transient: the seat is held with `disconnectedAt` set and a grace alarm is scheduled at `disconnectedAt + LOBBY_GRACE_MS` (20 s); no broadcast happens, so observers see no change. A re-HELLO with the same `displayName` inside the window resumes the same seat (clears the flag, sends LOBBY_STATE back). The alarm sweeps any seat whose grace expired, reassigns host if needed, and broadcasts. `handleStart` filters out any still-disconnected seats before booting the game so abandoned grace seats don't take a slot from a bot. During `phase: 'playing'` (Step 12) `webSocketClose` calls `eliminatePlayer(game, seatId)`, stores, broadcasts `GAME_STATE`, and reschedules the turn alarm — see **Turn alarm driver** below for the full handoff.
 
 Three private helpers on the class: `broadcast(msg, {excludeSeatId?})` iterates `this.ctx.getWebSockets()` and sends (skips only sockets in terminal state; one bad socket doesn't abort the loop); `buildLobbyState(code, lobby)` annotates `isHost` and assembles a `LobbyStateMsg`; `getAttachedSeatId(ws)` safely extracts the attachment.
 
@@ -190,7 +190,7 @@ client.close();           // sticky: no reconnect after this
 
 Scope limits (deferred to later):
 
-- **No session identity across reconnects.** A reconnecting socket is treated by the server as a fresh connection — the caller must re-HELLO and will get a new seat assignment (or `ROOM_FULL` if their old seat was filled). Seat-sticky reconnects would require cross-origin `Set-Cookie` on the server, DO-side session→seat mapping, and a change to `webSocketClose` — out of scope for Step 13.
+- **No session identity across reconnects** — except for **lobby-phase displayName recovery**. The wrapper itself doesn't track identity, but the server holds a lobby seat for `LOBBY_GRACE_MS` after an abnormal close, and a re-HELLO with the same `displayName` inside that window reattaches to the same seat (host preserved). This is enough for iOS Safari tab suspension, which is the realistic 95% of "lost" connections in lobby. Mid-game reconnects still re-HELLO into a fresh socket and find their seat already eliminated; full session-token-based seat stickiness is still out of scope.
 
 ### Hook (`src/net/useNetworkGame.js`)
 
@@ -321,6 +321,7 @@ server/                          ← Cloudflare Worker + RoomDurableObject + wir
   __tests__/room-bots.test.ts    ← 4 cases covering the bot driver: identity in a 1h3b room (🤖 shortName + isBot=true), alarm scheduled after START and advances via runDurableObjectAlarm, all-bots simulation drives the game to GAME_OVER via seeded storage + alarm loop, and the seat-recycling invariant that makes `gremlinCount = 4 - N` correct.
   __tests__/room-timer.test.ts   ← 3 cases covering the human turn timer: alarm size is ~TURN_TIME_MS when current seat is human, firing the alarm forfeits via eliminateCurrentPlayer (isEliminated + deathCell + finishTurn set; currentPlayerIndex advances), and bot-to-human handoff correctly switches the alarm size from 800–1400ms to TURN_TIME_MS.
   __tests__/room-disconnect.test.ts ← 4 cases covering disconnect=elimination during `playing` phase: non-current player disconnect (marked eliminated, turn unchanged), current-player disconnect (eliminated + turn advances), last-human-in-1h3b disconnect (bots play out to GAME_OVER via alarms), and post-GAME_OVER disconnect (no-op, no alarm, no broadcast).
+  __tests__/room-lobby-grace.test.ts ← 5 cases covering lobby-phase grace: abnormal close (code != 1000) holds the seat without broadcasting, same-displayName re-HELLO during grace resumes the seat (incl. host), expired grace via alarm drops the seat and reassigns host, deliberate `ws.close(1000)` still removes immediately.
 e2e/                             ← Playwright specs
   sanity.spec.ts                 ← trivial harness-wired test (no server needed)
   helpers.ts                     ← shared helpers: createRoom(), APP/SERVER constants, page interaction utilities

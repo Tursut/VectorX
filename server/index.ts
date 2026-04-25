@@ -113,6 +113,14 @@ const MAX_FRAME_BYTES = 4096;
 // ends, so storage doesn't accumulate forever. Read in the alarm handler.
 const REAPER_DELAY_MS = 10 * 60 * 1000;
 
+// Lobby disconnect grace. iOS Safari aggressively suspends the WebSocket when
+// its tab is backgrounded, so a clean WS close arriving without an explicit
+// 1000 from the client is almost always a temporary suspension, not a real
+// leave. We hold the seat for this long; if a HELLO with the same displayName
+// arrives in the window the player resumes their seat. On expiry the alarm
+// drops the seat (and reassigns host if needed) just like a hard leave.
+const LOBBY_GRACE_MS = 20 * 1000;
+
 function generateRoomCode(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(5));
   let out = '';
@@ -125,8 +133,17 @@ function generateRoomCode(): string {
 // Storage shape (single `lobby` key). `isHost` is NOT stored — it's derived at
 // broadcast time from `hostId` so host reassignment on disconnect is a single
 // field update instead of N per-player flag updates.
+//
+// `disconnectedAt` is internal-only: when set, the seat is in the grace
+// window after an abnormal close. It's stripped at the wire boundary in
+// buildLobbyState so other clients see the player exactly as before.
 type LobbyStorage = {
-  players: Array<{ id: number; displayName: string; isBot: boolean }>;
+  players: Array<{
+    id: number;
+    displayName: string;
+    isBot: boolean;
+    disconnectedAt: number | null;
+  }>;
   hostId: number | null;
   phase: 'lobby' | 'playing';
   magicItems: boolean;
@@ -259,18 +276,34 @@ export class RoomDurableObject extends DurableObject<Env> {
       if (!lobby) return;
 
       if (lobby.phase === 'lobby') {
-        const players = lobby.players.filter((p) => p.id !== seatId);
-        let hostId = lobby.hostId;
-        if (hostId === seatId) {
-          // Reassign to lowest-id remaining player, or null if room emptied.
-          hostId = players.length > 0 ? players[0].id : null;
-        }
-        const updated: LobbyStorage = { ...lobby, players, hostId };
-        await this.ctx.storage.put('lobby', updated);
+        // Code 1000 = client-initiated clean close. Treat as a deliberate
+        // leave: drop the seat immediately, reassign host, broadcast. Anything
+        // else (1006 from iOS suspension, 1001 going-away, 1011 errors, …) is
+        // probably temporary — hold the seat for LOBBY_GRACE_MS and let a
+        // re-HELLO with the same displayName resume it.
+        if (code === 1000) {
+          const players = lobby.players.filter((p) => p.id !== seatId);
+          let hostId = lobby.hostId;
+          if (hostId === seatId) {
+            hostId = players.length > 0 ? players[0].id : null;
+          }
+          const updated: LobbyStorage = { ...lobby, players, hostId };
+          await this.ctx.storage.put('lobby', updated);
 
-        const storedCode = await this.ctx.storage.get<string>('code');
-        if (storedCode) {
-          this.broadcast(this.buildLobbyState(storedCode, updated));
+          const storedCode = await this.ctx.storage.get<string>('code');
+          if (storedCode) {
+            this.broadcast(this.buildLobbyState(storedCode, updated));
+          }
+          await this.scheduleLobbyGraceAlarm(updated);
+        } else {
+          const now = Date.now();
+          const players = lobby.players.map((p) =>
+            p.id === seatId ? { ...p, disconnectedAt: now } : p,
+          );
+          const updated: LobbyStorage = { ...lobby, players };
+          await this.ctx.storage.put('lobby', updated);
+          // No broadcast — visible state is unchanged for other clients.
+          await this.scheduleLobbyGraceAlarm(updated);
         }
       } else {
         // lobby.phase === 'playing' → disconnect = elimination (Step 12).
@@ -334,6 +367,14 @@ export class RoomDurableObject extends DurableObject<Env> {
 
     const code = await this.ctx.storage.get<string>('code');
     const lobby = await this.ctx.storage.get<LobbyStorage>('lobby');
+
+    // Lobby grace expiry: any seats still flagged disconnected past the grace
+    // window are truly gone. Drop them, reassign host if needed, broadcast.
+    if (code && lobby && lobby.phase === 'lobby') {
+      await this.processLobbyGrace(code, lobby);
+      return;
+    }
+
     let game = await this.ctx.storage.get<GameStorage>('game');
     if (
       !code ||
@@ -390,6 +431,28 @@ export class RoomDurableObject extends DurableObject<Env> {
       return;
     }
 
+    // Grace-period recovery: if a player with the same displayName is
+    // currently in the disconnected state (their previous WS dropped without
+    // a clean 1000 close), reattach this fresh socket to that seat. Same
+    // identity, same seat — exactly what an iOS-suspended Safari tab needs to
+    // resume the lobby without becoming a phantom join.
+    const recovering = lobby.players.find(
+      (p) => p.disconnectedAt !== null && p.displayName === msg.displayName,
+    );
+    if (recovering) {
+      const players = lobby.players.map((p) =>
+        p.id === recovering.id ? { ...p, disconnectedAt: null } : p,
+      );
+      const updated: LobbyStorage = { ...lobby, players };
+      await this.ctx.storage.put('lobby', updated);
+      ws.serializeAttachment({ seatId: recovering.id });
+      ws.send(JSON.stringify(this.buildLobbyState(storedCode, updated)));
+      // Refresh the grace alarm to reflect any other still-disconnected
+      // players (or clear it if this was the last one).
+      await this.scheduleLobbyGraceAlarm(updated);
+      return;
+    }
+
     if (lobby.players.length >= MAX_PLAYERS) {
       this.sendError(ws, 'ROOM_FULL');
       return;
@@ -405,6 +468,7 @@ export class RoomDurableObject extends DurableObject<Env> {
       id: newId,
       displayName: msg.displayName,
       isBot: false,
+      disconnectedAt: null,
     };
     const updated: LobbyStorage = {
       ...lobby,
@@ -417,7 +481,12 @@ export class RoomDurableObject extends DurableObject<Env> {
 
     const joinMsg: JoinMsg = {
       type: 'JOIN',
-      player: { ...newPlayer, isHost: newPlayer.id === updated.hostId },
+      player: {
+        id: newPlayer.id,
+        displayName: newPlayer.displayName,
+        isBot: newPlayer.isBot,
+        isHost: newPlayer.id === updated.hostId,
+      },
     };
     this.broadcast(joinMsg); // includes joiner — client symmetry
     this.broadcast(this.buildLobbyState(storedCode, updated));
@@ -444,17 +513,26 @@ export class RoomDurableObject extends DurableObject<Env> {
       return;
     }
 
+    // Drop any seats still in the lobby grace window — if a player hasn't
+    // re-attached by START they're not actually playing, and bots should fill
+    // the slot. Compact the survivors so seat IDs are 0..N-1 implicitly via
+    // the existing gremlinCount convention.
+    const activeLobbyPlayers = lobby.players.filter(
+      (p) => p.disconnectedAt === null,
+    );
+
     // gremlinCount tells initGame how many of the last seats are bots by
     // convention. For Step 10 we assume humans fill seats 0..N-1 (tests do);
     // Step 11 adds the bot-fill compaction + drives bot turns via
     // getGremlinMove. isBot on each outbound GamePlayer is derived from the
     // lobby roster (see buildGameState) — not the gremlinCount convention —
     // so lobby gaps are still honest on the wire even today.
-    const gremlinCount = 4 - lobby.players.length;
+    const gremlinCount = 4 - activeLobbyPlayers.length;
     const game = initGame(msg.magicItems, gremlinCount) as GameStorage;
 
     const updatedLobby: LobbyStorage = {
       ...lobby,
+      players: activeLobbyPlayers,
       phase: 'playing',
       magicItems: msg.magicItems,
     };
@@ -542,6 +620,60 @@ export class RoomDurableObject extends DurableObject<Env> {
   //     advanceToNextActive, but defensive) → deleteAlarm; the runtime can
   //     recover once some other transition brings a live seat back.
   // setAlarm overwrites any existing alarm — no read-then-write needed.
+  // Sweep disconnected seats whose grace expired; reassign host if they were
+  // it; broadcast the new lobby state. Reschedules the alarm if anyone else
+  // is still inside their own grace window.
+  private async processLobbyGrace(
+    code: string,
+    lobby: LobbyStorage,
+  ): Promise<void> {
+    const now = Date.now();
+    const expiredIds = new Set(
+      lobby.players
+        .filter(
+          (p) =>
+            p.disconnectedAt !== null &&
+            now - p.disconnectedAt >= LOBBY_GRACE_MS,
+        )
+        .map((p) => p.id),
+    );
+
+    if (expiredIds.size === 0) {
+      // Spurious wake-up (or alarm fired slightly early). Reschedule for the
+      // next pending grace expiry.
+      await this.scheduleLobbyGraceAlarm(lobby);
+      return;
+    }
+
+    const survivors = lobby.players.filter((p) => !expiredIds.has(p.id));
+    let hostId = lobby.hostId;
+    if (hostId !== null && expiredIds.has(hostId)) {
+      hostId = survivors.length > 0 ? survivors[0].id : null;
+    }
+    const updated: LobbyStorage = { ...lobby, players: survivors, hostId };
+    await this.ctx.storage.put('lobby', updated);
+    this.broadcast(this.buildLobbyState(code, updated));
+    await this.scheduleLobbyGraceAlarm(updated);
+  }
+
+  // Set the DO alarm to the earliest pending lobby-grace expiry, or clear it
+  // if no seat is currently disconnected. Called after every lobby-state
+  // mutation that touches `disconnectedAt`.
+  private async scheduleLobbyGraceAlarm(lobby: LobbyStorage): Promise<void> {
+    let earliest: number | null = null;
+    for (const p of lobby.players) {
+      if (p.disconnectedAt !== null) {
+        const expiry = p.disconnectedAt + LOBBY_GRACE_MS;
+        if (earliest === null || expiry < earliest) earliest = expiry;
+      }
+    }
+    if (earliest === null) {
+      await this.ctx.storage.deleteAlarm();
+      return;
+    }
+    await this.ctx.storage.setAlarm(Math.max(earliest, Date.now() + 1));
+  }
+
   private async maybeScheduleTurnAlarm(
     game: GameStorage,
     lobby: LobbyStorage,
@@ -575,8 +707,13 @@ export class RoomDurableObject extends DurableObject<Env> {
     return {
       type: 'LOBBY_STATE',
       code,
+      // Project storage → wire explicitly. The storage shape carries a
+      // `disconnectedAt` field (internal grace-period bookkeeping) that the
+      // strict LobbyPlayer wire schema rejects.
       players: lobby.players.map((p) => ({
-        ...p,
+        id: p.id,
+        displayName: p.displayName,
+        isBot: p.isBot,
         isHost: p.id === lobby.hostId,
       })),
       hostId: lobby.hostId,
