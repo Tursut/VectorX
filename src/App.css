@@ -2164,10 +2164,13 @@
      Both use the same lavender (#333366) the lobby card uses, so the visual
      style flows continuously from start screen → lobby. The active tile's
      differentiation comes from its squared bottom corners, brighter text
-     colour, and the 2 px sink that merges it into the drawer below. */
+     colour, the 2 px sink that merges it into the drawer below, and a
+     lavender glow halo (matches the Magic/Classic mode-btn-active treatment
+     just with the lavender hue instead of orange/purple). */
   background: #0f0f23;
   border-color: #333366;
   color: #c8caff;
+  box-shadow: 0 0 24px rgba(122, 140, 255, 0.45);
   /* Merge into the drawer below: hide the bottom border, sink 2 px so the
      tile's bg paints over the drawer's 2 px top border in this column.
      margin-bottom doesn't work here because the tile is a grid child —
