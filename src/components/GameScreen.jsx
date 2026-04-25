@@ -122,9 +122,12 @@ export default function GameScreen({
     ...playerConfig,
     name: currentPlayerState.displayName ?? playerConfig.name,
   };
-  const taunt = TURN_TAUNTS[gameState.turnCount % TURN_TAUNTS.length](
-    playerConfig.shortName,
-  );
+  // Online players have a chosen displayName; hotseat / bots fall back to
+  // the character shortName. Without this fallback the taunt always read
+  // the static shortName ("It's Gerald's turn…") even when the actual
+  // player was "Hugo the Plucky".
+  const tauntName = currentPlayerState.displayName ?? playerConfig.shortName;
+  const taunt = TURN_TAUNTS[gameState.turnCount % TURN_TAUNTS.length](tauntName);
 
   // During the trap animation we still want the board visible (not the
   // GameOverScreen). Once trap clears and phase is gameover, render gameover.

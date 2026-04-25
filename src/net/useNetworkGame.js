@@ -91,6 +91,13 @@ export function useNetworkGame({ url }) {
             // Destructure on the fly.
             const { type: _type, ...state } = msg;
             setGameState(state);
+            // Also re-discover our seat from the GAME_STATE player roster.
+            // The mid-game silent-tab-kill recovery path on the server only
+            // pushes GAME_STATE (no fresh LOBBY_STATE), so without this the
+            // client wouldn't pick the seat back up after a reconnect →
+            // myTurn stays false, validMoves is empty, the user can see
+            // the board but can't click any cell.
+            tryDiscoverSeat(msg.players);
             return;
           }
           case 'ELIMINATED':

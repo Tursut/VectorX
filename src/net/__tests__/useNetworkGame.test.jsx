@@ -151,6 +151,32 @@ describe('useNetworkGame — mySeatId discovery', () => {
     expect(result.current.mySeatId).toBe(2);
   });
 
+  it('infers mySeatId from a GAME_STATE roster too (mid-game reconnect path)', () => {
+    // Server's silent-tab-kill recovery only pushes GAME_STATE, not
+    // LOBBY_STATE. Without GAME_STATE-driven seat discovery, mySeatId
+    // would stay null after a reconnect and the local user couldn't make
+    // moves — the screen renders but no cells are clickable.
+    const local = initGame(false, 0);
+    const wire = wireGameStateFrom(local);
+    // Override the canned 'P{id}' displayNames so seat 1 matches our HELLO.
+    wire.players = wire.players.map((p) =>
+      p.id === 1 ? { ...p, displayName: 'Alice' } : p,
+    );
+
+    const { result } = renderHook(() => useNetworkGame({ url: 'ws://x/y' }));
+
+    act(() => result.current.join('Alice'));
+
+    // Reset seat first (simulates a disconnect that cleared mySeatIdRef).
+    act(() => capturedOnStateChange('closed'));
+    expect(result.current.mySeatId).toBeNull();
+    act(() => capturedOnStateChange('open'));
+
+    act(() => capturedOnMessage(wire));
+
+    expect(result.current.mySeatId).toBe(1);
+  });
+
   it('leaves mySeatId null if the name is not in the roster', () => {
     const { result } = renderHook(() => useNetworkGame({ url: 'ws://x/y' }));
 
