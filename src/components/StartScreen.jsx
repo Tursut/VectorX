@@ -60,6 +60,7 @@ export default function StartScreen({
   defaultCode = '',
   defaultDisplayName = '',
   onlineError = null,
+  onlineErrorDebug = null,
 }) {
   // Online handlers are required for the create/join tiles to show. When
   // ENABLE_ONLINE is false, App.jsx passes null for both and the screen
@@ -276,6 +277,26 @@ export default function StartScreen({
     </>
   );
 
+  // Inline error + optional debug context. Rendered identically in both
+  // online drawers (create + join). Debug lands here when App.jsx routes a
+  // server-side ALREADY_STARTED / DUPLICATE_NAME / ROOM_FULL bounce back to
+  // the start screen with diagnostic context — meant to be screenshotted
+  // and reported, not read at a glance.
+  const errorBlock = onlineError && (
+    <>
+      <p className="online-error" role="alert">{onlineError}</p>
+      {onlineErrorDebug && (
+        <pre className="online-status-debug" aria-label="Debug context">
+{`code:        ${onlineErrorDebug.code}
+message:     ${onlineErrorDebug.message ?? '(none)'}
+room:        ${onlineErrorDebug.room ?? '(unknown)'}
+displayName: ${onlineErrorDebug.displayName ?? '(unknown)'}
+at:          ${onlineErrorDebug.at ?? '(unknown)'}`}
+        </pre>
+      )}
+    </>
+  );
+
   return (
     <div className="start-screen">
       <div className="start-content">
@@ -390,11 +411,7 @@ export default function StartScreen({
               >
                 <div className="online-section">
                   {nameInput}
-                  {onlineError && (
-                    <p className="online-error" role="alert">
-                      {onlineError}
-                    </p>
-                  )}
+                  {errorBlock}
                 </div>
               </motion.div>
             )}
@@ -432,11 +449,7 @@ export default function StartScreen({
                   {submitError === 'code' && (
                     <p className="field-error" role="alert">Enter a 5-character room code.</p>
                   )}
-                  {onlineError && (
-                    <p className="online-error" role="alert">
-                      {onlineError}
-                    </p>
-                  )}
+                  {errorBlock}
                 </div>
               </motion.div>
             )}

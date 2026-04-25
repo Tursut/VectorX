@@ -58,6 +58,7 @@ export default function LocalGameController({
   defaultCode,
   defaultDisplayName,
   onlineError,
+  onlineErrorDebug,
 } = {}) {
   const [screen, setScreen] = useState('start');
   const [magicItems, setMagicItems] = useState(true);
@@ -261,6 +262,7 @@ export default function LocalGameController({
               defaultCode={defaultCode}
               defaultDisplayName={defaultDisplayName}
               onlineError={onlineError}
+              onlineErrorDebug={onlineErrorDebug}
             />
           </motion.div>
         )}

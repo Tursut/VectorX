@@ -50,6 +50,12 @@ export default function App() {
   // Transient error shown on StartScreen — e.g. POST /rooms failed, or the
   // server rejected a HELLO with DUPLICATE_NAME / ROOM_FULL / ALREADY_STARTED.
   const [onlineError, setOnlineError] = useState(null);
+  // Diagnostic context attached to the routable-error bounce. Set when the
+  // server's ERROR.message carries useful state (handleHello attaches the
+  // current lobby roster on ALREADY_STARTED). Rendered as a small monospace
+  // block under the inline error on StartScreen so a real user can screenshot
+  // and report. Cleared whenever the inline error clears.
+  const [onlineErrorDebug, setOnlineErrorDebug] = useState(null);
   // Hash-prefilled code. Null after any transition so refreshes don't loop.
   const [coldOpenCode, setColdOpenCode] = useState(
     ENABLE_ONLINE ? parseHashCode() : null,
@@ -68,6 +74,7 @@ export default function App() {
     // button also calls resumeAudio — this is a second belt-and-braces.
     sounds.resumeAudio();
     setOnlineError(null);
+    setOnlineErrorDebug(null);
     setPendingDisplayName('');
     setPendingCode('');
     try {
@@ -83,6 +90,7 @@ export default function App() {
   }
 
   function handleJoinOnline({ displayName, code }) {
+    setOnlineErrorDebug(null);
     // Same iOS-gesture rationale as handleCreateOnline. Critical for the
     // joiner — JOIN ROOM is their last user gesture before the host starts
     // the game; without resumeAudio here their AudioContext never exists
@@ -101,19 +109,30 @@ export default function App() {
   // the routable codes. We tear down the online session and re-render the
   // start screen in JOIN mode with the rejected inputs preserved + an
   // inline error explaining what to fix.
-  function handleJoinFailed({ code }) {
+  function handleJoinFailed({ code, message }) {
+    const debug = online
+      ? {
+          code,
+          message: message ?? null,
+          room: online.code,
+          displayName: online.displayName,
+          at: new Date().toISOString().slice(11, 23),
+        }
+      : { code, message: message ?? null };
     if (online) {
       setPendingDisplayName(online.displayName);
       setPendingCode(online.code);
     }
     setOnline(null);
     setOnlineError(ROUTABLE_JOIN_ERRORS[code] ?? `Error: ${code}`);
+    setOnlineErrorDebug(debug);
     clearRoomHash();
   }
 
   function handleOnlineExit() {
     setOnline(null);
     setOnlineError(null);
+    setOnlineErrorDebug(null);
     setPendingDisplayName('');
     setPendingCode('');
     clearRoomHash();
@@ -147,6 +166,7 @@ export default function App() {
       defaultCode={effectiveDefaultCode}
       defaultDisplayName={pendingDisplayName}
       onlineError={onlineError}
+      onlineErrorDebug={onlineErrorDebug}
     />
   );
 }
