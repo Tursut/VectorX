@@ -1,9 +1,13 @@
-// disconnect.spec.ts — closing a browser mid-game eliminates that player.
+// disconnect.spec.ts — deliberate exit-to-menu mid-game eliminates that
+// player on the remaining player's board.
 //
-// When a connected player's page closes (tab crash, navigation away, etc.) the
-// server immediately eliminates them and broadcasts the updated game state.
-// The remaining player's board should show a skull (💀) at the dead player's
-// last cell within a few seconds.
+// The server's playing-phase grace (30 s after #22's resilience pass) means
+// a transient disconnect — backgrounded tab, dropped network — no longer
+// produces an instant skull. A DELIBERATE exit (the user taps "← Exit to
+// menu" → "Yes, exit") still does, because the wrapper closes the WS with
+// code 1000 and the server's deliberate-exit branch elims immediately.
+// This test exercises that fast path; the slow grace + grace-expiry path is
+// covered by server-side unit tests (room-playing-grace.test.ts).
 
 import { test, expect } from '@playwright/test';
 import {
@@ -16,7 +20,7 @@ import {
   getLobbyCode,
 } from './helpers';
 
-test('disconnected player gets a skull on the remaining player\'s board', async ({ browser }) => {
+test('player who taps exit-to-menu gets a skull on the remaining player\'s board', async ({ browser }) => {
   const ctxA = await browser.newContext();
   const ctxB = await browser.newContext();
   const pageA = await ctxA.newPage();
@@ -45,18 +49,20 @@ test('disconnected player gets a skull on the remaining player\'s board', async 
     await expect(pageA.getByTestId('game-board')).toBeVisible({ timeout: 8_000 });
     await expect(pageB.getByTestId('game-board')).toBeVisible({ timeout: 8_000 });
 
-    // Bob disconnects abruptly (simulate tab close). Playwright's
-    // ctxB.close() emits a clean WebSocket close (code 1000), but in a real
-    // game phase the server's webSocketClose handler eliminates the player
-    // regardless of close code — only the lobby branch differentiates 1000
-    // from abnormal closes. So the skull should still appear.
-    await ctxB.close();
+    // Bob deliberately exits via the in-game button → confirm modal →
+    // "Yes, exit". This unmounts OnlineGameController which calls
+    // client.close() → WebSocket close with code 1000, which the server
+    // treats as a deliberate exit and eliminates Bob immediately (the
+    // playing-phase grace only applies to non-1000 transient closes).
+    await pageB.getByRole('button', { name: /exit to menu/i }).click();
+    await pageB.getByRole('button', { name: /yes, exit/i }).click();
 
-    // The server calls eliminatePlayer on webSocketClose and broadcasts a new
-    // GAME_STATE. Alice should see a death skull (💀) appear on the board.
+    // The server calls eliminatePlayer on the 1000 close branch and
+    // broadcasts the updated GAME_STATE. Alice should see a death skull
+    // (💀) appear on the board within a few seconds.
     await expect(pageA.getByTestId('death-marker')).toBeVisible({ timeout: 10_000 });
   } finally {
-    // ctxB is already closed; closing ctxA is safe even if it throws.
     await ctxA.close().catch(() => {});
+    await ctxB.close().catch(() => {});
   }
 });

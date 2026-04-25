@@ -129,6 +129,20 @@ const REAPER_DELAY_MS = 10 * 60 * 1000;
 // the seat instantly.
 const LOBBY_GRACE_MS = 90 * 1000;
 
+// In-game disconnect grace. Same idea as the lobby grace but kicks in while
+// `phase: 'playing'`. Used to be "disconnect = elimination immediately"
+// (CLAUDE.md's original policy), which broke as soon as you tried to test
+// with two browsers on one phone — focusing one suspends the other and the
+// joiner gets a skull the moment START fires. Now: marks the seat with
+// `disconnectedAt`, schedules grace, eliminates only on expiry. The 10 s
+// turn timer still auto-skips a disconnected player whose turn comes up,
+// so a stuck seat can never stall the game for more than one turn.
+//
+// Shorter than the lobby grace (30 s vs 90 s) because in-game everyone
+// else is waiting; we want recovery to fit a quick tab switch + glance at
+// a notification, not a multi-minute share-the-link round trip.
+const PLAYING_GRACE_MS = 30 * 1000;
+
 function generateRoomCode(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(5));
   let out = '';
@@ -314,21 +328,39 @@ export class RoomDurableObject extends DurableObject<Env> {
           await this.scheduleLobbyGraceAlarm(updated);
         }
       } else {
-        // lobby.phase === 'playing' → disconnect = elimination (Step 12).
-        // Leave the seat's cells claimed (the tombstone), advance turn if
-        // they were current, check gameover, broadcast updated GAME_STATE.
-        // If the game is already over or the player was already eliminated,
-        // eliminatePlayer is a no-op — skip the broadcast path to avoid
-        // spurious state-unchanged broadcasts after game end.
+        // lobby.phase === 'playing'. Same code-based branching as the lobby
+        // path: code 1000 = deliberate exit, eliminate the seat now;
+        // anything else = transient disconnect (iOS tab suspension, mobile
+        // network blip), hold the seat for PLAYING_GRACE_MS and let an
+        // in-flight reconnect HELLO resume it. Without this grace, single-
+        // phone two-browsers testing was dead on arrival — focusing one
+        // browser kills the other before the user can blink.
         const storedCode = await this.ctx.storage.get<string>('code');
         const game = await this.ctx.storage.get<GameStorage>('game');
-        if (storedCode && game && game.phase === 'playing') {
+        if (!storedCode || !game || game.phase !== 'playing') {
+          // Game is already over or otherwise non-playing — close is a no-op.
+        } else if (code === 1000) {
           const next = eliminatePlayer(game, seatId) as GameStorage;
           if (next !== game) {
             await this.ctx.storage.put('game', next);
             this.broadcast(this.buildGameState(storedCode, lobby, next));
             await this.maybeScheduleTurnAlarm(next, lobby);
           }
+        } else {
+          // Mark the seat disconnected; don't touch game.players (still alive
+          // in-game). The 10 s turn timer naturally eliminates a disconnected
+          // seat whose turn comes up; otherwise the alarm-driven grace
+          // expiry below picks them off.
+          const now = Date.now();
+          const players = lobby.players.map((p) =>
+            p.id === seatId ? { ...p, disconnectedAt: now } : p,
+          );
+          const updated: LobbyStorage = { ...lobby, players };
+          await this.ctx.storage.put('lobby', updated);
+          // No GAME_STATE broadcast — game state is unchanged. Other players
+          // see a still-alive seat (their UI may want to show "reconnecting"
+          // by reading lobby.disconnectedAt in a future iteration).
+          await this.maybeScheduleTurnAlarm(game, updated);
         }
       }
     } catch {
@@ -374,7 +406,7 @@ export class RoomDurableObject extends DurableObject<Env> {
     }
 
     const code = await this.ctx.storage.get<string>('code');
-    const lobby = await this.ctx.storage.get<LobbyStorage>('lobby');
+    let lobby = await this.ctx.storage.get<LobbyStorage>('lobby');
 
     // Lobby grace expiry: any seats still flagged disconnected past the grace
     // window are truly gone. Drop them, reassign host if needed, broadcast.
@@ -393,12 +425,61 @@ export class RoomDurableObject extends DurableObject<Env> {
     ) {
       return;
     }
+
+    // The single DO alarm slot has to multiplex: it's either a turn
+    // deadline OR a grace expiry. Process any ripe graces first
+    // (eliminate the disconnected seats), THEN, if there's still a turn
+    // to drive at this same instant, run the turn step. maybeSchedule
+    // schedules whichever comes first.
+    const now = Date.now();
+    const expiredIds = lobby.players
+      .filter(
+        (p) =>
+          p.disconnectedAt !== null &&
+          now - p.disconnectedAt >= PLAYING_GRACE_MS,
+      )
+      .map((p) => p.id);
+    if (expiredIds.length > 0) {
+      const players = lobby.players.map((p) =>
+        expiredIds.includes(p.id) ? { ...p, disconnectedAt: null } : p,
+      );
+      lobby = { ...lobby, players };
+      for (const id of expiredIds) {
+        game = eliminatePlayer(game, id) as GameStorage;
+      }
+      await this.ctx.storage.put({ lobby, game });
+      this.broadcast(this.buildGameState(code, lobby, game));
+      // Grace-driven elimination might have ended the game.
+      if (game.phase !== 'playing') {
+        await this.maybeScheduleTurnAlarm(game, lobby);
+        return;
+      }
+    }
+
+    // Was this alarm fire actually FOR a grace expiry (not a turn)?
+    // If the current player isn't due to move yet, just reschedule and
+    // bail. We can detect this from the game's lastMoveAt — but we don't
+    // store one. Easier: compare the turn-deadline to now. If the turn
+    // hasn't elapsed, it's a grace alarm, not a turn alarm.
+    //
+    // …in practice, scheduleTurnAlarm sets the alarm to whichever comes
+    // sooner (turn vs earliest grace), so by the time we land here the
+    // soonest deadline IS now. If we just processed an expiredId above,
+    // the alarm was for a grace; do nothing more, just reschedule. If no
+    // expiry happened, fall through to the turn step.
+    if (expiredIds.length > 0) {
+      await this.maybeScheduleTurnAlarm(game, lobby);
+      return;
+    }
+
     const currentSeatId = game.players[game.currentPlayerIndex].id;
     const isHuman = lobby.players.some((p) => p.id === currentSeatId);
     if (isHuman) {
       // Human's turn-timer elapsed → auto-forfeit. Mirrors the hotseat
       // TIMEOUT dispatch in LocalGameController: eliminateCurrentPlayer,
       // which advances turn + runs completeTurn's item/gameover logic.
+      // Also covers the "disconnected human's turn came up" case — same
+      // forfeit path, no need for a separate branch.
       game = eliminateCurrentPlayer(game) as GameStorage;
     } else {
       // Bot's turn. getGremlinMove returns null when it has no legal moves
@@ -425,6 +506,30 @@ export class RoomDurableObject extends DurableObject<Env> {
     }
 
     if (lobby.phase !== 'lobby') {
+      // In-game recovery: a still-disconnected seat with this displayName
+      // can re-attach. We reuse the same seat id, clear the flag, and push
+      // the current GAME_STATE so the returning player picks up wherever
+      // the rest of the table is. Anything else is a true late-comer →
+      // ALREADY_STARTED bounces them back to the start screen.
+      const recovering = lobby.players.find(
+        (p) => p.disconnectedAt !== null && p.displayName === msg.displayName,
+      );
+      const game = recovering
+        ? await this.ctx.storage.get<GameStorage>('game')
+        : null;
+      if (recovering && game) {
+        const players = lobby.players.map((p) =>
+          p.id === recovering.id ? { ...p, disconnectedAt: null } : p,
+        );
+        const updated: LobbyStorage = { ...lobby, players };
+        await this.ctx.storage.put('lobby', updated);
+        ws.serializeAttachment({ seatId: recovering.id });
+        ws.send(JSON.stringify(this.buildGameState(storedCode, updated, game)));
+        // Reschedule alarm so the per-player grace deadline is dropped if
+        // this was the last disconnected seat.
+        await this.maybeScheduleTurnAlarm(game, updated);
+        return;
+      }
       this.sendError(ws, 'ALREADY_STARTED');
       return;
     }
@@ -700,11 +805,30 @@ export class RoomDurableObject extends DurableObject<Env> {
       return;
     }
     const currentPlayer = game.players[game.currentPlayerIndex];
-    if (currentPlayer.isEliminated) {
+    const turnAt = currentPlayer.isEliminated
+      ? null
+      : Date.now() + computeTurnDelay(game, lobby);
+    // Earliest grace-expiry across all currently-disconnected seats. If the
+    // turn deadline is sooner we use that; otherwise the alarm fires for the
+    // grace expiry first and the alarm handler will re-schedule the turn.
+    let earliestGraceAt: number | null = null;
+    for (const p of lobby.players) {
+      if (p.disconnectedAt !== null) {
+        const expiry = p.disconnectedAt + PLAYING_GRACE_MS;
+        if (earliestGraceAt === null || expiry < earliestGraceAt) {
+          earliestGraceAt = expiry;
+        }
+      }
+    }
+    let alarmAt: number | null = turnAt;
+    if (earliestGraceAt !== null) {
+      alarmAt = alarmAt === null ? earliestGraceAt : Math.min(alarmAt, earliestGraceAt);
+    }
+    if (alarmAt === null) {
       await this.ctx.storage.deleteAlarm();
       return;
     }
-    await this.ctx.storage.setAlarm(Date.now() + computeTurnDelay(game, lobby));
+    await this.ctx.storage.setAlarm(Math.max(alarmAt, Date.now() + 1));
   }
 
   private buildLobbyState(code: string, lobby: LobbyStorage): LobbyStateMsg {
