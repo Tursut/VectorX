@@ -2126,9 +2126,18 @@
   text-align: center;
   transition: background 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.1s;
 }
-.mode-switcher-tile:hover {
-  background: #14142e;
-  border-color: #555588;
+/* Hover hint for non-active tiles only, on devices that actually have a
+   real hover (mouse / trackpad). iOS Safari triggers :hover on a tap and
+   leaves it stuck on the tapped element; combined with the active-tile
+   bg matching the drawer, that stuck :hover used to repaint the active
+   tile's bg in a way that broke the merge seam. The :not() guard means
+   :hover never wins over .active even if a desktop user happens to be
+   hovering on the currently-active tile. */
+@media (hover: hover) {
+  .mode-switcher-tile:not(.mode-switcher-tile-active):hover {
+    background: #14142e;
+    border-color: #555588;
+  }
 }
 .mode-switcher-tile-active {
   /* bg matches .mode-drawer so the tile and drawer share one fill colour;
