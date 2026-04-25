@@ -180,13 +180,16 @@ describe('StartScreen — online submit gating', () => {
     const onCreateOnline = vi.fn();
     render(<StartScreen {...withOnline({ defaultMode: 'create', onCreateOnline })} />);
     const btn = screen.getByRole('button', { name: /create room →/i });
+    const nameInput = screen.getByRole('textbox', { name: /your name/i });
 
+    // Clear the auto-generated suggestion so we can drive the empty-name path.
+    await user.clear(nameInput);
     await user.click(btn);
     expect(onCreateOnline).not.toHaveBeenCalled();
     expect(await screen.findByRole('alert')).toHaveTextContent(/enter your name/i);
 
     // Typing clears the error and re-enables the submit path.
-    await user.type(screen.getByRole('textbox', { name: /your name/i }), 'Alice');
+    await user.type(nameInput, 'Alice');
     expect(screen.queryByRole('alert')).toBeNull();
     await user.click(btn);
     expect(onCreateOnline).toHaveBeenCalledOnce();
@@ -197,14 +200,16 @@ describe('StartScreen — online submit gating', () => {
     const onJoinOnline = vi.fn();
     render(<StartScreen {...withOnline({ defaultMode: 'join', onJoinOnline })} />);
     const btn = screen.getByRole('button', { name: /join room →/i });
+    const nameInput = screen.getByRole('textbox', { name: /your name/i });
 
-    // Nothing filled → name error first.
+    // Clear the auto-generated suggestion so we can exercise the empty-name path.
+    await user.clear(nameInput);
     await user.click(btn);
     expect(onJoinOnline).not.toHaveBeenCalled();
     expect(await screen.findByRole('alert')).toHaveTextContent(/enter your name/i);
 
     // Fill the name; clicking again now flags the code (still empty).
-    await user.type(screen.getByRole('textbox', { name: /your name/i }), 'Alice');
+    await user.type(nameInput, 'Alice');
     await user.click(btn);
     expect(onJoinOnline).not.toHaveBeenCalled();
     expect(await screen.findByRole('alert')).toHaveTextContent(/room code/i);
@@ -234,7 +239,10 @@ describe('StartScreen — online callbacks', () => {
         })}
       />,
     );
-    await user.type(screen.getByRole('textbox', { name: /your name/i }), '  Alice  ');
+    const nameInput = screen.getByRole('textbox', { name: /your name/i });
+    // Clear the auto-generated suggestion so the typed value is what gets sent.
+    await user.clear(nameInput);
+    await user.type(nameInput, '  Alice  ');
     await user.click(screen.getByRole('button', { name: /create room →/i }));
     expect(onCreateOnline).toHaveBeenCalledWith({
       displayName: 'Alice',
@@ -250,7 +258,9 @@ describe('StartScreen — online callbacks', () => {
         {...withOnline({ onJoinOnline, defaultMode: 'join' })}
       />,
     );
-    await user.type(screen.getByRole('textbox', { name: /your name/i }), 'Alice');
+    const nameInput = screen.getByRole('textbox', { name: /your name/i });
+    await user.clear(nameInput);
+    await user.type(nameInput, 'Alice');
     await user.type(screen.getByLabelText(/room code/i), 'Q7K4N');
     await user.click(screen.getByRole('button', { name: /join room →/i }));
     expect(onJoinOnline).toHaveBeenCalledWith({

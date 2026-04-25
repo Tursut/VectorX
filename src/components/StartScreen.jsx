@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { PLAYERS, ITEM_TYPES } from '../game/constants';
+import { generateDisplayName } from '../game/nameGenerator';
 import { BUILD_TIME } from '../config';
 import SoundToggle from './SoundToggle';
 
@@ -60,8 +61,12 @@ export default function StartScreen({
   const [code, setCode] = useState(filterCode(defaultCode));
   // App.jsx prefills this when re-rendering after a server-side join rejection
   // (e.g. DUPLICATE_NAME) so the user lands on the join form with the rejected
-  // name still in the field — they just edit and retry.
-  const [displayName, setDisplayName] = useState(defaultDisplayName);
+  // name still in the field — they just edit and retry. Otherwise we seed a
+  // quirky "Otis the Sly"-style suggestion via the name generator so the user
+  // has a delightful one-tap default; the reroll button below shuffles it.
+  const [displayName, setDisplayName] = useState(
+    () => defaultDisplayName || generateDisplayName(),
+  );
   // 'name' | 'code' | null. Set when the user submits with that field still
   // invalid; rendered as an inline message + a brief shake on the input.
   // Clears as soon as the offending field becomes valid (via useEffect below).
@@ -86,6 +91,11 @@ export default function StartScreen({
   const canSubmitCreate = isDisplayNameValid(displayName);
   const canSubmitJoin = isDisplayNameValid(displayName) && hasCode;
   const canSubmit = isCreate ? canSubmitCreate : isJoin ? canSubmitJoin : true;
+
+  function rerollDisplayName() {
+    setDisplayName(generateDisplayName());
+    setSubmitError(null);
+  }
 
   function handleCodeChange(e) {
     setCode(filterCode(e.target.value));
@@ -151,6 +161,42 @@ export default function StartScreen({
   // Joiners don't pick magic items — the host does. Hide Magic/Classic
   // toggle in that case; everyone else sees it.
   const showMagicToggle = !isJoiner;
+
+  // Name input shared by both online drawers (create + join). Inline so the
+  // surrounding drawers keep their existing crossfade/JSX shapes.
+  const nameInput = (
+    <>
+      <label className="join-field">
+        <span>Your name</span>
+        <div className="name-input-row">
+          <input
+            ref={nameInputRef}
+            type="text"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            placeholder="Your name"
+            maxLength={20}
+            autoComplete="off"
+            autoFocus
+            className={submitError === 'name' ? 'input-shake input-error' : ''}
+            aria-invalid={submitError === 'name'}
+          />
+          <button
+            type="button"
+            className="name-reroll-btn"
+            onClick={rerollDisplayName}
+            aria-label="Suggest a different name"
+            title="Suggest a different name"
+          >
+            🎲
+          </button>
+        </div>
+      </label>
+      {submitError === 'name' && (
+        <p className="field-error" role="alert">Enter your name to continue.</p>
+      )}
+    </>
+  );
 
   return (
     <div className="start-screen">
@@ -265,24 +311,7 @@ export default function StartScreen({
                 transition={{ duration: 0.18 }}
               >
                 <div className="online-section">
-                  <label className="join-field">
-                    <span>Your name</span>
-                    <input
-                      ref={nameInputRef}
-                      type="text"
-                      value={displayName}
-                      onChange={(e) => setDisplayName(e.target.value)}
-                      placeholder="e.g. Alice"
-                      maxLength={20}
-                      autoComplete="off"
-                      autoFocus
-                      className={submitError === 'name' ? 'input-shake input-error' : ''}
-                      aria-invalid={submitError === 'name'}
-                    />
-                  </label>
-                  {submitError === 'name' && (
-                    <p className="field-error" role="alert">Enter your name to continue.</p>
-                  )}
+                  {nameInput}
                   {onlineError && (
                     <p className="online-error" role="alert">
                       {onlineError}
@@ -301,24 +330,7 @@ export default function StartScreen({
                 transition={{ duration: 0.18 }}
               >
                 <div className="online-section">
-                  <label className="join-field">
-                    <span>Your name</span>
-                    <input
-                      ref={nameInputRef}
-                      type="text"
-                      value={displayName}
-                      onChange={(e) => setDisplayName(e.target.value)}
-                      placeholder="e.g. Alice"
-                      maxLength={20}
-                      autoComplete="off"
-                      autoFocus
-                      className={submitError === 'name' ? 'input-shake input-error' : ''}
-                      aria-invalid={submitError === 'name'}
-                    />
-                  </label>
-                  {submitError === 'name' && (
-                    <p className="field-error" role="alert">Enter your name to continue.</p>
-                  )}
+                  {nameInput}
                   <label className="join-field">
                     <span>Room code</span>
                     <input

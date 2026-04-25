@@ -1918,6 +1918,45 @@
   outline-offset: 1px;
 }
 
+/* Name input + reroll button on one row. The input flexes to fill, the
+   button is a fixed-size square sitting flush against it on the right. */
+.name-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+.name-input-row > input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+/* Compact icon-only reroll button — same vocabulary as the lobby's
+   .lobby-copy-btn (transparent + lavender outline + lavender hover). */
+.name-reroll-btn {
+  flex: 0 0 auto;
+  background: transparent;
+  border: 1px solid #555588;
+  border-radius: 6px;
+  color: #aaaacc;
+  font-size: 18px;
+  line-height: 1;
+  font-family: 'Segoe UI', sans-serif;
+  width: 44px;
+  padding: 0;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.12s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.name-reroll-btn:hover {
+  background: rgba(122, 140, 255, 0.08);
+  color: #e8e8f4;
+  border-color: #7a8cff;
+}
+.name-reroll-btn:active {
+  transform: rotate(-12deg);
+}
+
 .join-actions {
   display: flex;
   gap: 12px;
