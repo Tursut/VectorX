@@ -67,18 +67,9 @@ export default function Lobby({
       </ul>
 
       {isHost && (
-        <div className="lobby-host-controls">
-          <p className="lobby-host-note">
-            Start now — empty slots will be filled by bots.
-          </p>
-          <button
-            type="button"
-            className="lobby-start-btn"
-            onClick={() => onStart?.()}
-          >
-            Start game
-          </button>
-        </div>
+        <p className="lobby-host-note">
+          Start now — empty slots will be filled by bots.
+        </p>
       )}
 
       {!isHost && (
@@ -89,6 +80,22 @@ export default function Lobby({
         <button type="button" className="lobby-leave-btn" onClick={onLeave}>
           ← Exit to menu
         </button>
+      )}
+
+      {/* Sticky primary action — same visual + behaviour as StartScreen's
+          "START THE GAME →" so the host's flow feels continuous: tap orange
+          gradient button at the bottom of the start screen → land in the
+          lobby → tap the same orange gradient button at the bottom to play. */}
+      {isHost && (
+        <div className="start-button-bar">
+          <button
+            type="button"
+            className="start-button"
+            onClick={() => onStart?.()}
+          >
+            START GAME →
+          </button>
+        </div>
       )}
     </section>
   );
