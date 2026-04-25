@@ -1,5 +1,6 @@
 import { lazy, Suspense, useState } from 'react';
 import { ENABLE_ONLINE, SERVER_URL } from './config';
+import * as sounds from './game/sounds';
 import LocalGameController from './LocalGameController';
 import './App.css';
 
@@ -60,6 +61,12 @@ export default function App() {
   const [pendingCode, setPendingCode] = useState('');
 
   async function handleCreateOnline({ displayName, magicItems }) {
+    // Synchronous call inside the click handler chain so iOS Safari counts
+    // this as a user gesture and lets us create/resume the AudioContext.
+    // Without it the joiner (and sometimes the host) gets no bg music until
+    // their next tap (issue #6). For the host, the lobby's "Start game"
+    // button also calls resumeAudio — this is a second belt-and-braces.
+    sounds.resumeAudio();
     setOnlineError(null);
     setPendingDisplayName('');
     setPendingCode('');
@@ -76,6 +83,11 @@ export default function App() {
   }
 
   function handleJoinOnline({ displayName, code }) {
+    // Same iOS-gesture rationale as handleCreateOnline. Critical for the
+    // joiner — JOIN ROOM is their last user gesture before the host starts
+    // the game; without resumeAudio here their AudioContext never exists
+    // and bg music silently fails to start (issue #6).
+    sounds.resumeAudio();
     setOnlineError(null);
     setColdOpenCode(null);
     setPendingDisplayName('');
