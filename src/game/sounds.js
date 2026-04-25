@@ -8,6 +8,13 @@ function createContext() {
   masterGain = ctx.createGain();
   masterGain.gain.value = 1;
   masterGain.connect(ctx.destination);
+  // Any AudioBuffer cached from a previous (now-closed) context is bound to
+  // that old context and won't decode + play on the new one. Force a
+  // re-decode by dropping the cache. Without this, the bg theme silently
+  // fails to play after the runtime closed our context (e.g. a long
+  // backgrounded tab on Chrome desktop). Anyone observing this should NOT
+  // see "no music" — they should see music re-init from the next gesture.
+  bgBuffer = null;
 }
 
 // Never auto-recreates a closed context — that must happen from a user gesture in resumeAudio().
@@ -169,6 +176,18 @@ async function startBgSource(token) {
   if (!buf || !bgPlaying || token !== bgLoadToken) return;
   const c = getCtx();
   if (!c) return;
+  // Make sure the context is actually running before we schedule playback.
+  // getCtx() above kicks an unawaited resume() — on Chrome, resuming after
+  // a long backgrounded period can silently no-op if it isn't awaited, and
+  // then src.start() schedules audio that never plays. Await the resume so
+  // we either have a running context or a clear failure.
+  if (c.state === 'suspended') {
+    try { await c.resume(); } catch (err) {
+      console.warn('[sounds] bg theme resume failed', err);
+      return;
+    }
+  }
+  if (!bgPlaying || token !== bgLoadToken) return;
   stopBgSourceIfAny();
   const gain = c.createGain();
   gain.gain.value = BG_VOLUME;
