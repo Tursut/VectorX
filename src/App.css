@@ -1940,9 +1940,12 @@
   display: flex;
   flex-direction: column;
   gap: 18px;
-  /* Match .start-content's max-width so the visual frame doesn't shrink
-     when the user transitions start screen → lobby (issue #18). */
-  max-width: 560px;
+  /* On small screens, leave a 20 px gutter on each side so the card's
+     outer edges line up with the START GAME button below (which lives
+     in .start-button-bar with `padding: 14px 20px 20px`). On wider
+     screens, cap at 560 px and let margin:auto centre — same max as
+     .start-content (issue #18 / follow-up). */
+  width: min(100% - 40px, 560px);
   /* Bottom margin clears the sticky .start-button-bar (~80 px tall on its
      fade gradient + button + safe-area) so the last lobby element isn't
      covered. Top margin unchanged. */
@@ -1953,6 +1956,7 @@
   border-radius: 12px;
   color: #e8e8f4;
   font-family: 'Fredoka One', 'Segoe UI', sans-serif;
+  box-sizing: border-box;
 }
 
 /* Hero: LOBBY heading + room code line */
