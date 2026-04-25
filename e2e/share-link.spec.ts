@@ -15,5 +15,5 @@ test('cold-open share link pre-fills the room code', async ({ page }) => {
   // App should initialise in online mode with code already in the field.
   await expect(page.getByLabel('Room code')).toHaveValue(code, { timeout: 8_000 });
   // Primary button label confirms we're joining (not creating) a room.
-  await expect(page.locator('.start-button')).toHaveText(/JOIN ROOM/);
+  await expect(page.getByTestId('primary-button')).toHaveText(/JOIN ROOM/);
 });

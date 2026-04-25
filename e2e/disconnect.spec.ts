@@ -42,15 +42,19 @@ test('disconnected player gets a skull on the remaining player\'s board', async 
 
     // Alice starts the game — both see the board.
     await pageA.getByRole('button', { name: /start game/i }).click();
-    await expect(pageA.locator('[data-testid="game-board"]')).toBeVisible({ timeout: 8_000 });
-    await expect(pageB.locator('[data-testid="game-board"]')).toBeVisible({ timeout: 8_000 });
+    await expect(pageA.getByTestId('game-board')).toBeVisible({ timeout: 8_000 });
+    await expect(pageB.getByTestId('game-board')).toBeVisible({ timeout: 8_000 });
 
-    // Bob disconnects abruptly (simulate tab close).
+    // Bob disconnects abruptly (simulate tab close). Playwright's
+    // ctxB.close() emits a clean WebSocket close (code 1000), but in a real
+    // game phase the server's webSocketClose handler eliminates the player
+    // regardless of close code — only the lobby branch differentiates 1000
+    // from abnormal closes. So the skull should still appear.
     await ctxB.close();
 
     // The server calls eliminatePlayer on webSocketClose and broadcasts a new
     // GAME_STATE. Alice should see a death skull (💀) appear on the board.
-    await expect(pageA.locator('.death-marker')).toBeVisible({ timeout: 10_000 });
+    await expect(pageA.getByTestId('death-marker')).toBeVisible({ timeout: 10_000 });
   } finally {
     // ctxB is already closed; closing ctxA is safe even if it throws.
     await ctxA.close().catch(() => {});

@@ -47,17 +47,17 @@ test('two players create + join, lobby syncs, both see game board after start', 
     await pageA.getByRole('button', { name: /start game/i }).click();
 
     // ── Both contexts should show the game board ──
-    await expect(pageA.locator('[data-testid="game-board"]')).toBeVisible({ timeout: 8_000 });
-    await expect(pageB.locator('[data-testid="game-board"]')).toBeVisible({ timeout: 8_000 });
+    await expect(pageA.getByTestId('game-board')).toBeVisible({ timeout: 8_000 });
+    await expect(pageB.getByTestId('game-board')).toBeVisible({ timeout: 8_000 });
 
     // ── State sync: both show the same current player's name ──
     // Retry because framer-motion may briefly show no text during the enter
-    // animation. Wait for .turn-name to contain any text first.
-    await expect(pageA.locator('.turn-name')).not.toBeEmpty({ timeout: 5_000 });
-    await expect(pageB.locator('.turn-name')).not.toBeEmpty({ timeout: 5_000 });
+    // animation. Wait for the turn-name to contain any text first.
+    await expect(pageA.getByTestId('turn-name')).not.toBeEmpty({ timeout: 5_000 });
+    await expect(pageB.getByTestId('turn-name')).not.toBeEmpty({ timeout: 5_000 });
 
-    const nameA = await pageA.locator('.turn-name').textContent();
-    const nameB = await pageB.locator('.turn-name').textContent();
+    const nameA = await pageA.getByTestId('turn-name').textContent();
+    const nameB = await pageB.getByTestId('turn-name').textContent();
     expect(nameA).toBeTruthy();
     expect(nameA).toBe(nameB);
   } finally {

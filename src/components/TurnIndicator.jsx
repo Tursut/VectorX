@@ -64,7 +64,7 @@ export default function TurnIndicator({ player, taunt, timeLeft, totalTime, port
             {isThinking ? '🤔' : player.icon}
           </div>
           <div className="turn-text">
-            <div className="turn-name" style={{ color: player.color }}>
+            <div className="turn-name" data-testid="turn-name" style={{ color: player.color }}>
               {player.name}
             </div>
             <div className={`turn-taunt ${isThinking ? 'turn-taunt-thinking' : ''} ${portalActive || swapActive || freezeSelectActive ? 'turn-taunt-special' : ''}`}>

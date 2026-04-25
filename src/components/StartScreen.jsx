@@ -237,6 +237,7 @@ export default function StartScreen({
             maxLength={20}
             autoComplete="off"
             autoFocus
+            data-testid="display-name-input"
             className={submitError === 'name' ? 'input-shake input-error' : ''}
             aria-invalid={submitError === 'name'}
           />
@@ -489,6 +490,7 @@ export default function StartScreen({
       <div className="start-button-bar">
         <button
           className="start-button"
+          data-testid="primary-button"
           onClick={handlePrimaryClick}
           aria-disabled={!canSubmit}
         >

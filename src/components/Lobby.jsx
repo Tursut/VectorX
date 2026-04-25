@@ -66,7 +66,13 @@ export default function Lobby({
         </div>
 
         <div className="lobby-invite">
-          <p className="lobby-invite-code" aria-label={`Room code ${code}`}>{code}</p>
+          <p
+            className="lobby-invite-code"
+            data-testid="lobby-code"
+            aria-label={`Room code ${code}`}
+          >
+            {code}
+          </p>
           <div className="lobby-invite-row">
             <a className="lobby-invite-url" href={shareLink}>{displayShareLink(shareLink)}</a>
             <button
@@ -96,7 +102,11 @@ export default function Lobby({
             </li>
           ))}
           {Array.from({ length: emptySeats }, (_, i) => (
-            <li key={`empty-${i}`} className="lobby-player lobby-empty-seat">
+            <li
+              key={`empty-${i}`}
+              className="lobby-player lobby-empty-seat"
+              data-testid="lobby-empty-seat"
+            >
               🤖 Bot will fill this slot
             </li>
           ))}

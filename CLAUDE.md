@@ -133,13 +133,25 @@ or motion patterns without asking — match the existing vocabulary.
   prompt; finalise with `ExitPlanMode`. Skip plan mode for one-line fixes.
 - **Ask before destructive operations**: branch deletes, force pushes, schema changes,
   anything that touches shared infrastructure (Cloudflare, GitHub Pages settings).
-- **Pre-commit gates**: `npm test` + `npm run build`. CI runs the full three-suite
-  matrix on every push to `main`.
+- **Pre-commit gates**: `npm test` + `npm run test:server` + `npm run build`.
+  Run `npm run test:e2e` too whenever you touch JSX, lobby/start/game-screen
+  layout, class names, or anything in `e2e/`. CI runs the full matrix on every
+  push to `main` — but if e2e fails there, the deploy is already half-shipped.
+  In sandboxed dev environments, set
+  `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/opt/pw-browsers/chromium-1194/chrome-linux/chrome`
+  (or the equivalent local path).
+- **Renaming a CSS class? Grep `e2e/` first.** Anything `e2e/` queries should
+  use a `data-testid`, role, or aria-label. If you find a stray
+  `page.locator('.foo')` while editing, convert it to `getByTestId(...)`
+  before shipping. Issues #15 and #21 both came from CSS-class drift.
 
 ## Pitfalls
 
-- The deploy workflow's E2E selectors must track UI changes (issue #15 was caused by
-  renaming a tab without updating `e2e/helpers.ts`)
+- The deploy workflow's E2E selectors must track UI changes — issue #15
+  (renamed mode tab) and issue #21 (lobby code class rename) both came from
+  CSS classes shifting under stable-looking tests. Mitigation in place: the
+  e2e suite now queries `data-testid` / role / aria-label exclusively. Don't
+  reintroduce CSS-class selectors in `e2e/`.
 - The mode-switcher's "merged tab" effect is fragile — `transform: translateY` (not
   `margin-bottom`) is what works inside the grid; iOS `:hover` can stick on the active
   tile if `:not(.active):hover` isn't used

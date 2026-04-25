@@ -28,20 +28,23 @@ export async function selectOnlineMode(page: Page): Promise<void> {
 }
 
 // Fill the online form. `code` is optional — when the URL hash pre-filled it,
-// pass nothing (the field is already populated).
+// pass nothing (the field is already populated). The display-name field is
+// pre-filled by the name generator, so we always clear before filling.
 export async function fillOnlineForm(
   page: Page,
   name: string,
   code?: string,
 ): Promise<void> {
-  await page.getByPlaceholder('e.g. Alice').fill(name);
+  const nameInput = page.getByTestId('display-name-input');
+  await nameInput.fill('');
+  await nameInput.fill(name);
   if (code) {
     await page.getByLabel('Room code').fill(code);
   }
 }
 
 export async function clickPrimary(page: Page): Promise<void> {
-  await page.locator('.start-button').click();
+  await page.getByTestId('primary-button').click();
 }
 
 // Wait for the lobby waiting-room section to become visible.
@@ -51,7 +54,7 @@ export async function waitForLobby(page: Page): Promise<void> {
 
 // Extract the 5-char room code from the lobby hero section.
 export async function getLobbyCode(page: Page): Promise<string> {
-  const text = await page.locator('.lobby-code').textContent();
+  const text = await page.getByTestId('lobby-code').textContent();
   return text?.trim() ?? '';
 }
 
@@ -59,7 +62,8 @@ export async function getLobbyCode(page: Page): Promise<string> {
 // added to cells where the current player can legally move).
 export async function clickFirstValidCell(page: Page): Promise<void> {
   await page
-    .locator('[data-testid="game-board"] [role="button"]')
+    .getByTestId('game-board')
+    .locator('[role="button"]')
     .first()
     .click({ timeout: 8_000 });
 }

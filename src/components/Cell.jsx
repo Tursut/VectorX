@@ -37,6 +37,7 @@ export default function Cell({ row, col, cell, isValidMove, isCurrentPlayer, isB
           <motion.div
             key={`fill-${row}-${col}-${cell.owner}`}
             className="cell-fill"
+            data-testid="cell-fill"
             style={{ backgroundColor: owner.color }}
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 0.85 }}
@@ -68,7 +69,7 @@ export default function Cell({ row, col, cell, isValidMove, isCurrentPlayer, isB
 
         {/* Skull — absolutely positioned so it doesn't fight the exiting player in flex layout */}
         {deathHere && !playerHere && (
-          <span className="death-marker">💀</span>
+          <span className="death-marker" data-testid="death-marker">💀</span>
         )}
 
         {/* Magic item — pops in, shrinks out */}
