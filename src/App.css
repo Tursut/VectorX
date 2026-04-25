@@ -1451,6 +1451,16 @@
   right: 8px;
 }
 
+/* Mirror of .start-sound-corner. Holds the "← Back to menu" link shown
+   only in the cold-open joiner view, where the mode-switcher tabs are
+   hidden — without this there's no way out except JOIN ROOM. */
+.start-back-corner {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 5;
+}
+
 /* ── Elimination Moment Overlay ── */
 .elim-moment-overlay {
   position: fixed;

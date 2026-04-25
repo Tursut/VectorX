@@ -125,9 +125,7 @@ export default function StartScreen({
     cancelRerollAnim();
     const target = generateDisplayName();
     setSubmitError(null);
-    rerollAnimRef.current.target = target;
-
-    // ~200 ms slot-machine scramble: 7 frames of random letters at 28 ms each,
+    rerollAnimRef.current.target = target;    // ~200 ms slot-machine scramble: 7 frames of random letters at 28 ms each,
     // then snap to the target. Same-case letters keep the silhouette stable
     // so the eye stays on the new name as it settles.
     const FRAMES = 7;
@@ -142,6 +140,26 @@ export default function StartScreen({
       }
       setDisplayName(scrambleString(target));
     }, FRAME_MS);
+  }
+
+  // Back-out from a cold-open join. Drops the joiner-stripped view by
+  // switching to the default hotseat mode + clearing the pre-filled code,
+  // and strips the share-link hash so a refresh doesn't re-trigger join
+  // mode. This is the only way out for someone who tapped a share link
+  // and changed their mind — the mode-switcher tabs are hidden in the
+  // joiner view, so without this they'd be stuck with JOIN ROOM as the
+  // only action.
+  function backToMenuFromJoiner() {
+    setMode('this-device');
+    setCode('');
+    setSubmitError(null);
+    if (typeof window !== 'undefined' && window.location.hash.startsWith('#/r/')) {
+      window.history.replaceState(
+        null,
+        '',
+        window.location.pathname + window.location.search,
+      );
+    }
   }
 
   function handleCodeChange(e) {
@@ -264,6 +282,15 @@ export default function StartScreen({
         <div className="start-sound-corner">
           <SoundToggle enabled={soundEnabled} onToggle={onToggleSound} />
         </div>
+        {isJoiner && (
+          <button
+            type="button"
+            className="start-back-corner exit-game-btn"
+            onClick={backToMenuFromJoiner}
+          >
+            ← Back to menu
+          </button>
+        )}
         <h1 className="start-title">MIND THE GRID</h1>
         <p className="start-subtitle">
           Four players. One grid. Only one walks away smiling.
