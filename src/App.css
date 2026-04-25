@@ -1927,6 +1927,67 @@
   outline-offset: 1px;
 }
 
+/* OTP-style 5-box room-code input (issue #25). The grid lays out the
+   visual cells; the actual <input> is a transparent overlay covering
+   the whole grid so typing / paste / focus all flow through native
+   input behaviour. The boxes only ever render code[i]. */
+.code-grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  width: 100%;
+}
+.code-cell {
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #141830;
+  border: 2px solid #333366;
+  border-radius: 8px;
+  color: #e8e8f4;
+  font-family: 'Fredoka One', 'Segoe UI', sans-serif;
+  font-size: clamp(20px, 6vw, 28px);
+  user-select: none;
+  transition: border-color 0.12s, background 0.12s;
+}
+.code-cell-filled {
+  background: #1a2040;
+  border-color: #555588;
+}
+/* The next-to-fill cell (i === code.length) gets a lavender border and
+   a CSS-blink to substitute the missing caret (the real <input> is
+   transparent so its caret is invisible). */
+.code-cell-active {
+  border-color: #7a8cff;
+  animation: codeCellBlink 1.05s infinite step-end;
+}
+@keyframes codeCellBlink {
+  0%, 50%       { box-shadow: inset 0 0 0 1px #7a8cff; }
+  50.01%, 100%  { box-shadow: inset 0 0 0 1px transparent; }
+}
+/* Submit-error variant: tint every cell red regardless of filled state. */
+.code-grid.input-error .code-cell {
+  border-color: #ff8899;
+}
+.code-input-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: text;
+  font: inherit;
+  /* Padding keeps the iOS Safari magnifier from misrendering near the
+     edges; doesn't affect hit-testing since the overlay still spans the
+     full grid. */
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+}
+
 /* Name input + reroll button on one row. The input flexes to fill, the
    button is a fixed-size square sitting flush against it on the right. */
 .name-input-row {

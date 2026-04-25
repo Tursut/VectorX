@@ -426,25 +426,50 @@ at:          ${onlineErrorDebug.at ?? '(unknown)'}`}
               >
                 <div className="online-section">
                   {nameInput}
-                  <label className="join-field">
+                  <label className="join-field code-field">
                     <span>Room code</span>
-                    <input
-                      ref={codeInputRef}
-                      type="text"
-                      value={code}
-                      onChange={handleCodeChange}
-                      onPaste={handleCodePaste}
-                      placeholder="ABCDE"
-                      inputMode="text"
-                      autoCapitalize="characters"
-                      autoCorrect="off"
-                      spellCheck={false}
-                      autoComplete="off"
-                      maxLength={5}
-                      aria-label="Room code"
-                      className={submitError === 'code' ? 'input-shake input-error' : ''}
-                      aria-invalid={submitError === 'code'}
-                    />
+                    {/* OTP-style 5-box grid (issue #25). One hidden input is the
+                        source of truth; the boxes are pure visual overlays
+                        rendering code[i]. Tests still hit the input via
+                        getByLabel('Room code') / .toHaveValue(...). */}
+                    <div
+                      className={`code-grid${submitError === 'code' ? ' input-shake input-error' : ''}`}
+                    >
+                      {Array.from({ length: 5 }, (_, i) => {
+                        const ch = code[i];
+                        const isActive = i === code.length;
+                        const isFilled = ch !== undefined;
+                        return (
+                          <div
+                            key={i}
+                            className={
+                              'code-cell' +
+                              (isActive ? ' code-cell-active' : '') +
+                              (isFilled ? ' code-cell-filled' : '')
+                            }
+                            aria-hidden="true"
+                          >
+                            {ch ?? ''}
+                          </div>
+                        );
+                      })}
+                      <input
+                        ref={codeInputRef}
+                        className="code-input-overlay"
+                        type="text"
+                        value={code}
+                        onChange={handleCodeChange}
+                        onPaste={handleCodePaste}
+                        inputMode="text"
+                        autoCapitalize="characters"
+                        autoCorrect="off"
+                        spellCheck={false}
+                        autoComplete="off"
+                        maxLength={5}
+                        aria-label="Room code"
+                        aria-invalid={submitError === 'code'}
+                      />
+                    </div>
                   </label>
                   {submitError === 'code' && (
                     <p className="field-error" role="alert">Enter a 5-character room code.</p>
