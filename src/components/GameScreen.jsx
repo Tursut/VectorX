@@ -203,6 +203,7 @@ export default function GameScreen({
                 swapActive={gameState.swapActive}
                 freezeSelectActive={gameState.freezeSelectActive}
                 isGremlinTurn={currentIsBot}
+                isOpponentTurn={!myTurn && !currentPlayerState.isEliminated}
                 bombBlast={bombBlast}
                 portalJump={portalJump}
                 swapFlash={swapFlash}

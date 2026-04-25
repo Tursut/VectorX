@@ -10,7 +10,7 @@ function badgeColor(turnsLeft) {
 
 const spring = { type: 'spring', stiffness: 380, damping: 28 };
 
-export default function Cell({ row, col, cell, isValidMove, isCurrentPlayer, isBotTurn, playerHere, deathHere, itemHere, portalActive, swapActive, playerColor, onCellClick, isBombOrigin, isBombCleared, isPortalOrigin, isPortalDest, isSwapFlash, isTrapped, isFreezeTarget }) {
+export default function Cell({ row, col, cell, isValidMove, isCurrentPlayer, isOpponentTurn, playerHere, deathHere, itemHere, portalActive, swapActive, playerColor, onCellClick, isBombOrigin, isBombCleared, isPortalOrigin, isPortalDest, isSwapFlash, isTrapped, isFreezeTarget }) {
   const owner = cell.owner !== null ? PLAYERS[cell.owner] : null;
 
   let className = 'cell';
@@ -20,7 +20,11 @@ export default function Cell({ row, col, cell, isValidMove, isCurrentPlayer, isB
     else className += ' cell-valid';
   }
   if (isCurrentPlayer) className += ' cell-current';
-  if (isBotTurn) className += ' cell-bot-thinking';
+  // "Whose turn is it?" pulse — applied to the current player's cell when
+  // the local user isn't that player. Used to be `isBotTurn` (only bots
+  // got the glow); broadened to cover remote human opponents in online
+  // mode so you can see who you're waiting for (issue #24).
+  if (isOpponentTurn) className += ' cell-opponent-thinking';
   if (isBombCleared) className += ' cell-bomb-cleared';
   if (isTrapped) className += ' cell-trapped';
   if (isFreezeTarget) className += ' cell-freeze-target';

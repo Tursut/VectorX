@@ -224,12 +224,16 @@
   to   { box-shadow: inset 0 0 0 2px rgba(155, 89, 182, 0.9), 0 0 12px rgba(155,89,182,0.5); }
 }
 
-.cell-bot-thinking {
+/* Pulsates the current player's cell when the local user isn't them —
+   the "we're waiting for you to move" indicator. Applied to bots in
+   hotseat (the only non-self players there) and to all opponents
+   (bots + remote humans) in online mode. Issue #24. */
+.cell-opponent-thinking {
   z-index: 1;
-  animation: botThink 0.65s infinite alternate ease-in-out;
+  animation: opponentThink 0.65s infinite alternate ease-in-out;
 }
 
-@keyframes botThink {
+@keyframes opponentThink {
   from { box-shadow: 0 0 8px  2px var(--player-color); }
   to   { box-shadow: 0 0 24px 8px var(--player-color); }
 }
