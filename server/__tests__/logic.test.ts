@@ -243,6 +243,86 @@ describe('validateMove', () => {
   });
 });
 
+// ---------- freeze counter through trap-elimination cascade (#23) ----------
+
+describe('freeze interacts correctly with intermediate trap-elimination', () => {
+  // Repro: bot frozen for N turns, the seat BEFORE them dies of no-valid-
+  // moves on the same completeTurn() call. Pre-fix, the freeze check ran
+  // once on the pre-elimination nextIndex (which wasn't the frozen seat),
+  // and the trap-elimination loop then advanced nextIndex to the frozen
+  // seat — bypassing the skip. Frozen player would take a "free" turn,
+  // counter unchanged. Combined-loop fix re-checks freeze on every step.
+  function trapSeatOne(s: ReturnType<typeof initGame>) {
+    // Seat 1 starts at (0, GRID_SIZE - 1). Surround its 3 neighbours.
+    const r = 0;
+    const c = GRID_SIZE - 1;
+    s.grid[r][c - 1] = { owner: 0 };
+    s.grid[r + 1][c - 1] = { owner: 0 };
+    s.grid[r + 1][c] = { owner: 0 };
+    return s;
+  }
+
+  it('skips the frozen seat 2 when the seat 1 in front of them gets trap-eliminated', () => {
+    const s = trapSeatOne(initGame(false, 0));
+    s.currentPlayerIndex = 0;
+    s.frozenPlayerId = 2;
+    s.frozenTurnsLeft = 2;
+
+    // Seat 0 makes a valid move (anywhere it can reach from (0,0)).
+    const move = getCurrentValidMoves(s)[0];
+    const next = applyMove(s, move.row, move.col);
+
+    // Seat 1 — no valid moves, eliminated by the trap-cascade.
+    expect(next.players[1].isEliminated).toBe(true);
+    // Seat 2 — frozen, should be SKIPPED, not playing on this advance.
+    expect(next.currentPlayerIndex).toBe(3);
+    // Freeze counter ticks down by exactly one for that skip.
+    expect(next.frozenPlayerId).toBe(2);
+    expect(next.frozenTurnsLeft).toBe(1);
+    // Seat 2 stays alive (was never eligible to move).
+    expect(next.players[2].isEliminated).toBe(false);
+  });
+
+  it('does not skip the frozen seat when freeze counter has already hit zero', () => {
+    // After all skips are exhausted, frozenTurnsLeft is 0 and the next
+    // time the frozen seat's turn arrives they actually play. Make sure
+    // the trap-cascade landing on the frozen seat with counter=0 still
+    // lets them play (and clears the marker), instead of double-skipping.
+    const s = trapSeatOne(initGame(false, 0));
+    s.currentPlayerIndex = 0;
+    s.frozenPlayerId = 2;
+    s.frozenTurnsLeft = 0;
+
+    const move = getCurrentValidMoves(s)[0];
+    const next = applyMove(s, move.row, move.col);
+
+    expect(next.players[1].isEliminated).toBe(true);
+    // Seat 2 is the next active player and the freeze is over.
+    expect(next.currentPlayerIndex).toBe(2);
+    expect(next.frozenPlayerId).toBeNull();
+    expect(next.frozenTurnsLeft).toBe(0);
+  });
+
+  it('clears the freeze marker if the frozen player was already eliminated externally', () => {
+    // Bomb / swap / disconnect can eliminate the frozen player before
+    // their next turn arrives. completeTurn's pre-loop cleanup should
+    // drop the freeze fields so the marker doesn't stick around as a
+    // ghost on a now-dead seat.
+    const s = trapSeatOne(initGame(false, 0));
+    s.currentPlayerIndex = 0;
+    s.frozenPlayerId = 2;
+    s.frozenTurnsLeft = 3;
+    // Pre-eliminate seat 2 (e.g. caught in a bomb).
+    s.players[2] = { ...s.players[2], isEliminated: true };
+
+    const move = getCurrentValidMoves(s)[0];
+    const next = applyMove(s, move.row, move.col);
+
+    expect(next.frozenPlayerId).toBeNull();
+    expect(next.frozenTurnsLeft).toBe(0);
+  });
+});
+
 // ---------- ai.js — getGremlinMove ----------
 
 describe('getGremlinMove', () => {

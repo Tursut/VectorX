@@ -146,27 +146,40 @@ function completeTurn(state) {
   let frozenPlayerId = state.frozenPlayerId ?? null;
   let frozenTurnsLeft = state.frozenTurnsLeft ?? 0;
 
-  // Skip frozen player before the trap check so they aren't eliminated on a turn they can't act.
+  // Drop the freeze marker entirely if the frozen player is gone — keeps
+  // the per-iteration freeze check below from looking it up redundantly.
   if (frozenPlayerId !== null) {
     const fp = updatedPlayers.find(p => p.id === frozenPlayerId);
     if (!fp || fp.isEliminated) {
-      frozenPlayerId = null; frozenTurnsLeft = 0;
-    } else if (updatedPlayers[nextIndex]?.id === frozenPlayerId) {
-      if (frozenTurnsLeft > 0) {
-        frozenTurnsLeft -= 1;
-        nextIndex = advanceToNextActive(updatedPlayers, nextIndex); // skip
-      } else {
-        // All skips exhausted — real turn arrives, clear badge and let them play
-        frozenPlayerId = null;
-      }
+      frozenPlayerId = null;
+      frozenTurnsLeft = 0;
     }
   }
 
-  // Only eliminate players whose turn is up next — others die when their turn arrives.
+  // Single combined walk forward: skip frozen seats, eliminate trapped
+  // ones, until we land on someone who can actually play. Has to be one
+  // loop because either branch can advance into the other — the previous
+  // freeze-then-trap shape silently bypassed the freeze when an
+  // intermediate player got trap-eliminated and the next-index landed on
+  // the frozen seat (issue #23: "I have seen bots move even when they
+  // are frozen … happens when the bot before dies"). Worst-case visit
+  // count is 2× players.length (each seat could be freeze-skipped or
+  // trap-eliminated, but not both in the same call).
   let safety = 0;
-  while (safety++ < players.length) {
+  while (safety++ <= players.length * 2) {
     const nextPlayer = updatedPlayers[nextIndex];
     if (nextIndex === currentPlayerIndex || nextPlayer.isEliminated) break;
+    if (frozenPlayerId !== null && nextPlayer.id === frozenPlayerId) {
+      if (frozenTurnsLeft > 0) {
+        // Skip this turn for the frozen seat. Decrement, advance, retry.
+        frozenTurnsLeft -= 1;
+        nextIndex = advanceToNextActive(updatedPlayers, nextIndex);
+        continue;
+      }
+      // All skips exhausted — frozen seat finally gets to act. Clear the
+      // marker and fall through to the trap-elimination check below.
+      frozenPlayerId = null;
+    }
     if (getValidMoves(grid, nextPlayer.row, nextPlayer.col).length > 0) break;
     updatedPlayers = updatedPlayers.map((p) =>
       p.id === nextPlayer.id ? { ...markEliminated(p), finishTurn: turnCount } : p
