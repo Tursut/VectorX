@@ -2007,6 +2007,15 @@
   -webkit-text-fill-color: transparent;
   border-radius: 8px;
 }
+/* The cells already render their own focus indicator (the lavender
+   .code-cell-active border + blink). Suppress the wrap-the-whole-input
+   focus ring that .join-field input:focus would otherwise paint across
+   all five boxes — its 0,2,1 specificity beats this rule's plain 0,2,0,
+   so we need a same-specificity match (0,3,0) to win on focus. */
+.code-grid .code-input-overlay:focus,
+.code-grid .code-input-overlay:focus-visible {
+  outline: none;
+}
 
 /* Name input + reroll button on one row. The input flexes to fill, the
    button is a fixed-size square sitting flush against it on the right. */
