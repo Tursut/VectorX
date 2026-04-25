@@ -1971,16 +1971,20 @@
 .code-grid.input-error .code-cell {
   border-color: #ff8899;
 }
-/* The overlay input that backs the visible cells. We need it to be
-   FULLY HIT-TESTABLE by iOS — using opacity:0 here suppressed the
-   long-press "Paste" callout on iOS Safari and Chrome (iOS treats
-   opacity:0 inputs as not-actually-an-input for text gestures). So
-   instead we keep it opaque but visually empty: transparent text,
-   caret, background, border. The magnifier on long-press shows blank
-   space, the user sees the cells underneath, and the OS happily shows
-   the paste menu. font-size:16px also prevents iOS Safari's auto-zoom
-   on focus. */
-.code-input-overlay {
+/* The overlay input that backs the visible cells. Scoped under
+   .code-grid (specificity 0,2,0) so it wins against the generic
+   `.join-field input` rule (0,1,1) that otherwise applies the
+   standard form-field background + border, painting a big rectangle
+   on top of the cells.
+   We also need it to be FULLY HIT-TESTABLE by iOS — using opacity:0
+   suppressed the long-press "Paste" callout on iOS Safari and Chrome
+   (iOS treats opacity:0 inputs as not-actually-an-input for text
+   gestures). So we keep it opaque but visually empty: transparent
+   text, caret, background, border. The magnifier on long-press shows
+   blank space, the user sees the cells underneath, and the OS happily
+   shows the paste menu. font-size:16px also prevents iOS Safari's
+   auto-zoom on focus. */
+.code-grid .code-input-overlay {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -1998,10 +2002,10 @@
   font-size: 16px;
   padding: 0;
   margin: 0;
-  /* Hide the text-selection blue tint that would otherwise flicker on
-     long-press selection. The actual select still works (the input
-     reads/edits its value normally). */
+  /* Hide any native text-fill that the OS might draw on top — the
+     visible glyphs come from the .code-cell siblings beneath. */
   -webkit-text-fill-color: transparent;
+  border-radius: 8px;
 }
 
 /* Name input + reroll button on one row. The input flexes to fill, the
