@@ -32,19 +32,37 @@ function clearRoomHash() {
   );
 }
 
+// Server-side ERROR codes that should bounce the user back to the join form
+// with their inputs preserved (instead of showing a full-screen error panel
+// with just a "Back" button). These are all "you can't join with these
+// inputs as they stand — fix them" situations.
+const ROUTABLE_JOIN_ERRORS = {
+  DUPLICATE_NAME:   'That name is already taken in this room. Try another.',
+  ROOM_FULL:        'This room is full.',
+  ALREADY_STARTED:  'This game has already started.',
+};
+
 export default function App() {
   // { code, displayName, magicItems } when we're in an active online session,
   // null otherwise. Setting this transitions the whole app to OnlineGameController.
   const [online, setOnline] = useState(null);
-  // Transient error shown on StartScreen — e.g. POST /rooms failed.
+  // Transient error shown on StartScreen — e.g. POST /rooms failed, or the
+  // server rejected a HELLO with DUPLICATE_NAME / ROOM_FULL / ALREADY_STARTED.
   const [onlineError, setOnlineError] = useState(null);
   // Hash-prefilled code. Null after any transition so refreshes don't loop.
   const [coldOpenCode, setColdOpenCode] = useState(
     ENABLE_ONLINE ? parseHashCode() : null,
   );
+  // Inputs from a join attempt the server rejected (issue #14). When set, the
+  // start screen renders in JOIN mode with these pre-filled so the user can
+  // tweak the name and retry without losing context.
+  const [pendingDisplayName, setPendingDisplayName] = useState('');
+  const [pendingCode, setPendingCode] = useState('');
 
   async function handleCreateOnline({ displayName, magicItems }) {
     setOnlineError(null);
+    setPendingDisplayName('');
+    setPendingCode('');
     try {
       const res = await fetch(`${SERVER_URL}/rooms`, { method: 'POST' });
       if (!res.ok) throw new Error(`Server returned ${res.status}`);
@@ -52,21 +70,40 @@ export default function App() {
       setColdOpenCode(null);
       setOnline({ code: body.code, displayName, magicItems });
     } catch (err) {
-      setOnlineError(err instanceof Error ? err.message : String(err));
+      const reason = err instanceof Error ? err.message : String(err);
+      setOnlineError(`Couldn't reach the server: ${reason}`);
     }
   }
 
   function handleJoinOnline({ displayName, code }) {
     setOnlineError(null);
     setColdOpenCode(null);
+    setPendingDisplayName('');
+    setPendingCode('');
     // Joiner's initial magic-items choice is irrelevant — host decides.
     // Default false just so the lobby has a concrete value.
     setOnline({ code, displayName, magicItems: false });
   }
 
+  // OnlineGameController calls this when the WS handshake fails with one of
+  // the routable codes. We tear down the online session and re-render the
+  // start screen in JOIN mode with the rejected inputs preserved + an
+  // inline error explaining what to fix.
+  function handleJoinFailed({ code }) {
+    if (online) {
+      setPendingDisplayName(online.displayName);
+      setPendingCode(online.code);
+    }
+    setOnline(null);
+    setOnlineError(ROUTABLE_JOIN_ERRORS[code] ?? `Error: ${code}`);
+    clearRoomHash();
+  }
+
   function handleOnlineExit() {
     setOnline(null);
     setOnlineError(null);
+    setPendingDisplayName('');
+    setPendingCode('');
     clearRoomHash();
   }
 
@@ -78,17 +115,25 @@ export default function App() {
           displayName={online.displayName}
           initialMagicItems={online.magicItems}
           onExit={handleOnlineExit}
+          onJoinFailed={handleJoinFailed}
         />
       </Suspense>
     );
   }
 
+  // Effective default-mode + defaults. A pending failed-join takes priority
+  // over a cold-open hash code; both fall back to the hotseat default.
+  const effectiveDefaultCode = pendingCode || coldOpenCode || '';
+  const effectiveDefaultMode =
+    pendingCode || (ENABLE_ONLINE && coldOpenCode) ? 'join' : 'this-device';
+
   return (
     <LocalGameController
       onCreateOnline={ENABLE_ONLINE ? handleCreateOnline : null}
       onJoinOnline={ENABLE_ONLINE ? handleJoinOnline : null}
-      defaultMode={ENABLE_ONLINE && coldOpenCode ? 'join' : 'this-device'}
-      defaultCode={coldOpenCode ?? ''}
+      defaultMode={effectiveDefaultMode}
+      defaultCode={effectiveDefaultCode}
+      defaultDisplayName={pendingDisplayName}
       onlineError={onlineError}
     />
   );

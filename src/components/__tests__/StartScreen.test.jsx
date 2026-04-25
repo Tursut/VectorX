@@ -96,6 +96,21 @@ describe('StartScreen — defaultMode + defaultCode (cold-open)', () => {
     render(<StartScreen {...withOnline({ defaultMode: 'join', defaultCode: 'abcde' })} />);
     expect(screen.getByLabelText(/room code/i).value).toBe('ABCDE');
   });
+
+  it('pre-fills the name input from defaultDisplayName (issue #14 retry flow)', () => {
+    // After a server-side DUPLICATE_NAME, App.jsx re-renders the start screen
+    // with the rejected name preserved so the user can edit it without retyping.
+    render(
+      <StartScreen
+        {...withOnline({
+          defaultMode: 'join',
+          defaultCode: 'Q7K4N',
+          defaultDisplayName: 'Bob',
+        })}
+      />,
+    );
+    expect(screen.getByRole('textbox', { name: /your name/i }).value).toBe('Bob');
+  });
 });
 
 // ---------- Primary button label ----------

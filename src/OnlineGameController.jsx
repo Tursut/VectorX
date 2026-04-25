@@ -23,11 +23,21 @@ import * as sounds from './game/sounds';
 import Lobby from './components/Lobby';
 import GameScreen from './components/GameScreen';
 
+// Server-side ERROR codes that mean "user got something wrong on the start
+// screen" — App.jsx routes these back to the join form with the inputs
+// preserved instead of us showing a full-screen error panel here.
+const ROUTABLE_JOIN_ERROR_CODES = new Set([
+  'DUPLICATE_NAME',
+  'ROOM_FULL',
+  'ALREADY_STARTED',
+]);
+
 export default function OnlineGameController({
   code,
   displayName,
   initialMagicItems = false,
   onExit,
+  onJoinFailed,
 }) {
   const url = wsUrl(code);
   const {
@@ -97,6 +107,19 @@ export default function OnlineGameController({
     }
   }, [connectionState, displayName, join]);
 
+  // If the server rejects HELLO with a routable code (DUPLICATE_NAME et al.),
+  // bounce up to App.jsx so it can re-render the start screen with the user's
+  // inputs preserved. Once-only via the ref guard so a re-render doesn't
+  // cause a second handleJoinFailed call.
+  const joinFailedFired = useRef(false);
+  useEffect(() => {
+    if (joinFailedFired.current) return;
+    if (!lastError || !ROUTABLE_JOIN_ERROR_CODES.has(lastError.code)) return;
+    if (typeof onJoinFailed !== 'function') return;
+    joinFailedFired.current = true;
+    onJoinFailed(lastError);
+  }, [lastError, onJoinFailed]);
+
   function toggleSound() {
     const next = !soundEnabled;
     setSoundEnabled(next);
@@ -117,6 +140,12 @@ export default function OnlineGameController({
   }
 
   if (lastError) {
+    // Routable errors are being bounced upward via onJoinFailed (parent will
+    // unmount us in the next render). Render nothing in the meantime so we
+    // don't flash a full-screen error panel for one frame.
+    if (ROUTABLE_JOIN_ERROR_CODES.has(lastError.code) && typeof onJoinFailed === 'function') {
+      return null;
+    }
     return <StatusScreen label={fatalErrorLabel(lastError)} onBack={onExit} />;
   }
 

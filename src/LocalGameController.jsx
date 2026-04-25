@@ -56,6 +56,7 @@ export default function LocalGameController({
   onJoinOnline,
   defaultMode,
   defaultCode,
+  defaultDisplayName,
   onlineError,
 } = {}) {
   const [screen, setScreen] = useState('start');
@@ -258,6 +259,7 @@ export default function LocalGameController({
               onJoinOnline={onJoinOnline}
               defaultMode={defaultMode}
               defaultCode={defaultCode}
+              defaultDisplayName={defaultDisplayName}
               onlineError={onlineError}
             />
           </motion.div>

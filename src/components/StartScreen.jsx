@@ -44,6 +44,7 @@ export default function StartScreen({
   onJoinOnline,
   defaultMode = 'this-device',
   defaultCode = '',
+  defaultDisplayName = '',
   onlineError = null,
 }) {
   // Online handlers are required for the create/join tiles to show. When
@@ -57,7 +58,10 @@ export default function StartScreen({
   // online room), 'join' (enter someone else's room).
   const [mode, setMode] = useState(onlineAvailable ? defaultMode : 'this-device');
   const [code, setCode] = useState(filterCode(defaultCode));
-  const [displayName, setDisplayName] = useState('');
+  // App.jsx prefills this when re-rendering after a server-side join rejection
+  // (e.g. DUPLICATE_NAME) so the user lands on the join form with the rejected
+  // name still in the field — they just edit and retry.
+  const [displayName, setDisplayName] = useState(defaultDisplayName);
   // 'name' | 'code' | null. Set when the user submits with that field still
   // invalid; rendered as an inline message + a brief shake on the input.
   // Clears as soon as the offending field becomes valid (via useEffect below).
@@ -281,7 +285,7 @@ export default function StartScreen({
                   )}
                   {onlineError && (
                     <p className="online-error" role="alert">
-                      Couldn't reach the server: {onlineError}
+                      {onlineError}
                     </p>
                   )}
                 </div>
@@ -340,7 +344,7 @@ export default function StartScreen({
                   )}
                   {onlineError && (
                     <p className="online-error" role="alert">
-                      Couldn't reach the server: {onlineError}
+                      {onlineError}
                     </p>
                   )}
                 </div>
