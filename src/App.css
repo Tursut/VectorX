@@ -1954,7 +1954,7 @@
 .lobby {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 24px;
   width: 100%;
   padding: 24px;
   background: #0f0f23;
@@ -1963,13 +1963,14 @@
   color: #e8e8f4;
   font-family: 'Fredoka One', 'Segoe UI', sans-serif;
   box-sizing: border-box;
+  box-shadow: 0 0 32px rgba(122, 140, 255, 0.08);
 }
 
-/* Hero: LOBBY heading + room code line */
+/* Hero: LOBBY heading only — room code now lives as the visual lead of
+   .lobby-invite where the user actually shares it. */
 .lobby-hero {
   display: flex;
   flex-direction: column;
-  gap: 2px;
 }
 /* Sibling of .start-title — same Fredoka One + clamp + glow pulse, scaled
    down because LOBBY is a sub-screen, not the app's home title. */
@@ -1983,41 +1984,40 @@
   margin: 0;
   animation: titlePulse 3s infinite ease-in-out;
 }
-.lobby-room-line {
-  font-size: 14px;
-  color: #888aaa;
-  margin: 0;
-}
-/* Drop monospace — nothing else in the app uses Courier. The 5-char ALL-CAPS
-   reads cleanly in Fredoka One. */
-.lobby-code {
-  font-family: 'Fredoka One', 'Segoe UI', sans-serif;
-  letter-spacing: 0.15em;
-  color: #ffcc66;
-}
-
-/* Invite card. Transparent bg keeps the lobby's flat-card hierarchy (no
-   nested-card-within-card depth); the 1 px lavender border is enough to
-   group the label + URL + copy button without painting a new surface. */
+/* Invite card. The room code is the visual hero — it's the human-friendly
+   value the host actually says out loud. The URL + copy button collapse to
+   a single row beneath, so this section is two visual elements (code, link)
+   not three (label, url, button). */
 .lobby-invite {
   background: transparent;
   border: 1px solid #333366;
   border-radius: 8px;
-  padding: 12px 14px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
+  gap: 10px;
+}
+/* Room code as the section's lead. Fredoka One amber matching the previous
+   .lobby-code colour, sized between the LOBBY title and section headings. */
+.lobby-invite-code {
+  font-family: 'Fredoka One', 'Segoe UI', sans-serif;
+  font-size: clamp(22px, 6vw, 32px);
+  letter-spacing: 0.18em;
+  color: #ffcc66;
+  text-align: center;
+  margin: 0;
+}
+/* URL + icon copy button on one row. URL flexes to fill, button is fixed. */
+.lobby-invite-row {
+  display: flex;
+  align-items: center;
   gap: 8px;
 }
-.lobby-invite-label {
-  font-size: 10px;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  color: #666888;
-  font-family: 'Segoe UI', sans-serif;
-}
 /* URL reads as a normal text link — Segoe UI body font, mid-lavender,
-   underlined. No more amber Courier. */
+   underlined. */
 .lobby-invite-url {
+  flex: 1 1 auto;
+  min-width: 0;
   font-family: 'Segoe UI', sans-serif;
   font-size: 13px;
   color: #aaaacc;
@@ -2031,22 +2031,25 @@
   color: #e8e8f4;
   text-decoration-color: #7a8cff;
 }
-/* Secondary outlined button in the lavender palette — same vocabulary as
-   .exit-game-btn / .lobby-leave-btn, just sized as a small action button
-   instead of a flat text-link. The done-state uses the palette's existing
-   green (#2ecc71, also player-2's colour) instead of a one-off green. */
+/* Compact icon-only copy button. Square, transparent, lavender outline —
+   same vocabulary as .exit-game-btn but sized as a small inline action. */
 .lobby-copy-btn {
-  align-self: flex-end;
+  flex: 0 0 auto;
   background: transparent;
   border: 1px solid #555588;
   border-radius: 6px;
   color: #aaaacc;
-  font-size: 13px;
+  font-size: 16px;
+  line-height: 1;
   font-family: 'Segoe UI', sans-serif;
-  padding: 5px 14px;
+  width: 36px;
+  height: 32px;
+  padding: 0;
   cursor: pointer;
   transition: background 0.15s, color 0.15s, border-color 0.15s;
-  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .lobby-copy-btn:hover {
   background: rgba(122, 140, 255, 0.08);
@@ -2065,35 +2068,28 @@
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
 }
 
-/* Pill rows in the player list. Transparent bg + thin lavender border
-   matches the flat-card hierarchy — no extra surface depth, just a
-   subtle pill shape per player. */
+/* Roster reads as a clean list of names — no per-row borders, just hairline
+   dividers between siblings. Names use Segoe UI (the input *value* font, not
+   the heavy display font) so the roster feels like body content rather than
+   four bordered cards stacked up. */
 .lobby-player {
-  padding: 10px 14px;
+  padding: 8px 0;
   background: transparent;
-  border: 1px solid #1f1f3a;
-  border-radius: 8px;
+  border: none;
+  border-bottom: 1px solid #1f1f3a;
+  border-radius: 0;
+  font-family: 'Segoe UI', sans-serif;
+  font-size: 15px;
+}
+.lobby-player:last-child {
+  border-bottom: none;
 }
 
 .lobby-empty-seat {
-  opacity: 0.6;
+  opacity: 0.5;
   font-style: italic;
-}
-
-/* Host's "Start now…" hint sits in the lobby flow above the sticky
-   primary-action bar. The actual start button reuses .start-button +
-   .start-button-bar from StartScreen so both screens share one visual
-   language (issue #12). */
-.lobby-host-note {
-  font-size: 12px;
-  color: #888aaa;
-  font-family: 'Segoe UI', sans-serif;
-  font-style: italic;
-  margin: 0;
-  text-align: center;
 }
 
 .lobby-wait-note {

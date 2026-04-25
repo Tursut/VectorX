@@ -34,22 +34,21 @@ export default function Lobby({
 
         <div className="lobby-hero">
           <h1 className="lobby-title">LOBBY</h1>
-          <p className="lobby-room-line">
-            Room <span className="lobby-code">{code}</span>
-          </p>
         </div>
 
         <div className="lobby-invite">
-          <span className="lobby-invite-label">Invite friends</span>
-          <a className="lobby-invite-url" href={shareLink}>{shareLink}</a>
-          <button
-            type="button"
-            className={`lobby-copy-btn${copied ? ' lobby-copy-btn-done' : ''}`}
-            onClick={copyLink}
-            aria-label="Copy invite link"
-          >
-            {copied ? '✓ Copied!' : '📋 Copy link'}
-          </button>
+          <p className="lobby-invite-code" aria-label={`Room code ${code}`}>{code}</p>
+          <div className="lobby-invite-row">
+            <a className="lobby-invite-url" href={shareLink}>{shareLink}</a>
+            <button
+              type="button"
+              className={`lobby-copy-btn${copied ? ' lobby-copy-btn-done' : ''}`}
+              onClick={copyLink}
+              aria-label={copied ? 'Invite link copied' : 'Copy invite link'}
+            >
+              {copied ? '✓' : '📋'}
+            </button>
+          </div>
         </div>
 
         <ul className="lobby-players" aria-label="Players">
@@ -66,12 +65,6 @@ export default function Lobby({
             </li>
           ))}
         </ul>
-
-        {isHost && (
-          <p className="lobby-host-note">
-            Start now — empty slots will be filled by bots.
-          </p>
-        )}
 
         {!isHost && (
           <p className="lobby-wait-note">Waiting for the host to start…</p>
