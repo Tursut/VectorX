@@ -32,6 +32,19 @@ function isCodeValid(code) {
   return /^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{5}$/.test(code);
 }
 
+// Replace each letter with a random letter of the same case; spaces stay
+// spaces. Used by the dice-button scramble animation.
+function scrambleString(target) {
+  return target
+    .split('')
+    .map((c) => {
+      if (c >= 'a' && c <= 'z') return String.fromCharCode(97 + Math.floor(Math.random() * 26));
+      if (c >= 'A' && c <= 'Z') return String.fromCharCode(65 + Math.floor(Math.random() * 26));
+      return c;
+    })
+    .join('');
+}
+
 export default function StartScreen({
   onStart,
   onSandbox,
@@ -73,6 +86,22 @@ export default function StartScreen({
   const [submitError, setSubmitError] = useState(null);
   const nameInputRef = useRef(null);
   const codeInputRef = useRef(null);
+  // Tracks the in-flight reroll scramble: { id, target } where id is the
+  // setInterval handle and target is the final name to settle on. Lets us
+  // cancel cleanly on unmount or user typing, and snap to the real name if
+  // the user submits mid-animation.
+  const rerollAnimRef = useRef({ id: null, target: null });
+
+  // Cancel a pending scramble animation. Idempotent.
+  function cancelRerollAnim() {
+    if (rerollAnimRef.current.id !== null) {
+      clearInterval(rerollAnimRef.current.id);
+      rerollAnimRef.current.id = null;
+    }
+  }
+
+  // Cleanup on unmount so stray intervals don't update unmounted state.
+  useEffect(() => () => cancelRerollAnim(), []);
 
   const humanCount = PLAYERS.length - gremlinCount;
   const gremlinLabel =
@@ -93,8 +122,26 @@ export default function StartScreen({
   const canSubmit = isCreate ? canSubmitCreate : isJoin ? canSubmitJoin : true;
 
   function rerollDisplayName() {
-    setDisplayName(generateDisplayName());
+    cancelRerollAnim();
+    const target = generateDisplayName();
     setSubmitError(null);
+    rerollAnimRef.current.target = target;
+
+    // ~200 ms slot-machine scramble: 7 frames of random letters at 28 ms each,
+    // then snap to the target. Same-case letters keep the silhouette stable
+    // so the eye stays on the new name as it settles.
+    const FRAMES = 7;
+    const FRAME_MS = 28;
+    let step = 0;
+    rerollAnimRef.current.id = setInterval(() => {
+      step += 1;
+      if (step >= FRAMES) {
+        cancelRerollAnim();
+        setDisplayName(target);
+        return;
+      }
+      setDisplayName(scrambleString(target));
+    }, FRAME_MS);
   }
 
   function handleCodeChange(e) {
@@ -122,20 +169,29 @@ export default function StartScreen({
   }, [submitError, displayName, hasCode]);
 
   function handlePrimaryClick() {
+    // If a scramble is mid-flight, snap to its real target before validating
+    // — otherwise we'd send a randomised string. The animation is ~200 ms,
+    // so this is an edge case but worth handling.
+    let effectiveName = displayName;
+    if (rerollAnimRef.current.id !== null) {
+      cancelRerollAnim();
+      effectiveName = rerollAnimRef.current.target;
+      setDisplayName(effectiveName);
+    }
     if (isCreate) {
-      if (!isDisplayNameValid(displayName)) {
+      if (!isDisplayNameValid(effectiveName)) {
         setSubmitError('name');
         nameInputRef.current?.focus();
         return;
       }
       setSubmitError(null);
-      onCreateOnline({ displayName: displayName.trim(), magicItems });
+      onCreateOnline({ displayName: effectiveName.trim(), magicItems });
       return;
     }
     if (isJoin) {
       // Validate name first, then code — focus the first invalid field so the
       // user only has to fix one thing at a time.
-      if (!isDisplayNameValid(displayName)) {
+      if (!isDisplayNameValid(effectiveName)) {
         setSubmitError('name');
         nameInputRef.current?.focus();
         return;
@@ -146,7 +202,7 @@ export default function StartScreen({
         return;
       }
       setSubmitError(null);
-      onJoinOnline({ displayName: displayName.trim(), code });
+      onJoinOnline({ displayName: effectiveName.trim(), code });
       return;
     }
     onStart?.();
@@ -173,7 +229,10 @@ export default function StartScreen({
             ref={nameInputRef}
             type="text"
             value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
+            onChange={(e) => {
+              cancelRerollAnim();
+              setDisplayName(e.target.value);
+            }}
             placeholder="Your name"
             maxLength={20}
             autoComplete="off"

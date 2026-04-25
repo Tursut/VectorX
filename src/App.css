@@ -1042,9 +1042,14 @@
   max-width: 400px;
 }
 
-.start-button:hover {
-  transform: translateY(-3px) scale(1.04);
-  box-shadow: 0 10px 30px rgba(231, 76, 60, 0.6);
+/* Hover lifts the button — desktop only. iOS Safari sometimes flashes the
+   hover state on a different button when a nearby button is tapped, so we
+   gate it on hover-capable pointers. */
+@media (hover: hover) {
+  .start-button:hover {
+    transform: translateY(-3px) scale(1.04);
+    box-shadow: 0 10px 30px rgba(231, 76, 60, 0.6);
+  }
 }
 
 .start-button:active {
