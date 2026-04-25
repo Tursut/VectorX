@@ -1971,21 +1971,37 @@
 .code-grid.input-error .code-cell {
   border-color: #ff8899;
 }
+/* The overlay input that backs the visible cells. We need it to be
+   FULLY HIT-TESTABLE by iOS — using opacity:0 here suppressed the
+   long-press "Paste" callout on iOS Safari and Chrome (iOS treats
+   opacity:0 inputs as not-actually-an-input for text gestures). So
+   instead we keep it opaque but visually empty: transparent text,
+   caret, background, border. The magnifier on long-press shows blank
+   space, the user sees the cells underneath, and the OS happily shows
+   the paste menu. font-size:16px also prevents iOS Safari's auto-zoom
+   on focus. */
 .code-input-overlay {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  opacity: 0;
+  color: transparent;
+  caret-color: transparent;
+  background: transparent;
+  border: none;
+  outline: none;
+  text-shadow: none;
+  -webkit-appearance: none;
+  appearance: none;
   cursor: text;
-  font: inherit;
-  /* Padding keeps the iOS Safari magnifier from misrendering near the
-     edges; doesn't affect hit-testing since the overlay still spans the
-     full grid. */
+  font-family: inherit;
+  font-size: 16px;
   padding: 0;
   margin: 0;
-  border: none;
-  background: transparent;
+  /* Hide the text-selection blue tint that would otherwise flicker on
+     long-press selection. The actual select still works (the input
+     reads/edits its value normally). */
+  -webkit-text-fill-color: transparent;
 }
 
 /* Name input + reroll button on one row. The input flexes to fill, the
