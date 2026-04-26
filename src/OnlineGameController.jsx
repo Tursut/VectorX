@@ -59,6 +59,18 @@ export default function OnlineGameController({
   const [exitConfirm, setExitConfirm] = useState(false);
   const [timeLeft, setTimeLeft] = useState(TURN_TIME);
 
+  // Pre-game 3-2-1-GO countdown (issue #26). Starts the moment we
+  // observe the first GAME_STATE with phase==='playing'; runs purely
+  // client-side, same timing + sounds as LocalGameController so both
+  // clients render the same beats on top of an otherwise-already-live
+  // server. The bot's first-turn delay (~1 s) and the human turn timer
+  // (10 s) start ticking on the server immediately, but the visual
+  // overlay still serves the request: a clear "the game is about to
+  // start" signal so the user is ready to look at the board.
+  const [countdown, setCountdown] = useState(null);
+  const countdownShownRef = useRef(false);
+  const cdSoundTimerRef = useRef(null);
+
   // Debug panel context. Tracked via refs so writing them doesn't trigger
   // re-renders. Surfaced on any fatal-error StatusScreen so we can see why
   // a real-world reconnect bounce happened. NOT shown for clean
@@ -149,6 +161,44 @@ export default function OnlineGameController({
     console.warn('[OnlineGameController] recovering from lobby-phase UNAUTHORIZED');
     clearError();
   }, [lastError, gameState, clearError]);
+
+  // Trigger the pre-game countdown the first time GAME_STATE arrives
+  // with phase==='playing'. The ref guard means a reconnect mid-game
+  // (which also delivers a fresh GAME_STATE) won't re-show the
+  // countdown. turnCount===0 is a belt-and-braces second check —
+  // mid-game reconnects always have turnCount > 0 by the time the
+  // server's first turn alarm has fired.
+  useEffect(() => {
+    if (countdownShownRef.current) return;
+    if (!gameState || gameState.phase !== 'playing') return;
+    if ((gameState.turnCount ?? 0) > 0) {
+      // We joined / reconnected after the first turn already started —
+      // skip the countdown but mark it shown so a later state update
+      // doesn't re-fire it either.
+      countdownShownRef.current = true;
+      return;
+    }
+    countdownShownRef.current = true;
+    setCountdown(3);
+  }, [gameState?.phase, gameState?.turnCount]);
+
+  // Drives the 3 → 2 → 1 → GO → null transition + click/go sounds.
+  // Same timing as LocalGameController so the cadence is identical.
+  useEffect(() => {
+    if (countdown === null) return;
+    if (countdown < 0) {
+      setCountdown(null);
+      return;
+    }
+    cdSoundTimerRef.current = setTimeout(() => {
+      if (countdown === 0) sounds.playCountdownGo();
+      else sounds.playCountdownBeat();
+    }, 200);
+    const delays = { 3: 1200, 2: 1200, 1: 1200, 0: 2400 };
+    const t = setTimeout(() => setCountdown((c) => c - 1), delays[countdown] ?? 850);
+    return () => { clearTimeout(t); clearTimeout(cdSoundTimerRef.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [countdown]);
 
   function toggleSound() {
     const next = !soundEnabled;
@@ -264,6 +314,33 @@ export default function OnlineGameController({
           flyingFreeze={flyingFreeze}
         />
         {exitConfirmModal}
+        {/* Pre-game countdown — same overlay LocalGameController uses,
+            same CSS classes, same beats (3 / 2 / 1 / GO message). */}
+        <AnimatePresence>
+          {countdown !== null && (
+            <motion.div
+              key="countdown-overlay"
+              className="countdown-overlay"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={countdown}
+                  className={countdown === 0 ? 'countdown-message' : 'countdown-number'}
+                  initial={{ scale: 1.6, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.5, opacity: 0, transition: { duration: 0.18 } }}
+                  transition={{ type: 'spring', stiffness: 320, damping: 22 }}
+                >
+                  {countdown === 0 ? 'MAY THE BEST STRATEGY WIN.' : countdown}
+                </motion.div>
+              </AnimatePresence>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     );
   }
