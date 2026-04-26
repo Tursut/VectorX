@@ -56,6 +56,7 @@ export default function GameScreen({
   roulettePlayerId = null,
   rouletteRevealing = false,
   pendingSwap = null,
+  rouletteActive = false,
 }) {
   const [trappedPlayers, setTrappedPlayers] = useState([]);
   const [eliminationPending, setEliminationPending] = useState(false);
@@ -117,7 +118,11 @@ export default function GameScreen({
   const currentIsBot = isBotPlayer(gameState, currentPlayerState);
   const myTurn = mySeats.includes(currentSeat);
 
-  const validMoves = myTurn ? getCurrentValidMoves(gameState) : [];
+  // While the freeze/swap roulette is rolling (issue #30) we hide the
+  // valid-move dots so the human can't interrupt the suspense — the
+  // turn really is theirs (gameState advanced when the bot picked the
+  // target), but we want them to watch the wheel before acting.
+  const validMoves = myTurn && !rouletteActive ? getCurrentValidMoves(gameState) : [];
   const validMoveSet = new Set(validMoves.map((m) => `${m.row},${m.col}`));
 
   const playerConfig = PLAYERS[currentPlayerState.id];

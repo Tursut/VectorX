@@ -74,7 +74,7 @@ export default function LocalGameController({
 
   // Animation overlays derived from gameState diffs (also fires item-pickup
   // sounds). Passed down to GameScreen / sandbox GameBoard.
-  const { bombBlast, portalJump, swapFlash, flyingFreeze, roulettePlayerId, rouletteRevealing, pendingSwap } = useDerivedAnimations(gameState);
+  const { bombBlast, portalJump, swapFlash, flyingFreeze, roulettePlayerId, rouletteRevealing, pendingSwap, rouletteActive } = useDerivedAnimations(gameState);
 
   // Dismiss toast after its display duration.
   useEffect(() => {
@@ -85,10 +85,13 @@ export default function LocalGameController({
   }, [eventToast?.id]);
 
   // Turn timer — ticks on last 3s for human turns only; dispatches TIMEOUT at 0.
+  // Paused during the freeze/swap roulette (issue #30) so the human isn't
+  // burning their 10 s while the wheel rolls.
   useEffect(() => {
     if (!gameState || gameState.phase !== 'playing') return;
     if (gameState.sandboxMode) return;
     if (exitConfirm) return;
+    if (rouletteActive) return;
     const playerIndex = gameState.currentPlayerIndex;
     const gc = gameState.gremlinCount ?? 0;
     const isHuman = gameState.players[playerIndex].id < PLAYERS.length - gc;
@@ -107,12 +110,17 @@ export default function LocalGameController({
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [gameState?.currentPlayerIndex, gameState?.phase, gameState?.portalActive, gameState?.freezeSelectActive, exitConfirm]);
+  }, [gameState?.currentPlayerIndex, gameState?.phase, gameState?.portalActive, gameState?.freezeSelectActive, rouletteActive, exitConfirm]);
 
   // Gremlin auto-move.
   useEffect(() => {
     if (!gameState || gameState.phase !== 'playing') return;
     if (exitConfirm) return;
+    // Hold the next bot's turn while the freeze/swap roulette is still
+    // rolling (issue #30). The deps include rouletteActive, so this
+    // effect re-runs the moment the wheel stops and schedules the
+    // pending bot's thinking delay then.
+    if (rouletteActive) return;
     const gc = gameState.gremlinCount ?? 0;
     if (gc === 0) return;
     const currentPlayerId = gameState.players[gameState.currentPlayerIndex].id;
@@ -143,7 +151,7 @@ export default function LocalGameController({
     }, delay);
     return () => { cancelAnimationFrame(rafId); clearTimeout(t); setIsThinking(false); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameState?.currentPlayerIndex, gameState?.turnCount, gameState?.phase, gameState?.portalActive, gameState?.swapActive, gameState?.freezeSelectActive, exitConfirm]);
+  }, [gameState?.currentPlayerIndex, gameState?.turnCount, gameState?.phase, gameState?.portalActive, gameState?.swapActive, gameState?.freezeSelectActive, rouletteActive, exitConfirm]);
 
   // Countdown sounds + logic.
   const cdSoundRef = useRef(null);
@@ -229,7 +237,7 @@ export default function LocalGameController({
   const sandboxIsGremlinTurn = gameState?.sandboxMode
     ? gameState.players[gameState.currentPlayerIndex].id >= PLAYERS.length - (gameState.gremlinCount ?? 0)
     : false;
-  const sandboxValidMoves = gameState?.sandboxMode && !sandboxIsGremlinTurn ? getCurrentValidMoves(gameState) : [];
+  const sandboxValidMoves = gameState?.sandboxMode && !sandboxIsGremlinTurn && !rouletteActive ? getCurrentValidMoves(gameState) : [];
   const sandboxValidMoveSet = new Set(sandboxValidMoves.map((m) => `${m.row},${m.col}`));
 
   return (
@@ -306,6 +314,7 @@ export default function LocalGameController({
               roulettePlayerId={roulettePlayerId}
               rouletteRevealing={rouletteRevealing}
               pendingSwap={pendingSwap}
+              rouletteActive={rouletteActive}
             />
             <AnimatePresence>
               {exitConfirm && (

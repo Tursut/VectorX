@@ -306,5 +306,12 @@ export function useDerivedAnimations(gameState) {
     }
   }, [gameState]);
 
-  return { bombBlast, portalJump, swapFlash, flyingFreeze, roulettePlayerId, rouletteRevealing, pendingSwap };
+  // Composite "is the wheel rolling?" flag that the controllers and
+  // GameScreen use to pause the next turn (don't fire bot delays /
+  // valid-move dots / turn-timer ticks while the suspense is still
+  // playing). Stays true through the hops, hold, AND the 3-blink
+  // reveal — only flips false the moment fireImmediate runs.
+  const rouletteActive = roulettePlayerId !== null || rouletteRevealing || pendingSwap !== null;
+
+  return { bombBlast, portalJump, swapFlash, flyingFreeze, roulettePlayerId, rouletteRevealing, pendingSwap, rouletteActive };
 }
