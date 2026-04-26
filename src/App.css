@@ -254,6 +254,30 @@
   to   { transform: scale(1); }
 }
 
+/* Winner reveal — 3 blinks on the target after the wheel stops, so
+   it's unmistakable who got picked before the freeze fly-in / swap
+   flash plays. Duration must match ROULETTE_REVEAL_MS in
+   useDerivedAnimations.js. */
+.cell-roulette-reveal {
+  z-index: 2;
+  animation: rouletteReveal 0.9s ease-in-out;
+}
+
+@keyframes rouletteReveal {
+  0%, 33%, 66% {
+    box-shadow: 0 0 0 4px #fff, 0 0 28px 8px var(--player-color);
+    transform: scale(1.08);
+  }
+  16%, 50%, 83% {
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.25), 0 0 6px 2px var(--player-color);
+    transform: scale(1);
+  }
+  100% {
+    box-shadow: 0 0 0 5px #fff, 0 0 32px 10px var(--player-color);
+    transform: scale(1.12);
+  }
+}
+
 .cell-trapped {
   z-index: 1;
   animation: trapPulse 2.5s ease-in-out forwards;

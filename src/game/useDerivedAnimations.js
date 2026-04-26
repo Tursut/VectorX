@@ -32,14 +32,20 @@ function isBotPlayer(gameState, player) {
 }
 
 // EaseOut hop schedule: fast at first, slowing dramatically into the
-// final reveal — same physics as a lottery wheel coasting to a stop.
-// 12 hops, ~3.3 s total + 500 ms hold ≈ 3.8 s end-to-end.
+// final reveal — the last 3 hops are unmistakably long so the wheel
+// looks like it's coasting to a stop.
+// 16 hops, ~5.1 s total + reveal blink ≈ 6 s end-to-end.
 const ROULETTE_HOP_DURATIONS_MS = [
-  40, 55, 75, 100, 135, 180, 235, 305, 395, 510, 660, 850,
+  30, 38, 50, 65, 85, 110, 140, 175, 215, 265, 325, 400, 500, 650, 870, 1180,
 ];
-// Hold the spotlight on the actual target for a beat after the final
-// hop lands, before handing off to the existing fly-in / flash.
-const ROULETTE_HOLD_MS = 500;
+// Brief pause after the final hop before the 3-blink reveal starts —
+// the spotlight settles for a beat ("…and the winner is…") before
+// we celebrate.
+const ROULETTE_HOLD_MS = 250;
+// Duration of the 3-blink reveal animation. Must match the
+// .cell-roulette-reveal keyframes in App.css. The deferred
+// swap/freeze fly-in fires when this elapses.
+const ROULETTE_REVEAL_MS = 900;
 
 export function useDerivedAnimations(gameState) {
   const [bombBlast, setBombBlast] = useState(null);
@@ -47,6 +53,10 @@ export function useDerivedAnimations(gameState) {
   const [swapFlash, setSwapFlash] = useState(null);
   const [flyingFreeze, setFlyingFreeze] = useState(null);
   const [roulettePlayerId, setRoulettePlayerId] = useState(null);
+  // True during the post-final-hop "winner reveal" — the target cell
+  // blinks 3 times so it's unmistakable who got picked. GameBoard
+  // routes this to a different CSS animation class.
+  const [rouletteRevealing, setRouletteRevealing] = useState(false);
   // While a swap roulette is rolling we want the two players' icons to
   // appear at their PRE-swap positions (since the GAME_STATE we received
   // has already exchanged them). GameBoard reads this to invert the pair
@@ -151,12 +161,20 @@ export function useDerivedAnimations(gameState) {
 
     // Build the hop schedule. Each non-final hop picks a random
     // opponent ≠ the previous hop, so the highlight visibly travels.
-    // The final hop is the actual target.
+    // The penultimate hop also excludes the actual target so the
+    // FINAL hop is a visible move (otherwise a random penultimate
+    // pick that happens to be the target would leave the spotlight
+    // sitting still during the climax). The final hop is the target.
     const hops = [];
     let prevId = -1;
     for (let i = 0; i < ROULETTE_HOP_DURATIONS_MS.length - 1; i++) {
-      const choices = opponents.filter((p) => p.id !== prevId);
-      const pick = choices[Math.floor(Math.random() * choices.length)];
+      const isPenultimate = i === ROULETTE_HOP_DURATIONS_MS.length - 2;
+      let pool = opponents.filter((p) => p.id !== prevId);
+      if (isPenultimate) {
+        const noTarget = pool.filter((p) => p.id !== target.id);
+        if (noTarget.length > 0) pool = noTarget;
+      }
+      const pick = pool[Math.floor(Math.random() * pool.length)];
       hops.push({ playerId: pick.id, dur: ROULETTE_HOP_DURATIONS_MS[i] });
       prevId = pick.id;
     }
@@ -177,14 +195,25 @@ export function useDerivedAnimations(gameState) {
       }, at));
       cumulative += hop.dur;
     });
+    // After the final hop + brief settle, kick off the 3-blink reveal
+    // on the target cell. Spotlight stays on (roulettePlayerId pinned
+    // to target) but switches to the reveal animation. Only after the
+    // blink finishes do we clear the spotlight, drop pendingSwap, and
+    // fire the existing fly-in / flash.
     rouletteTimersRef.current.push(setTimeout(() => {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setRouletteRevealing(true);
+    }, cumulative + ROULETTE_HOLD_MS));
+    rouletteTimersRef.current.push(setTimeout(() => {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setRouletteRevealing(false);
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setRoulettePlayerId(null);
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setPendingSwap(null);
       // eslint-disable-next-line react-hooks/set-state-in-effect
       fireImmediate();
-    }, cumulative + ROULETTE_HOLD_MS));
+    }, cumulative + ROULETTE_HOLD_MS + ROULETTE_REVEAL_MS));
   }, [gameState?.lastEvent, gameState?.players]);
 
   // Main state-diff: detect item pickups + portal jumps from the
@@ -269,5 +298,5 @@ export function useDerivedAnimations(gameState) {
     }
   }, [gameState]);
 
-  return { bombBlast, portalJump, swapFlash, flyingFreeze, roulettePlayerId, pendingSwap };
+  return { bombBlast, portalJump, swapFlash, flyingFreeze, roulettePlayerId, rouletteRevealing, pendingSwap };
 }

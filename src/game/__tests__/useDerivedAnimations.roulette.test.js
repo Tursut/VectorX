@@ -22,11 +22,14 @@ vi.mock('../sounds', () => ({
 import { useDerivedAnimations } from '../useDerivedAnimations';
 import * as sounds from '../sounds';
 
-// Hop schedule must match useDerivedAnimations.js. 12 hops + 500ms hold.
-const HOP_DURATIONS = [40, 55, 75, 100, 135, 180, 235, 305, 395, 510, 660, 850];
-const HOP_HOLD_MS = 500;
+// Hop schedule must match useDerivedAnimations.js. 16 hops + hold + 3-blink reveal.
+const HOP_DURATIONS = [
+  30, 38, 50, 65, 85, 110, 140, 175, 215, 265, 325, 400, 500, 650, 870, 1180,
+];
+const HOP_HOLD_MS = 250;
+const REVEAL_MS = 900;
 const ROULETTE_TOTAL_MS =
-  HOP_DURATIONS.reduce((a, b) => a + b, 0) + HOP_HOLD_MS;
+  HOP_DURATIONS.reduce((a, b) => a + b, 0) + HOP_HOLD_MS + REVEAL_MS;
 
 // 4-player state: human (id 0) + 3 bots (ids 1, 2, 3) via gremlinCount = 3.
 function baseState({ gremlinCount = 3 } = {}) {
@@ -137,11 +140,20 @@ describe('roulette — engaged path', () => {
     expect(result.current.flyingFreeze).toBeNull();
     expect(sounds.playTick).toHaveBeenCalled();
 
-    // Advance to the end of the hop schedule + hold. Final hop lands on
-    // the actual target (id 0); then 500 ms later the roulette clears
-    // and the deferred flyingFreeze fires.
-    act(() => { vi.advanceTimersByTime(ROULETTE_TOTAL_MS); });
+    // Halfway through the reveal blink (after all hops + hold + half
+    // the reveal): spotlight is pinned to the actual target, the
+    // reveal flag is on, and the freeze fly-in is STILL deferred.
+    const totalHopsMs = HOP_DURATIONS.reduce((a, b) => a + b, 0);
+    act(() => { vi.advanceTimersByTime(totalHopsMs + HOP_HOLD_MS + REVEAL_MS / 2); });
+    expect(result.current.roulettePlayerId).toBe(0);
+    expect(result.current.rouletteRevealing).toBe(true);
+    expect(result.current.flyingFreeze).toBeNull();
+
+    // Past the reveal: roulette clears and the deferred flyingFreeze
+    // finally fires.
+    act(() => { vi.advanceTimersByTime(REVEAL_MS); });
     expect(result.current.roulettePlayerId).toBeNull();
+    expect(result.current.rouletteRevealing).toBe(false);
     expect(result.current.flyingFreeze).toEqual({
       fromRow: 0, fromCol: 9, toRow: 0, toCol: 0,
     });

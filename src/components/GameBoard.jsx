@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { PLAYERS } from '../game/constants';
 import Cell from './Cell';
 
-export default function GameBoard({ grid, players, validMoveSet, onCellClick, currentPlayerIndex, items, portalActive, swapActive, freezeSelectActive = false, isGremlinTurn, isOpponentTurn = false, bombBlast, portalJump, swapFlash, trappedPlayers = [], winnerPlayer = null, flyingFreeze = null, roulettePlayerId = null, pendingSwap = null, frozenPlayerId = null, frozenTurnsLeft = 0 }) {
+export default function GameBoard({ grid, players, validMoveSet, onCellClick, currentPlayerIndex, items, portalActive, swapActive, freezeSelectActive = false, isGremlinTurn, isOpponentTurn = false, bombBlast, portalJump, swapFlash, trappedPlayers = [], winnerPlayer = null, flyingFreeze = null, roulettePlayerId = null, rouletteRevealing = false, pendingSwap = null, frozenPlayerId = null, frozenTurnsLeft = 0 }) {
   // While a swap roulette is rolling (issue #30), the server-applied swap has
   // already exchanged the two players' positions in gameState — but we want
   // them to *appear* still in their pre-swap spots until the spotlight lands.
@@ -83,6 +83,7 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
               isTrapped={trappedPlayers.some(tp => tp.row === ri && tp.col === ci)}
               isFreezeTarget={!isGremlinTurn && freezeSelectActive && renderPlayers.some(p => !p.isEliminated && p.id !== renderPlayers[currentPlayerIndex].id && p.row === ri && p.col === ci)}
               isRoulette={roulettePlayerId !== null && renderPlayers.some(p => p.id === roulettePlayerId && p.row === ri && p.col === ci)}
+              isRouletteReveal={rouletteRevealing && roulettePlayerId !== null && renderPlayers.some(p => p.id === roulettePlayerId && p.row === ri && p.col === ci)}
             />
           );
         })
