@@ -6,15 +6,8 @@
 // against the trap-animation visual state it owns.
 
 import { useEffect, useRef } from 'react';
-import { PLAYERS } from './constants';
+import { isBotPlayer, shouldRouletteFreezeSwap } from './rouletteCriteria';
 import * as sounds from './sounds';
-
-function isBotPlayer(gameState, player) {
-  if (!player) return false;
-  if (player.isBot !== undefined) return player.isBot;
-  const gc = gameState?.gremlinCount ?? 0;
-  return player.id >= PLAYERS.length - gc;
-}
 
 export function useGameplaySounds(gameState, mySeats = []) {
   const prevTurnRef = useRef(null);
@@ -43,8 +36,17 @@ export function useGameplaySounds(gameState, mySeats = []) {
     const seat = gameState.currentPlayerIndex;
     if (prevTurnRef.current !== null && prevTurnRef.current !== seat) {
       const prevPlayer = gameState.players[prevTurnRef.current];
-      sounds.playMove(isBotPlayer(gameState, prevPlayer));
-      setTimeout(() => sounds.playClaim(), 200);
+      // Skip the per-turn move/claim thump when the just-completed turn
+      // ended in a bot-driven freeze/swap that the client will roulette
+      // over (issue #31). For freeze the actor doesn't actually change
+      // cells, and for swap the visual exchange is deferred until after
+      // the wheel — so a thump at the start of the roulette is a stray
+      // sound. The freeze fly-in / swap flash brings its own apply
+      // sound at the end of the wheel via useDerivedAnimations.
+      if (!shouldRouletteFreezeSwap(gameState, gameState.lastEvent)) {
+        sounds.playMove(isBotPlayer(gameState, prevPlayer));
+        setTimeout(() => sounds.playClaim(), 200);
+      }
     }
     prevTurnRef.current = seat;
     if (mySeats.includes(seat)) sounds.playYourTurn();

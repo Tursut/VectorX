@@ -18,18 +18,9 @@
 // be slowed by suspense theatre).
 
 import { useEffect, useRef, useState } from 'react';
-import { GRID_SIZE, PLAYERS } from './constants';
+import { GRID_SIZE } from './constants';
+import { shouldRouletteFreezeSwap } from './rouletteCriteria';
 import * as sounds from './sounds';
-
-// Bot detection that works for hotseat (no per-player isBot field —
-// derives from gremlinCount: the last `gc` seats are bots) and for
-// online (per-player isBot, set by the server's buildGameState).
-function isBotPlayer(gameState, player) {
-  if (!player) return false;
-  if (player.isBot !== undefined) return player.isBot;
-  const gc = gameState?.gremlinCount ?? 0;
-  return player.id >= PLAYERS.length - gc;
-}
 
 // EaseOut hop schedule: skips the very-fast initial flicker hops
 // (those barely register visually) and starts at a pace the eye can
@@ -141,23 +132,16 @@ export function useDerivedAnimations(gameState) {
       }
     };
 
-    const isBotEvent = isBotPlayer(gameState, collector);
-    const opponents = gameState.players.filter(
-      (p) => !p.isEliminated && p.id !== ev.byId,
-    );
-    const aliveHumans = gameState.players.filter(
-      (p) => !p.isEliminated && !isBotPlayer(gameState, p),
-    );
-    const skipRoulette =
-      !isBotEvent ||
-      opponents.length <= 1 ||
-      aliveHumans.length === 0;
-
-    if (skipRoulette) {
+    if (!shouldRouletteFreezeSwap(gameState, ev)) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       fireImmediate();
       return;
     }
+    // Opponents pool for the hop schedule (everyone alive except the
+    // actor). shouldRouletteFreezeSwap already guarantees ≥ 2 here.
+    const opponents = gameState.players.filter(
+      (p) => !p.isEliminated && p.id !== ev.byId,
+    );
 
     // Defer the visible "applied" state until the spotlight lands. For
     // swap, that means rendering both players at their PRE-swap spots
