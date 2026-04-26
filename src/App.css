@@ -929,13 +929,7 @@
   align-items: center;
   justify-content: center;
   z-index: 400;
-  /* Let clicks pass through to whatever's beneath. The modal is a
-     hint, not a blocker — the document-level pointerdown listener
-     still fires and dismisses it on first gesture, while the user's
-     tap also reaches any underlying button (start-screen buttons,
-     e2e selectors). Without this, Playwright's click is swallowed by
-     the overlay and the underlying button never gets the event. */
-  pointer-events: none;
+  cursor: pointer;
   padding: 20px;
 }
 .tap-to-begin-card {
@@ -953,6 +947,14 @@
   gap: 16px;
   justify-content: center;
   margin-bottom: 24px;
+}
+/* Outer wrapper that drives the fly-in transform; the inner
+   .tap-to-begin-avatar runs the continuous bounce loop. Sized like
+   the child so the flex row gap stays even. */
+.tap-to-begin-avatar-fly {
+  width: 64px;
+  height: 64px;
+  flex: 0 0 auto;
 }
 .tap-to-begin-avatar {
   width: 64px;
@@ -988,6 +990,7 @@
 @media (max-width: 420px) {
   .tap-to-begin-card { padding: 28px 24px 24px; }
   .tap-to-begin-avatars { gap: 12px; }
+  .tap-to-begin-avatar-fly { width: 56px; height: 56px; }
   .tap-to-begin-avatar { width: 56px; height: 56px; }
   .tap-to-begin-avatar-icon { font-size: 28px; }
 }
