@@ -15,6 +15,7 @@ function createContext() {
   // backgrounded tab on Chrome desktop). Anyone observing this should NOT
   // see "no music" — they should see music re-init from the next gesture.
   bgBuffer = null;
+  winBuffer = null;
 }
 
 // Never auto-recreates a closed context — that must happen from a user gesture in resumeAudio().
@@ -433,69 +434,50 @@ export function playPortal() {
   lfo.stop(t + 0.8); osc.stop(t + 0.8);
 }
 
-// Fast run → ta-ta-DAAAA! with bell shimmer and bass punch
-export function playWin() {
+// Brass fanfare with reverberated tail. One-shot mp3 sample; mirrors the
+// bg-theme fetch/decode pattern but plays a single non-looping
+// AudioBufferSourceNode each call. Falls back silent on fetch/decode
+// failure (matches bg's "if the sample fails to load, just stay quiet").
+const WIN_FILE = `${import.meta.env.BASE_URL}win-fanfare.mp3`;
+const WIN_VOLUME = 0.85; // sample is already mastered; play near full out().
+let winRawPromise = null;
+let winBuffer = null;
+function primeWinRaw() {
+  if (winRawPromise) return winRawPromise;
+  if (typeof fetch === 'undefined') return Promise.resolve(null);
+  winRawPromise = fetch(WIN_FILE)
+    .then((res) => (res.ok ? res.arrayBuffer() : null))
+    .catch(() => null);
+  return winRawPromise;
+}
+primeWinRaw();
+
+async function loadWinBuffer() {
+  if (winBuffer) return winBuffer;
+  const c = getCtx();
+  if (!c) return null;
+  const arr = await primeWinRaw();
+  if (!arr) return null;
+  // decodeAudioData detaches the ArrayBuffer; clone on first decode so the
+  // promise cache can survive a context-recreate (which clears winBuffer
+  // via createContext) without losing the source bytes.
+  winBuffer = await c.decodeAudioData(arr.slice(0));
+  return winBuffer;
+}
+
+export async function playWin() {
+  let buf;
+  try { buf = await loadWinBuffer(); } catch { return; }
+  if (!buf) return;
   const c = getCtx();
   if (!c) return;
-  const t = c.currentTime;
-  const rev = makeReverb(c, 0.10, 0.38, 0.32);
-
-  // Phase 1: rapid 8-note ascending run (C major, two octaves, triangle = bright)
-  [261.63, 329.63, 392.00, 523.25, 659.25, 783.99, 987.77, 1046.5].forEach((freq, i) => {
-    const ts = t + i * 0.065;
-    const osc = c.createOscillator();
-    osc.type = 'triangle';
-    osc.frequency.value = freq;
-    const g = c.createGain();
-    g.gain.setValueAtTime(0.24, ts);
-    g.gain.exponentialRampToValueAtTime(0.001, ts + 0.17);
-    osc.connect(g); g.connect(out()); g.connect(rev);
-    osc.start(ts); osc.stop(ts + 0.20);
-  });
-
-  // Phase 2: ta-ta-DAAAA rhythm — two short hits then the big chord
-  [[0, [659.25, 783.99], false], [0.15, [659.25, 783.99], false], [0.32, [523.25, 659.25, 783.99, 1046.5], true]]
-    .forEach(([delay, freqs, isFinal]) => {
-      freqs.forEach(freq => {
-        const ts = t + 0.50 + delay;
-        const osc = c.createOscillator();
-        osc.type = 'sawtooth';
-        osc.frequency.value = freq;
-        const filter = c.createBiquadFilter();
-        filter.type = 'lowpass';
-        filter.frequency.value = isFinal ? 4200 : 3000;
-        const g = c.createGain();
-        g.gain.setValueAtTime(isFinal ? 0.21 : 0.15, ts);
-        g.gain.exponentialRampToValueAtTime(0.001, ts + (isFinal ? 2.1 : 0.14));
-        osc.connect(filter); filter.connect(g);
-        g.connect(out()); g.connect(rev);
-        osc.start(ts); osc.stop(ts + (isFinal ? 2.2 : 0.18));
-      });
-    });
-
-  // Phase 3: ascending bell shimmer on the big chord
-  [1046.5, 1318.5, 1568, 2093, 2637].forEach((freq, i) => {
-    const ts = t + 0.82 + i * 0.055;
-    const osc = c.createOscillator();
-    osc.type = 'sine';
-    osc.frequency.value = freq;
-    const g = c.createGain();
-    g.gain.setValueAtTime(0.10, ts);
-    g.gain.exponentialRampToValueAtTime(0.001, ts + 0.95);
-    osc.connect(g); g.connect(out()); g.connect(rev);
-    osc.start(ts); osc.stop(ts + 1.0);
-  });
-
-  // Bass punch for impact on the big chord
-  const bass = c.createOscillator();
-  bass.type = 'sine';
-  bass.frequency.setValueAtTime(130.81, t + 0.82);
-  bass.frequency.exponentialRampToValueAtTime(52, t + 1.1);
-  const bg = c.createGain();
-  bg.gain.setValueAtTime(0.42, t + 0.82);
-  bg.gain.exponentialRampToValueAtTime(0.001, t + 1.4);
-  bass.connect(bg); bg.connect(out()); bg.connect(rev);
-  bass.start(t + 0.82); bass.stop(t + 1.45);
+  const gain = c.createGain();
+  gain.gain.value = WIN_VOLUME;
+  gain.connect(out());
+  const src = c.createBufferSource();
+  src.buffer = buf;
+  src.connect(gain);
+  src.start(c.currentTime + 0.02);
 }
 
 // Two notes that just… stop

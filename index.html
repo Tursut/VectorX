@@ -5,10 +5,12 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗺️</text></svg>" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Mind the Grid</title>
-    <!-- Start downloading the 4 MB bg-music track while the HTML + JS parse,
-         so it's already in the HTTP cache by the time the user starts a game
-         and sounds.js calls fetch(BG_FILE). -->
+    <!-- Start downloading audio assets while the HTML + JS parse, so they're
+         already in the HTTP cache by the time sounds.js fetches them.
+         bg-spring loops under every game; win-fanfare is a one-shot ~300 KB
+         sample played from playWin(). -->
     <link rel="preload" href="%BASE_URL%bg-spring.mp3" as="audio" />
+    <link rel="preload" href="%BASE_URL%win-fanfare.mp3" as="audio" />
   </head>
   <body>
     <div id="root"></div>
