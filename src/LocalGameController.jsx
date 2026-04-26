@@ -378,6 +378,8 @@ export default function LocalGameController({
                 portalJump={portalJump}
                 swapFlash={swapFlash}
                 flyingFreeze={flyingFreeze}
+                roulettePlayerId={roulettePlayerId}
+                pendingSwap={pendingSwap}
                 frozenPlayerId={gameState?.frozenPlayerId ?? null}
                 frozenTurnsLeft={gameState?.frozenTurnsLeft ?? 0}
               />
