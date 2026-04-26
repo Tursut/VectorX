@@ -18,6 +18,7 @@ function createContext() {
   winBuffer = null;
   freezeBuffer = null;
   bombBuffer = null;
+  portalJumpBuffer = null;
 }
 
 // Never auto-recreates a closed context — that must happen from a user gesture in resumeAudio().
@@ -572,34 +573,49 @@ export function playCountdownBeat() {
   click.start(t); click.stop(t + 0.03);
 }
 
-// Sharp descending whoosh + sparkle — actual teleport jump
-export function playPortalJump() {
+// Portal-jump sample. Same one-shot AudioBufferSource + lazy
+// fetch/decode pattern as the other samples. Fires when the user picks
+// the destination cell in portal mode (the "use the portal" moment),
+// not when they pick up the portal item — that pickup cue stays as the
+// existing synthesized playPortal so the freeze-mode and portal-mode
+// pickups remain audibly distinct.
+const PORTAL_JUMP_FILE = `${import.meta.env.BASE_URL}portal-jump.mp3`;
+const PORTAL_JUMP_VOLUME = 0.85;
+let portalJumpRawPromise = null;
+let portalJumpBuffer = null;
+function primePortalJumpRaw() {
+  if (portalJumpRawPromise) return portalJumpRawPromise;
+  if (typeof fetch === 'undefined') return Promise.resolve(null);
+  portalJumpRawPromise = fetch(PORTAL_JUMP_FILE)
+    .then((res) => (res.ok ? res.arrayBuffer() : null))
+    .catch(() => null);
+  return portalJumpRawPromise;
+}
+primePortalJumpRaw();
+
+async function loadPortalJumpBuffer() {
+  if (portalJumpBuffer) return portalJumpBuffer;
+  const c = getCtx();
+  if (!c) return null;
+  const arr = await primePortalJumpRaw();
+  if (!arr) return null;
+  portalJumpBuffer = await c.decodeAudioData(arr.slice(0));
+  return portalJumpBuffer;
+}
+
+export async function playPortalJump() {
+  let buf;
+  try { buf = await loadPortalJumpBuffer(); } catch { return; }
+  if (!buf) return;
   const c = getCtx();
   if (!c) return;
-  const t = c.currentTime;
-  const osc = c.createOscillator();
-  osc.type = 'sine';
-  osc.frequency.setValueAtTime(920, t);
-  osc.frequency.exponentialRampToValueAtTime(175, t + 0.24);
-  const g = c.createGain();
-  g.gain.setValueAtTime(0.3, t);
-  g.gain.exponentialRampToValueAtTime(0.001, t + 0.34);
-  osc.connect(g); g.connect(out());
-  osc.start(t); osc.stop(t + 0.38);
-  // Arrival sparkle
-  [1047, 1568, 2093].forEach((freq, i) => {
-    const ts = t + 0.16 + i * 0.058;
-    const o = c.createOscillator();
-    o.type = 'sine';
-    o.frequency.value = freq;
-    o.detune.value = 4;
-    const og = c.createGain();
-    og.gain.setValueAtTime(0, ts);
-    og.gain.linearRampToValueAtTime(0.1, ts + 0.012);
-    og.gain.exponentialRampToValueAtTime(0.001, ts + 0.4);
-    o.connect(og); og.connect(out());
-    o.start(ts); o.stop(ts + 0.44);
-  });
+  const gain = c.createGain();
+  gain.gain.value = PORTAL_JUMP_VOLUME;
+  gain.connect(out());
+  const src = c.createBufferSource();
+  src.buffer = buf;
+  src.connect(gain);
+  src.start(c.currentTime + 0.02);
 }
 
 // Swooshy two-note indicator — "pick someone"
