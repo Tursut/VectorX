@@ -496,6 +496,85 @@ describe('computeTurnDelay (bot pacing)', () => {
     };
     expect(computeTurnDelay(game, lobby)).toBe(10_000);  // no bump
   });
+
+  // Trap-chain extension (issue #36). When the previous turn ended in
+  // an elimination — anyone whose finishTurn equals turnCount - 1 —
+  // the next alarm is pushed out by ~3 s so the next bot doesn't
+  // move + the human's timer doesn't start under the trap animation.
+  // Skipped in bots-only endgame (no humans alive) to mirror the
+  // client's "no audience, no animation" branch in useTrapChain.
+  it('adds the trap delay before a HUMAN turn after a bot was eliminated last turn', () => {
+    const game = initGame(false, 3) as {
+      players: Array<{ id: number; isEliminated: boolean; finishTurn?: number }>;
+      currentPlayerIndex: number;
+      turnCount: number;
+    };
+    game.currentPlayerIndex = 0;          // human's turn next
+    game.turnCount = 5;
+    game.players[2].isEliminated = true;
+    game.players[2].finishTurn = 4;       // eliminated at turnCount - 1
+    const lobby = {
+      players: [{ id: 0, displayName: 'Alice', isBot: false, disconnectedAt: null }],
+    };
+    expect(computeTurnDelay(game, lobby)).toBe(10_000 + 3000);
+  });
+
+  it('adds the trap delay before a BOT turn after another bot was eliminated last turn', () => {
+    const game = initGame(false, 3) as {
+      players: Array<{ id: number; isEliminated: boolean; finishTurn?: number }>;
+      currentPlayerIndex: number;
+      turnCount: number;
+    };
+    game.currentPlayerIndex = 1;          // bot's turn next
+    game.turnCount = 5;
+    game.players[2].isEliminated = true;
+    game.players[2].finishTurn = 4;
+    const lobby = {
+      players: [{ id: 0, displayName: 'Alice', isBot: false, disconnectedAt: null }],
+    };
+    for (let i = 0; i < 50; i++) {
+      const d = computeTurnDelay(game, lobby);
+      // Base bot delay (800–1400) + 3000 trap = 3800–4400.
+      expect(d).toBeGreaterThanOrEqual(3800);
+      expect(d).toBeLessThan(4400);
+    }
+  });
+
+  it('does NOT add the trap delay when no eliminations happened last turn', () => {
+    const game = initGame(false, 3) as {
+      players: Array<{ id: number; isEliminated: boolean; finishTurn?: number }>;
+      currentPlayerIndex: number;
+      turnCount: number;
+    };
+    game.currentPlayerIndex = 0;
+    game.turnCount = 5;
+    // A bot was eliminated WAY earlier — finishTurn=2, current is 5.
+    game.players[2].isEliminated = true;
+    game.players[2].finishTurn = 2;
+    const lobby = {
+      players: [{ id: 0, displayName: 'Alice', isBot: false, disconnectedAt: null }],
+    };
+    expect(computeTurnDelay(game, lobby)).toBe(10_000);  // no bump
+  });
+
+  it('does NOT add the trap delay when no humans are alive (bots-only endgame keeps speed-run pace)', () => {
+    const game = initGame(false, 3) as {
+      players: Array<{ id: number; isEliminated: boolean; finishTurn?: number }>;
+      currentPlayerIndex: number;
+      turnCount: number;
+    };
+    game.currentPlayerIndex = 1;
+    game.turnCount = 5;
+    game.players[0].isEliminated = true;  // human gone
+    game.players[0].finishTurn = 4;       // and they were the most recent kill
+    const lobby = {
+      players: [{ id: 0, displayName: 'Alice', isBot: false, disconnectedAt: null }],
+    };
+    for (let i = 0; i < 50; i++) {
+      const d = computeTurnDelay(game, lobby);
+      expect(d).toBeLessThan(200);  // speed-run pace, no bump
+    }
+  });
 });
 
 describe('seat recycling invariant', () => {

@@ -4,6 +4,7 @@ import { initGame, initSandboxGame, applyMove, getCurrentValidMoves, eliminateCu
 import { getGremlinMove } from './game/ai';
 import { PLAYERS, TURN_TIME } from './game/constants';
 import { useDerivedAnimations } from './game/useDerivedAnimations';
+import { useTrapChain } from './game/useTrapChain';
 import { useGameplaySounds } from './game/useGameplaySounds';
 import { useBackGuard } from './useBackGuard';
 import * as sounds from './game/sounds';
@@ -76,6 +77,11 @@ export default function LocalGameController({
   // sounds). Passed down to GameScreen / sandbox GameBoard.
   const { bombBlast, portalJump, swapFlash, flyingFreeze, roulettePlayerId, rouletteRevealing, pendingSwap, rouletteActor, rouletteActive } = useDerivedAnimations(gameState);
 
+  // Trap / death animation chain (issue #36). Owns the elimination
+  // sound + the queue that drains one death per ~3 s window so
+  // back-to-back trappings each get their full beat.
+  const { trappedPlayers, trapPlaying } = useTrapChain(gameState);
+
   // Dismiss toast after its display duration.
   useEffect(() => {
     if (!eventToast) return;
@@ -86,12 +92,15 @@ export default function LocalGameController({
 
   // Turn timer — ticks on last 3s for human turns only; dispatches TIMEOUT at 0.
   // Paused during the freeze/swap roulette (issue #30) so the human isn't
-  // burning their 10 s while the wheel rolls.
+  // burning their 10 s while the wheel rolls. Also paused while the trap
+  // chain is still draining (issue #36) — the next turn shouldn't be
+  // ticking down while we're showing the previous death's animation.
   useEffect(() => {
     if (!gameState || gameState.phase !== 'playing') return;
     if (gameState.sandboxMode) return;
     if (exitConfirm) return;
     if (rouletteActive) return;
+    if (trapPlaying) return;
     const playerIndex = gameState.currentPlayerIndex;
     const gc = gameState.gremlinCount ?? 0;
     const isHuman = gameState.players[playerIndex].id < PLAYERS.length - gc;
@@ -110,17 +119,19 @@ export default function LocalGameController({
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [gameState?.currentPlayerIndex, gameState?.phase, gameState?.portalActive, gameState?.freezeSelectActive, rouletteActive, exitConfirm]);
+  }, [gameState?.currentPlayerIndex, gameState?.phase, gameState?.portalActive, gameState?.freezeSelectActive, rouletteActive, trapPlaying, exitConfirm]);
 
   // Gremlin auto-move.
   useEffect(() => {
     if (!gameState || gameState.phase !== 'playing') return;
     if (exitConfirm) return;
     // Hold the next bot's turn while the freeze/swap roulette is still
-    // rolling (issue #30). The deps include rouletteActive, so this
-    // effect re-runs the moment the wheel stops and schedules the
-    // pending bot's thinking delay then.
+    // rolling (issue #30) or the trap-chain queue is still draining
+    // (issue #36). Adding both flags to the deps means this effect
+    // re-runs the moment they flip false and schedules the pending
+    // bot's thinking delay (or 80 ms fast-elim) then.
     if (rouletteActive) return;
+    if (trapPlaying) return;
     const gc = gameState.gremlinCount ?? 0;
     if (gc === 0) return;
     const currentPlayerId = gameState.players[gameState.currentPlayerIndex].id;
@@ -151,7 +162,7 @@ export default function LocalGameController({
     }, delay);
     return () => { cancelAnimationFrame(rafId); clearTimeout(t); setIsThinking(false); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameState?.currentPlayerIndex, gameState?.turnCount, gameState?.phase, gameState?.portalActive, gameState?.swapActive, gameState?.freezeSelectActive, rouletteActive, exitConfirm]);
+  }, [gameState?.currentPlayerIndex, gameState?.turnCount, gameState?.phase, gameState?.portalActive, gameState?.swapActive, gameState?.freezeSelectActive, rouletteActive, trapPlaying, exitConfirm]);
 
   // Countdown sounds + logic.
   const cdSoundRef = useRef(null);
@@ -316,6 +327,8 @@ export default function LocalGameController({
               pendingSwap={pendingSwap}
               rouletteActor={rouletteActor}
               rouletteActive={rouletteActive}
+              trappedPlayers={trappedPlayers}
+              trapPlaying={trapPlaying}
             />
             <AnimatePresence>
               {exitConfirm && (
@@ -393,6 +406,7 @@ export default function LocalGameController({
                 rouletteRevealing={rouletteRevealing}
                 pendingSwap={pendingSwap}
                 rouletteActor={rouletteActor}
+                trappedPlayers={trappedPlayers}
                 frozenPlayerId={gameState?.frozenPlayerId ?? null}
                 frozenTurnsLeft={gameState?.frozenTurnsLeft ?? 0}
               />

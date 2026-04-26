@@ -3,8 +3,11 @@
 // gameState + a "which seats do I control" concept:
 //
 //   - Rendering: PlayerPanel, TurnIndicator, GameBoard, GameOverScreen
-//   - The trapped/death animation chain + its elimination sound
-//   - Win/draw sound (gated on trap animation finishing)
+//
+// The trap / death animation chain (and its elimination sound) moved up
+// to the parent controllers via useTrapChain — they need `trapPlaying`
+// to gate the next turn's bot driver / turn timer / valid-move dots,
+// so trappedPlayers + trapPlaying come in here as props.
 //
 // The simpler gameplay sounds (bg theme, move/claim, your-turn chime,
 // freeze/swap event sounds) live in useGameplaySounds and are called from
@@ -15,11 +18,9 @@
 // bot driving, sandbox panel, connection status, exit-confirm modal) stay in
 // the outer controllers.
 
-import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { PLAYERS, TURN_TAUNTS, TURN_TIME } from '../game/constants';
 import { getCurrentValidMoves } from '../game/logic';
-import * as sounds from '../game/sounds';
 import PlayerPanel from './PlayerPanel';
 import TurnIndicator from './TurnIndicator';
 import GameBoard from './GameBoard';
@@ -58,56 +59,13 @@ export default function GameScreen({
   pendingSwap = null,
   rouletteActor = null,
   rouletteActive = false,
+  // Trap / death chain — driven by useTrapChain in the controller.
+  trappedPlayers = [],
+  trapPlaying = false,
 }) {
-  const [trappedPlayers, setTrappedPlayers] = useState([]);
-  const [eliminationPending, setEliminationPending] = useState(false);
-  const prevPlayersRef = useRef(null);
-  const trappedTimerRef = useRef(null);
-
-  // Trap / death animation chain: detect false→true transitions on
-  // isEliminated, wait 450ms, set `trappedPlayers` (drives GameBoard animation)
-  // and play elimination sound; clear the state 2.5s later.
-  useEffect(() => {
-    if (!gameState?.players) { prevPlayersRef.current = null; return; }
-    if (prevPlayersRef.current) {
-      const newlyTrapped = [];
-      gameState.players.forEach((p, i) => {
-        const prev = prevPlayersRef.current[i];
-        if (prev && p.isEliminated && !prev.isEliminated) {
-          const isHuman = !isBotPlayer(gameState, p);
-          const humanAlive = gameState.players.some(
-            (q) => !q.isEliminated && !isBotPlayer(gameState, q),
-          );
-          if (isHuman || humanAlive) {
-            newlyTrapped.push({
-              id: p.id,
-              row: p.deathCell?.row ?? prev.row,
-              col: p.deathCell?.col ?? prev.col,
-            });
-          }
-        }
-      });
-      if (newlyTrapped.length > 0) {
-        setEliminationPending(true);
-        clearTimeout(trappedTimerRef.current);
-        trappedTimerRef.current = setTimeout(() => {
-          setEliminationPending(false);
-          setTrappedPlayers(newlyTrapped);
-          sounds.playElimination();
-          trappedTimerRef.current = setTimeout(() => {
-            setTrappedPlayers([]);
-          }, 2500);
-        }, 450);
-      }
-    }
-    prevPlayersRef.current = gameState.players;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameState?.players]);
-
-  // Win / draw sound moved to GameOverScreen mount (issue #34) so the
-  // cue lines up with the leaderboard appearing instead of firing on
-  // top of the wind-down trap animation while we're still on the
-  // board, and again when the leaderboard renders.
+  // Win / draw sound is owned by GameOverScreen's mount effect (#34).
+  // Trap / death chain + elimination sound is owned by the parent
+  // controller's useTrapChain hook (#36) and reaches us via props.
 
   if (!gameState) return null;
 
@@ -137,7 +95,8 @@ export default function GameScreen({
 
   // During the trap animation we still want the board visible (not the
   // GameOverScreen). Once trap clears and phase is gameover, render gameover.
-  const trapPlaying = trappedPlayers.length > 0 || eliminationPending;
+  // `trapPlaying` is prop-driven now — supplied by the parent controller's
+  // useTrapChain hook (#36).
   const showGameOver = gameState.phase === 'gameover' && !trapPlaying;
 
   const winnerState =

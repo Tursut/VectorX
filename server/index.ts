@@ -52,6 +52,14 @@ const ROULETTE_DELAY_MS = 6200;
 // OnlineGameController.jsx) — 1200 + 1200 + 1200 + 2400 = 6000 ms,
 // plus a 200 ms paint/network buffer.
 const COUNTDOWN_DELAY_MS = 6200;
+// Trap-chain animation extension (issue #36). When a turn ends with
+// an elimination the client plays a 450 ms wind-up + 2500 ms settle
+// before the next death can start animating. Online would otherwise
+// keep advancing turns under that animation, so we push the next
+// alarm out to cover the full cycle. Stays in lockstep with the
+// client constants in src/game/useTrapChain.js — bump here whenever
+// those move.
+const TRAP_DELAY_MS = 3000;
 
 interface Env {
   ROOM: DurableObjectNamespace<RoomDurableObject>;
@@ -1067,6 +1075,24 @@ export function computeTurnDelay(
       return baseDelay + ROULETTE_DELAY_MS;
     }
   }
+
+  // Trap-chain extension (issue #36). If the prior turn ended with
+  // an elimination — anyone whose finishTurn equals turnCount - 1 —
+  // the client is showing the trap animation for ~3 s. Hold the next
+  // alarm so the next bot doesn't move + the human's timer doesn't
+  // start under the wobble-and-fade. Skipped in bots-only endgame
+  // (no humans alive) to mirror the client's "no audience, no
+  // animation" branch in useTrapChain.
+  if (anyHumanAlive) {
+    const justEliminated = game.players.some(
+      (p: { isEliminated: boolean; finishTurn?: number }) =>
+        p.isEliminated && p.finishTurn === game.turnCount - 1,
+    );
+    if (justEliminated) {
+      return baseDelay + TRAP_DELAY_MS;
+    }
+  }
+
   return baseDelay;
 }
 

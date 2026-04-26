@@ -18,6 +18,7 @@ import { wsUrl } from './config';
 import { TURN_TIME } from './game/constants';
 import { useNetworkGame } from './net/useNetworkGame';
 import { useDerivedAnimations } from './game/useDerivedAnimations';
+import { useTrapChain } from './game/useTrapChain';
 import { useGameplaySounds } from './game/useGameplaySounds';
 import { useBackGuard } from './useBackGuard';
 import * as sounds from './game/sounds';
@@ -89,6 +90,13 @@ export default function OnlineGameController({
   // Derived animation overlays + item-pickup sounds; fed to GameScreen.
   const { bombBlast, portalJump, swapFlash, flyingFreeze, roulettePlayerId, rouletteRevealing, pendingSwap, rouletteActor, rouletteActive } = useDerivedAnimations(gameState);
 
+  // Trap / death chain (issue #36) — owns the elimination sound + the
+  // queue that drains one death per ~3 s window. Reaches GameScreen
+  // via props; the local turn timer pauses on `trapPlaying` so the
+  // human's clock doesn't tick while the previous death is winding
+  // down.
+  const { trappedPlayers, trapPlaying } = useTrapChain(gameState);
+
   // Turn-timer visualization. The server is authoritative — it schedules the
   // real alarm and forfeits the seat on expiry — we just drive the indicator
   // bar with a client-local tick so the player can see time running down.
@@ -100,6 +108,7 @@ export default function OnlineGameController({
   useEffect(() => {
     if (!gameState || gameState.phase !== 'playing') return;
     if (countdown !== null) return;
+    if (trapPlaying) return;
     setTimeLeft(TURN_TIME);
     const isMyTurn = mySeatId !== null && mySeatId !== undefined
       && gameState.currentPlayerIndex === mySeatId;
@@ -114,7 +123,7 @@ export default function OnlineGameController({
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [gameState?.currentPlayerIndex, gameState?.phase, mySeatId, countdown]);
+  }, [gameState?.currentPlayerIndex, gameState?.phase, mySeatId, countdown, trapPlaying]);
 
   // Gameplay sound effects (bg theme, move/claim/your-turn chime, freeze/swap).
   // `enabled` is gated on the countdown so the bg theme + your-turn
@@ -337,6 +346,8 @@ export default function OnlineGameController({
           pendingSwap={pendingSwap}
           rouletteActor={rouletteActor}
           rouletteActive={rouletteActive}
+          trappedPlayers={trappedPlayers}
+          trapPlaying={trapPlaying}
         />
         {exitConfirmModal}
         {/* Pre-game countdown — same overlay LocalGameController uses,
