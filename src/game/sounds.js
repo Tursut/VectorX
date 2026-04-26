@@ -20,6 +20,7 @@ function createContext() {
   bombBuffer = null;
   portalJumpBuffer = null;
   eliminationBuffer = null;
+  swapBuffer = null;
 }
 
 // Never auto-recreates a closed context — that must happen from a user gesture in resumeAudio().
@@ -665,26 +666,48 @@ export function playSwapActivate() {
   osc2.start(t + 0.08); osc2.stop(t + 0.52);
 }
 
-// Double-whoosh zip — positions exchanged
-export function playSwap() {
+// Cinematic-travel sample. Same one-shot AudioBufferSource + lazy
+// fetch/decode pattern as the other replacements. Fires when a swap
+// gets APPLIED — the user picked the partner cell and the two players
+// have just changed places. Matches the freeze flow: pickup is the
+// existing playSwapActivate cue (kept synth), apply is this sample.
+const SWAP_FILE = `${import.meta.env.BASE_URL}swap-apply.mp3`;
+const SWAP_VOLUME = 0.85;
+let swapRawPromise = null;
+let swapBuffer = null;
+function primeSwapRaw() {
+  if (swapRawPromise) return swapRawPromise;
+  if (typeof fetch === 'undefined') return Promise.resolve(null);
+  swapRawPromise = fetch(SWAP_FILE)
+    .then((res) => (res.ok ? res.arrayBuffer() : null))
+    .catch(() => null);
+  return swapRawPromise;
+}
+primeSwapRaw();
+
+async function loadSwapBuffer() {
+  if (swapBuffer) return swapBuffer;
+  const c = getCtx();
+  if (!c) return null;
+  const arr = await primeSwapRaw();
+  if (!arr) return null;
+  swapBuffer = await c.decodeAudioData(arr.slice(0));
+  return swapBuffer;
+}
+
+export async function playSwap() {
+  let buf;
+  try { buf = await loadSwapBuffer(); } catch { return; }
+  if (!buf) return;
   const c = getCtx();
   if (!c) return;
-  const t = c.currentTime;
-  [[660, 220, 0], [220, 660, 0.12]].forEach(([f0, f1, delay]) => {
-    const osc = c.createOscillator();
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(f0, t + delay);
-    osc.frequency.exponentialRampToValueAtTime(f1, t + delay + 0.22);
-    const filter = c.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(2000, t + delay);
-    filter.frequency.exponentialRampToValueAtTime(400, t + delay + 0.24);
-    const g = c.createGain();
-    g.gain.setValueAtTime(0.16, t + delay);
-    g.gain.exponentialRampToValueAtTime(0.001, t + delay + 0.32);
-    osc.connect(filter); filter.connect(g); g.connect(out());
-    osc.start(t + delay); osc.stop(t + delay + 0.36);
-  });
+  const gain = c.createGain();
+  gain.gain.value = SWAP_VOLUME;
+  gain.connect(out());
+  const src = c.createBufferSource();
+  src.buffer = buf;
+  src.connect(gain);
+  src.start(c.currentTime + 0.02);
 }
 
 // Big thump — same character as countdownBeat but deeper and heavier
