@@ -321,7 +321,7 @@ export function playTick(urgency = 0) {
 // settle). Don't speed any of those up — beats are intentional per
 // CLAUDE.md.
 const ELIMINATION_FILE = `${import.meta.env.BASE_URL}elimination.mp3`;
-const ELIMINATION_VOLUME = 0.85;
+const ELIMINATION_VOLUME = 0.6375;
 let eliminationRawPromise = null;
 let eliminationBuffer = null;
 function primeEliminationRaw() {
@@ -383,7 +383,7 @@ export function playBoost() {
 // existing useDerivedAnimations call site at the pickup transition is
 // the right moment to fire this — no relocation needed.
 const BOMB_FILE = `${import.meta.env.BASE_URL}bomb-explosion.mp3`;
-const BOMB_VOLUME = 0.85;
+const BOMB_VOLUME = 0.6375;
 let bombRawPromise = null;
 let bombBuffer = null;
 function primeBombRaw() {
@@ -427,7 +427,7 @@ export async function playBomb() {
 // overpower bg music or move/claim audio. Same one-shot
 // AudioBufferSource + lazy fetch/decode/cache pattern as the rest.
 const CLICK_FILE = `${import.meta.env.BASE_URL}click.mp3`;
-const CLICK_VOLUME = 0.5;
+const CLICK_VOLUME = 0.375;
 let clickRawPromise = null;
 let clickBuffer = null;
 function primeClickRaw() {
@@ -472,7 +472,7 @@ export async function playClick() {
 // silent for freeze (the freezeSelectActive cell-targeting overlay is
 // the visual cue that the user is in freeze-pick mode).
 const FREEZE_FILE = `${import.meta.env.BASE_URL}freeze-apply.mp3`;
-const FREEZE_VOLUME = 0.85;
+const FREEZE_VOLUME = 0.6375;
 let freezeRawPromise = null;
 let freezeBuffer = null;
 function primeFreezeRaw() {
@@ -539,7 +539,7 @@ export function playPortal() {
 // AudioBufferSourceNode each call. Falls back silent on fetch/decode
 // failure (matches bg's "if the sample fails to load, just stay quiet").
 const WIN_FILE = `${import.meta.env.BASE_URL}win-fanfare.mp3`;
-const WIN_VOLUME = 0.85; // sample is already mastered; play near full out().
+const WIN_VOLUME = 0.6375; // sample is already mastered; -25 % from full out().
 let winRawPromise = null;
 let winBuffer = null;
 function primeWinRaw() {
@@ -646,7 +646,7 @@ export function playCountdownBeat() {
 // existing synthesized playPortal so the freeze-mode and portal-mode
 // pickups remain audibly distinct.
 const PORTAL_JUMP_FILE = `${import.meta.env.BASE_URL}portal-jump.mp3`;
-const PORTAL_JUMP_VOLUME = 0.85;
+const PORTAL_JUMP_VOLUME = 0.6375;
 let portalJumpRawPromise = null;
 let portalJumpBuffer = null;
 function primePortalJumpRaw() {
@@ -717,7 +717,7 @@ export function playSwapActivate() {
 // have just changed places. Matches the freeze flow: pickup is the
 // existing playSwapActivate cue (kept synth), apply is this sample.
 const SWAP_FILE = `${import.meta.env.BASE_URL}swap-apply.mp3`;
-const SWAP_VOLUME = 0.85;
+const SWAP_VOLUME = 0.6375;
 let swapRawPromise = null;
 let swapBuffer = null;
 function primeSwapRaw() {
