@@ -137,12 +137,20 @@ function makeReverb(c, delayTime = 0.06, feedback = 0.22, wet = 0.18) {
 
 const BG_VOLUME = 0.504;       // bg music sits quiet under in-game effects.
 const BG_FILE = `${import.meta.env.BASE_URL}bg-spring.mp3`;
-const MENU_VOLUME = 0.4;       // light menu bg, even quieter than in-game.
+// Web-audio gain isn't perceptually linear — 0.4 sounds louder than "40%".
+// 0.25 reads as a soft bed under foreground sounds in playtest.
+const MENU_VOLUME = 0.25;
 const MENU_FILE = `${import.meta.env.BASE_URL}bg-menu.mp3`;
+// Default fade-out length when stopping a track (issue: menu used to cut
+// abruptly the moment the countdown started). Used by both tracks.
+const TRACK_FADE_OUT_MS = 500;
 
 function makeBgTrack(file, volume) {
   let playing = false;
   let source = null;
+  // Per-source gain node, kept around so stop() can ramp it to 0 for a
+  // fade-out before disconnecting.
+  let sourceGain = null;
   let buffer = null;
   // Token prevents a late-arriving decode from starting playback for a
   // request the user has since cancelled (stop / quick-toggle).
@@ -174,6 +182,10 @@ function makeBgTrack(file, volume) {
       try { source.stop(); } catch { /* already stopped */ }
       try { source.disconnect(); } catch { /* already disconnected */ }
       source = null;
+    }
+    if (sourceGain) {
+      try { sourceGain.disconnect(); } catch { /* already disconnected */ }
+      sourceGain = null;
     }
     sourceEnded = false;
   }
@@ -215,6 +227,7 @@ function makeBgTrack(file, volume) {
     sourceEnded = false;
     src.start(c.currentTime + 0.02);
     source = src;
+    sourceGain = gain;
   }
 
   function start() {
@@ -224,10 +237,34 @@ function makeBgTrack(file, volume) {
     startSource(loadToken);
   }
 
-  function stop() {
+  function stop({ fadeMs = TRACK_FADE_OUT_MS } = {}) {
     playing = false;
     loadToken += 1; // invalidate any in-flight decode
-    stopSourceIfAny();
+    const c = getCtx();
+    if (fadeMs <= 0 || !source || !sourceGain || !c) {
+      stopSourceIfAny();
+      return;
+    }
+    // Take ownership of the current source/gain refs locally so a
+    // concurrent start() (which would call stopSourceIfAny()) doesn't
+    // race the fade and leave a half-faded source dangling.
+    const fadeSrc = source;
+    const fadeGain = sourceGain;
+    source = null;
+    sourceGain = null;
+    sourceEnded = false;
+    const now = c.currentTime;
+    try {
+      fadeGain.gain.cancelScheduledValues(now);
+      fadeGain.gain.setValueAtTime(fadeGain.gain.value, now);
+      fadeGain.gain.linearRampToValueAtTime(0, now + fadeMs / 1000);
+    } catch { /* fall through to immediate stop */ }
+    setTimeout(() => {
+      fadeSrc.onended = null;
+      try { fadeSrc.stop(); } catch { /* already stopped */ }
+      try { fadeSrc.disconnect(); } catch { /* already disconnected */ }
+      try { fadeGain.disconnect(); } catch { /* already disconnected */ }
+    }, fadeMs);
   }
 
   function recoverIfNeeded() {

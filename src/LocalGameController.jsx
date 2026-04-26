@@ -242,7 +242,7 @@ export default function LocalGameController({
   // Gameplay sound effects — called at controller level so sandbox mode (which
   // doesn't mount GameScreen) gets bg theme, move/claim, your-turn chime, and
   // freeze/swap event sounds.
-  useGameplaySounds(gameState, mySeats);
+  useGameplaySounds(gameState, mySeats, { enabled: countdown === null });
 
   // Sandbox uses its own layout (SandboxPanel sidebar), not GameScreen.
   const sandboxIsGremlinTurn = gameState?.sandboxMode
