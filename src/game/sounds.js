@@ -17,6 +17,7 @@ function createContext() {
   bgBuffer = null;
   winBuffer = null;
   freezeBuffer = null;
+  bombBuffer = null;
 }
 
 // Never auto-recreates a closed context — that must happen from a user gesture in resumeAudio().
@@ -353,33 +354,48 @@ export function playBoost() {
   });
 }
 
-// Low thud + debris rattle
-export function playBomb() {
+// Explosion sample. Same one-shot AudioBufferSource + lazy fetch/decode
+// pattern as playWin / playFreeze. Bomb is unique among items in that
+// pickup IS the apply step (no target-selection between), so the
+// existing useDerivedAnimations call site at the pickup transition is
+// the right moment to fire this — no relocation needed.
+const BOMB_FILE = `${import.meta.env.BASE_URL}bomb-explosion.mp3`;
+const BOMB_VOLUME = 0.85;
+let bombRawPromise = null;
+let bombBuffer = null;
+function primeBombRaw() {
+  if (bombRawPromise) return bombRawPromise;
+  if (typeof fetch === 'undefined') return Promise.resolve(null);
+  bombRawPromise = fetch(BOMB_FILE)
+    .then((res) => (res.ok ? res.arrayBuffer() : null))
+    .catch(() => null);
+  return bombRawPromise;
+}
+primeBombRaw();
+
+async function loadBombBuffer() {
+  if (bombBuffer) return bombBuffer;
+  const c = getCtx();
+  if (!c) return null;
+  const arr = await primeBombRaw();
+  if (!arr) return null;
+  bombBuffer = await c.decodeAudioData(arr.slice(0));
+  return bombBuffer;
+}
+
+export async function playBomb() {
+  let buf;
+  try { buf = await loadBombBuffer(); } catch { return; }
+  if (!buf) return;
   const c = getCtx();
   if (!c) return;
-  const t = c.currentTime;
-  // Main thud — two slightly detuned sines for body
-  [110, 113].forEach(freq => {
-    const osc = c.createOscillator();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(freq, t);
-    osc.frequency.exponentialRampToValueAtTime(28, t + 0.26);
-    const g = c.createGain();
-    g.gain.setValueAtTime(0.55, t);
-    g.gain.exponentialRampToValueAtTime(0.001, t + 0.42);
-    osc.connect(g); g.connect(out());
-    osc.start(t); osc.stop(t + 0.46);
-  });
-  // Debris rattle
-  const src = noise(c, 0.32);
-  const filter = c.createBiquadFilter();
-  filter.type = 'bandpass';
-  filter.frequency.value = 1800; filter.Q.value = 0.55;
-  const gn = c.createGain();
-  gn.gain.setValueAtTime(0.22, t + 0.05);
-  gn.gain.exponentialRampToValueAtTime(0.001, t + 0.48);
-  src.connect(filter); filter.connect(gn); gn.connect(out());
-  src.start(t + 0.05); src.stop(t + 0.54);
+  const gain = c.createGain();
+  gain.gain.value = BOMB_VOLUME;
+  gain.connect(out());
+  const src = c.createBufferSource();
+  src.buffer = buf;
+  src.connect(gain);
+  src.start(c.currentTime + 0.02);
 }
 
 // Crystalline ascending arpeggio with icy LFO shimmer
