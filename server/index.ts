@@ -41,6 +41,17 @@ const TURN_TIME_MS = TURN_TIME * 1000;
 // hop / hold / reveal totals in src/game/useDerivedAnimations.js — bump
 // here whenever those constants change.
 const ROULETTE_DELAY_MS = 6200;
+// Pre-game 3-2-1-GO countdown (issue #35). Online runs the visual
+// countdown as an overlay on top of an already-playing GAME_STATE
+// (the server has no concept of the client's overlay), so without
+// this bump the very first turn would burn through the human's 10 s
+// budget under the GO graphic. Push the first-turn alarm out far
+// enough to cover the countdown's visible duration. Stays in
+// lockstep with the `delays` map in
+// src/LocalGameController.jsx#L170 (and the same flow in
+// OnlineGameController.jsx) — 1200 + 1200 + 1200 + 2400 = 6000 ms,
+// plus a 200 ms paint/network buffer.
+const COUNTDOWN_DELAY_MS = 6200;
 
 interface Env {
   ROOM: DurableObjectNamespace<RoomDurableObject>;
@@ -1025,6 +1036,16 @@ export function computeTurnDelay(
     : anyHumanAlive
       ? 800 + Math.floor(Math.random() * 600)
       : 120 + Math.floor(Math.random() * 80);
+
+  // Pre-game countdown extension (issue #35). The very first turn's
+  // alarm has to cover the client's 3-2-1-GO overlay, since online
+  // shows the countdown on top of an already-running game. turnCount
+  // === 0 is the only time this applies: subsequent turns of seat 0
+  // get the normal cadence. Stacking with the roulette branch below
+  // is unreachable — lastEvent is null on turn 0.
+  if (game.turnCount === 0) {
+    return baseDelay + COUNTDOWN_DELAY_MS;
+  }
 
   // Bot freeze/swap roulette extension. When the prior turn ended with
   // a bot-applied freeze/swap that the client will roulette over (≥ 2

@@ -61,6 +61,26 @@ describe('useGameplaySounds — bg theme', () => {
     rerender({ s: baseState({ phase: 'gameover', winner: 0 }), seats: [0] });
     expect(sounds.stopBgTheme).toHaveBeenCalled();
   });
+
+  // enabled gate (issue #35) — used by OnlineGameController to hold
+  // the bg theme + your-turn chime until the 3-2-1-GO countdown
+  // clears.
+  it('does NOT start bg theme while enabled is false', () => {
+    renderHook(({ s, seats, opts }) => useGameplaySounds(s, seats, opts), {
+      initialProps: { s: baseState(), seats: [0], opts: { enabled: false } },
+    });
+    expect(sounds.startBgTheme).not.toHaveBeenCalled();
+  });
+
+  it('starts bg theme the moment enabled flips true', () => {
+    const { rerender } = renderHook(
+      ({ s, seats, opts }) => useGameplaySounds(s, seats, opts),
+      { initialProps: { s: baseState(), seats: [0], opts: { enabled: false } } },
+    );
+    expect(sounds.startBgTheme).not.toHaveBeenCalled();
+    rerender({ s: baseState(), seats: [0], opts: { enabled: true } });
+    expect(sounds.startBgTheme).toHaveBeenCalledOnce();
+  });
 });
 
 describe('useGameplaySounds — move + claim + your-turn', () => {
@@ -84,6 +104,26 @@ describe('useGameplaySounds — move + claim + your-turn', () => {
   it('does NOT fire your-turn chime when currentPlayerIndex is not in mySeats', () => {
     renderHook(() => useGameplaySounds(baseState(), [1]));
     expect(sounds.playYourTurn).not.toHaveBeenCalled();
+  });
+
+  it('does NOT fire your-turn chime while enabled is false (issue #35 — countdown holds it back)', () => {
+    renderHook(() => useGameplaySounds(baseState(), [0], { enabled: false }));
+    expect(sounds.playYourTurn).not.toHaveBeenCalled();
+  });
+
+  it('does NOT fire move + claim on turn change while enabled is false', () => {
+    const { rerender } = renderHook(
+      ({ s, seats, opts }) => useGameplaySounds(s, seats, opts),
+      { initialProps: { s: baseState(), seats: [0], opts: { enabled: false } } },
+    );
+    rerender({
+      s: baseState({ currentPlayerIndex: 1, turnCount: 1 }),
+      seats: [0],
+      opts: { enabled: false },
+    });
+    expect(sounds.playMove).not.toHaveBeenCalled();
+    act(() => { vi.advanceTimersByTime(200); });
+    expect(sounds.playClaim).not.toHaveBeenCalled();
   });
 });
 

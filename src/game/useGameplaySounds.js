@@ -9,7 +9,7 @@ import { useEffect, useRef } from 'react';
 import { isBotPlayer, shouldRouletteFreezeSwap } from './rouletteCriteria';
 import * as sounds from './sounds';
 
-export function useGameplaySounds(gameState, mySeats = []) {
+export function useGameplaySounds(gameState, mySeats = [], { enabled = true } = {}) {
   const prevTurnRef = useRef(null);
 
   // (iOS audio-recovery listeners now live at module load in sounds.js so
@@ -19,11 +19,15 @@ export function useGameplaySounds(gameState, mySeats = []) {
   // Background theme. Cleanup on unmount silences the theme when the
   // controller unmounts without ever transitioning to a non-'playing' phase
   // (e.g. gameState reset to null on exit).
+  // The `enabled` flag lets OnlineGameController hold the music until
+  // the pre-game 3-2-1-GO countdown finishes (issue #35) — otherwise
+  // the bg theme starts kicking under the overlay the moment the
+  // server's first GAME_STATE arrives.
   useEffect(() => {
-    if (gameState?.phase === 'playing') sounds.startBgTheme();
+    if (enabled && gameState?.phase === 'playing') sounds.startBgTheme();
     else sounds.stopBgTheme();
     return () => sounds.stopBgTheme();
-  }, [gameState?.phase]);
+  }, [gameState?.phase, enabled]);
 
   // Freeze / swap apply sounds moved to useDerivedAnimations#fireImmediate
   // so they line up with the deferred visual after the bot-pick roulette
@@ -31,7 +35,10 @@ export function useGameplaySounds(gameState, mySeats = []) {
   // and so still fire at the same wall-clock moment as before.
 
   // Move + claim on turn change; your-turn chime when a seat I control is up.
+  // Gated on `enabled` so the chime + thump don't fire under the
+  // pre-game countdown overlay (issue #35).
   useEffect(() => {
+    if (!enabled) return;
     if (!gameState || gameState.phase !== 'playing') return;
     const seat = gameState.currentPlayerIndex;
     if (prevTurnRef.current !== null && prevTurnRef.current !== seat) {
@@ -51,5 +58,5 @@ export function useGameplaySounds(gameState, mySeats = []) {
     prevTurnRef.current = seat;
     if (mySeats.includes(seat)) sounds.playYourTurn();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameState?.currentPlayerIndex, gameState?.phase]);
+  }, [gameState?.currentPlayerIndex, gameState?.phase, enabled]);
 }

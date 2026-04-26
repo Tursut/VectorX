@@ -270,13 +270,19 @@ describe('computeTurnDelay (bot pacing)', () => {
   // that maybeScheduleTurnAlarm actually calls this — comes for free from the
   // existing all-bots simulation: it relies on the speed-run path completing
   // in seconds, which is what shipped this branch in the first place.
+  //
+  // turnCount is bumped to 1 on the post-first-turn cases below so the
+  // pre-game countdown branch (issue #35) doesn't fire — that branch is
+  // exercised in its own describe block at the bottom of this file.
 
   it('returns the human turn budget for a human seat', () => {
     const game = initGame(false, 3) as {
       players: Array<{ id: number; isEliminated: boolean }>;
       currentPlayerIndex: number;
+      turnCount: number;
     };
     game.currentPlayerIndex = 0; // human
+    game.turnCount = 1;
     const lobby = {
       players: [
         { id: 0, displayName: 'Alice', isBot: false, disconnectedAt: null },
@@ -289,8 +295,10 @@ describe('computeTurnDelay (bot pacing)', () => {
     const game = initGame(false, 3) as {
       players: Array<{ id: number; isEliminated: boolean }>;
       currentPlayerIndex: number;
+      turnCount: number;
     };
     game.currentPlayerIndex = 1; // bot
+    game.turnCount = 1;
     const lobby = {
       players: [
         { id: 0, displayName: 'Alice', isBot: false, disconnectedAt: null },
@@ -307,9 +315,11 @@ describe('computeTurnDelay (bot pacing)', () => {
     const game = initGame(false, 3) as {
       players: Array<{ id: number; isEliminated: boolean }>;
       currentPlayerIndex: number;
+      turnCount: number;
     };
     game.players[0].isEliminated = true;
     game.currentPlayerIndex = 1; // bot
+    game.turnCount = 1;
     const lobby = {
       players: [
         { id: 0, displayName: 'Alice', isBot: false, disconnectedAt: null },
@@ -326,8 +336,10 @@ describe('computeTurnDelay (bot pacing)', () => {
     const game = initGame(false, 4) as {
       players: Array<{ id: number; isEliminated: boolean }>;
       currentPlayerIndex: number;
+      turnCount: number;
     };
     game.currentPlayerIndex = 0;
+    game.turnCount = 1;
     const lobby = { players: [] };
     const d = computeTurnDelay(game, lobby);
     expect(d).toBeLessThan(200);
@@ -343,8 +355,10 @@ describe('computeTurnDelay (bot pacing)', () => {
     const game = initGame(false, 3) as {
       players: Array<{ id: number; isEliminated: boolean }>;
       currentPlayerIndex: number;
+      turnCount: number;
       lastEvent: unknown;
     };
+    game.turnCount = 1;
     game.currentPlayerIndex = 2;            // next seat after the bot's freeze
     game.lastEvent = { type: 'freeze', byId: 1, targetId: 0 };  // bot 1 froze human 0
     const lobby = {
@@ -362,8 +376,10 @@ describe('computeTurnDelay (bot pacing)', () => {
     const game = initGame(false, 3) as {
       players: Array<{ id: number; isEliminated: boolean }>;
       currentPlayerIndex: number;
+      turnCount: number;
       lastEvent: unknown;
     };
+    game.turnCount = 1;
     game.currentPlayerIndex = 0;            // human's turn next
     game.lastEvent = { type: 'swap', byId: 1, targetId: 2 };  // bot 1 swapped with bot 2
     const lobby = {
@@ -376,8 +392,10 @@ describe('computeTurnDelay (bot pacing)', () => {
     const game = initGame(false, 3) as {
       players: Array<{ id: number; isEliminated: boolean }>;
       currentPlayerIndex: number;
+      turnCount: number;
       lastEvent: unknown;
     };
+    game.turnCount = 1;
     game.currentPlayerIndex = 1;            // bot's turn next
     game.lastEvent = { type: 'freeze', byId: 0, targetId: 1 };  // human 0 froze a bot
     const lobby = {
@@ -393,8 +411,10 @@ describe('computeTurnDelay (bot pacing)', () => {
     const game = initGame(false, 3) as {
       players: Array<{ id: number; isEliminated: boolean }>;
       currentPlayerIndex: number;
+      turnCount: number;
       lastEvent: unknown;
     };
+    game.turnCount = 1;
     // Only human (0) and bot 3 are alive.
     game.players[1].isEliminated = true;
     game.players[2].isEliminated = true;
@@ -410,8 +430,10 @@ describe('computeTurnDelay (bot pacing)', () => {
     const game = initGame(false, 3) as {
       players: Array<{ id: number; isEliminated: boolean }>;
       currentPlayerIndex: number;
+      turnCount: number;
       lastEvent: unknown;
     };
+    game.turnCount = 1;
     game.players[0].isEliminated = true;    // human is out
     game.currentPlayerIndex = 2;
     game.lastEvent = { type: 'swap', byId: 1, targetId: 3 };
@@ -422,6 +444,57 @@ describe('computeTurnDelay (bot pacing)', () => {
       const d = computeTurnDelay(game, lobby);
       expect(d).toBeLessThan(200);  // speed-run pace, no bump
     }
+  });
+
+  // Pre-game countdown extension (issue #35). Online overlays the
+  // 3-2-1-GO countdown on top of an already-playing GAME_STATE, so
+  // the very first turn alarm has to be pushed out by enough to
+  // cover the visible countdown — otherwise the first human's 10 s
+  // budget burns under the GO graphic. Detect via turnCount === 0.
+  it('adds the countdown delay to a HUMAN first turn so they have full time after GO', () => {
+    const game = initGame(false, 3) as {
+      players: Array<{ id: number; isEliminated: boolean }>;
+      currentPlayerIndex: number;
+      turnCount: number;
+    };
+    game.currentPlayerIndex = 0;  // human
+    // turnCount stays at 0 from initGame — this IS the first turn
+    const lobby = {
+      players: [{ id: 0, displayName: 'Alice', isBot: false, disconnectedAt: null }],
+    };
+    expect(computeTurnDelay(game, lobby)).toBe(10_000 + 6200);
+  });
+
+  it('adds the countdown delay to a BOT first turn so the bot does not move under the overlay', () => {
+    const game = initGame(false, 3) as {
+      players: Array<{ id: number; isEliminated: boolean }>;
+      currentPlayerIndex: number;
+      turnCount: number;
+    };
+    game.currentPlayerIndex = 1;  // bot
+    const lobby = {
+      players: [{ id: 0, displayName: 'Alice', isBot: false, disconnectedAt: null }],
+    };
+    for (let i = 0; i < 50; i++) {
+      const d = computeTurnDelay(game, lobby);
+      // Base bot delay (800–1400) + 6200 = 7000–7600.
+      expect(d).toBeGreaterThanOrEqual(7000);
+      expect(d).toBeLessThan(7600);
+    }
+  });
+
+  it('does NOT add the countdown delay on subsequent turns', () => {
+    const game = initGame(false, 3) as {
+      players: Array<{ id: number; isEliminated: boolean }>;
+      currentPlayerIndex: number;
+      turnCount: number;
+    };
+    game.currentPlayerIndex = 0;
+    game.turnCount = 1;  // post-first-turn
+    const lobby = {
+      players: [{ id: 0, displayName: 'Alice', isBot: false, disconnectedAt: null }],
+    };
+    expect(computeTurnDelay(game, lobby)).toBe(10_000);  // no bump
   });
 });
 

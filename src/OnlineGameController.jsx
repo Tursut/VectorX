@@ -94,8 +94,12 @@ export default function OnlineGameController({
   // bar with a client-local tick so the player can see time running down.
   // Mirrors LocalGameController's pattern; no TIMEOUT dispatch since the
   // server owns that. Tick sound plays only on my own turn's last 3 seconds.
+  // Held while the pre-game countdown is up (issue #35) so the timer
+  // bar doesn't drain under the GO overlay; the server's first-turn
+  // alarm is bumped by COUNTDOWN_DELAY_MS to match.
   useEffect(() => {
     if (!gameState || gameState.phase !== 'playing') return;
+    if (countdown !== null) return;
     setTimeLeft(TURN_TIME);
     const isMyTurn = mySeatId !== null && mySeatId !== undefined
       && gameState.currentPlayerIndex === mySeatId;
@@ -110,12 +114,15 @@ export default function OnlineGameController({
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [gameState?.currentPlayerIndex, gameState?.phase, mySeatId]);
+  }, [gameState?.currentPlayerIndex, gameState?.phase, mySeatId, countdown]);
 
   // Gameplay sound effects (bg theme, move/claim/your-turn chime, freeze/swap).
+  // `enabled` is gated on the countdown so the bg theme + your-turn
+  // chime hold until the GO overlay clears (issue #35).
   useGameplaySounds(
     gameState,
     mySeatId !== null && mySeatId !== undefined ? [mySeatId] : [],
+    { enabled: countdown === null },
   );
 
   // Send HELLO on every transition INTO 'open'. The ref is reset on any other
