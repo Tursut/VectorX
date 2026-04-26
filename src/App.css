@@ -916,17 +916,80 @@
   margin: 0;
 }
 
-/* First-tap audio hint. Browser autoplay policy (iOS Safari/Chrome
-   especially) blocks audio until a user gesture, so the menu music
-   can't start until you tap. The hint disappears the moment that
-   first gesture lands. Quiet styling so it doesn't compete with
-   the title — slightly smaller than the subtitle, faded, no decoration. */
-.start-audio-hint {
-  font-size: 11px;
-  color: #6c6c8c;
+/* Tap-to-begin modal. Browser autoplay policy blocks audio until a
+   user gesture, so first load shows this overlay; any tap / key
+   dismisses it. Mirrors the exit-confirm-overlay backdrop + the
+   countdown-overlay's blur for a soft frost behind the card. */
+.tap-to-begin-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 10, 22, 0.78);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 400;
+  /* Let clicks pass through to whatever's beneath. The modal is a
+     hint, not a blocker — the document-level pointerdown listener
+     still fires and dismisses it on first gesture, while the user's
+     tap also reaches any underlying button (start-screen buttons,
+     e2e selectors). Without this, Playwright's click is swallowed by
+     the overlay and the underlying button never gets the event. */
+  pointer-events: none;
+  padding: 20px;
+}
+.tap-to-begin-card {
+  background: #0f0f23;
+  border: 2px solid #333366;
+  border-radius: 24px;
+  padding: 36px 44px 32px;
+  text-align: center;
+  max-width: 420px;
+  width: 100%;
+  box-shadow: 0 0 40px rgba(122, 140, 255, 0.25);
+}
+.tap-to-begin-avatars {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  margin-bottom: 24px;
+}
+.tap-to-begin-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  border: 3px solid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+.tap-to-begin-avatar-icon {
+  font-size: 32px;
+  line-height: 1;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.45));
+}
+.tap-to-begin-title {
+  font-family: 'Fredoka One', 'Segoe UI', sans-serif;
+  font-size: clamp(28px, 6vw, 36px);
+  letter-spacing: 3px;
+  color: #c8caff;
+  text-shadow: 0 0 14px rgba(122, 140, 255, 0.55);
+  margin: 0 0 6px;
+  animation: titlePulse 3s ease-in-out infinite alternate;
+}
+.tap-to-begin-sub {
   font-family: 'Segoe UI', sans-serif;
-  letter-spacing: 0.5px;
-  margin: -4px 0 0 0;
+  font-style: italic;
+  font-size: 13px;
+  color: #aaaacc;
+  margin: 0;
+}
+@media (max-width: 420px) {
+  .tap-to-begin-card { padding: 28px 24px 24px; }
+  .tap-to-begin-avatars { gap: 12px; }
+  .tap-to-begin-avatar { width: 56px; height: 56px; }
+  .tap-to-begin-avatar-icon { font-size: 28px; }
 }
 
 .start-characters {

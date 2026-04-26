@@ -5,6 +5,7 @@ import { generateDisplayName } from '../game/nameGenerator';
 import { playClick } from '../game/sounds';
 import { BUILD_TIME } from '../config';
 import SoundToggle from './SoundToggle';
+import TapToBeginModal from './TapToBeginModal';
 
 // Room-code alphabet mirrors server/protocol.ts. Filter as the user types;
 // paste extracts the code from a share link (/r/ABCDE) before falling back
@@ -86,20 +87,6 @@ export default function StartScreen({
   // invalid; rendered as an inline message + a brief shake on the input.
   // Clears as soon as the offending field becomes valid (via useEffect below).
   const [submitError, setSubmitError] = useState(null);
-  // First-tap hint. Browser autoplay policy blocks audio until a user
-  // gesture (touch, click, key), so on iOS Safari/Chrome the menu music
-  // can't start until the user taps. Show a subtle "tap to enable
-  // sound" hint until that first gesture lands, then hide it forever.
-  const [hasGestured, setHasGestured] = useState(false);
-  useEffect(() => {
-    const onGesture = () => setHasGestured(true);
-    document.addEventListener('pointerdown', onGesture, { once: true, passive: true });
-    document.addEventListener('keydown', onGesture, { once: true });
-    return () => {
-      document.removeEventListener('pointerdown', onGesture);
-      document.removeEventListener('keydown', onGesture);
-    };
-  }, []);
   const nameInputRef = useRef(null);
   const codeInputRef = useRef(null);
   // Tracks the in-flight reroll scramble: { id, target } where id is the
@@ -317,6 +304,7 @@ at:          ${onlineErrorDebug.at ?? '(unknown)'}`}
 
   return (
     <div className="start-screen">
+      <TapToBeginModal />
       <div className="start-content">
         <div className="start-sound-corner">
           <SoundToggle enabled={soundEnabled} onToggle={onToggleSound} />
@@ -325,20 +313,6 @@ at:          ${onlineErrorDebug.at ?? '(unknown)'}`}
         <p className="start-subtitle">
           Four players. One grid. Only one walks away smiling.
         </p>
-        <AnimatePresence>
-          {!hasGestured && (
-            <motion.p
-              key="audio-hint"
-              className="start-audio-hint"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.4 }}
-            >
-              🔊 tap anywhere to enable sound
-            </motion.p>
-          )}
-        </AnimatePresence>
 
         {/* Tile row + drawer wrapped in one container so the parent's
             `gap: 20px` doesn't pry them apart — inside here they can touch,
