@@ -1,9 +1,21 @@
+import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { PLAYERS } from '../game/constants';
+import * as sounds from '../game/sounds';
 
 const MEDALS = ['🥇', '🥈', '🥉', '💀'];
 
 export default function GameOverScreen({ winner, players, onRestart, onMenu }) {
+  // Win / draw sound — fires once when the leaderboard mounts. Owned
+  // here (instead of GameScreen) so the cue lines up with the visible
+  // transition into the leaderboard, and so the effect can't re-fire
+  // mid-mount if upstream gameState references churn (issue #34).
+  useEffect(() => {
+    if (winner) sounds.playWin();
+    else sounds.playDraw();
+  // Mount-only: the leaderboard never swaps winner ↔ draw under the user.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // Build ranked list: winner first, then eliminated sorted by finishTurn DESC
   // (last eliminated = runner-up, first eliminated = last place)
   const eliminated = [...players.filter(p => p.isEliminated)]

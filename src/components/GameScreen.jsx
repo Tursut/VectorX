@@ -103,13 +103,10 @@ export default function GameScreen({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameState?.players]);
 
-  // Win / draw sound — plays once the trap animation has cleared.
-  useEffect(() => {
-    if (gameState?.phase !== 'gameover') return;
-    if (trappedPlayers.length > 0 || eliminationPending) return;
-    if (gameState.winner !== null) sounds.playWin();
-    else sounds.playDraw();
-  }, [gameState?.phase, trappedPlayers, eliminationPending, gameState?.winner]);
+  // Win / draw sound moved to GameOverScreen mount (issue #34) so the
+  // cue lines up with the leaderboard appearing instead of firing on
+  // top of the wind-down trap animation while we're still on the
+  // board, and again when the leaderboard renders.
 
   if (!gameState) return null;
 

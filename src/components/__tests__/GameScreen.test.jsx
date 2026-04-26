@@ -169,29 +169,15 @@ describe('GameScreen — callbacks', () => {
 
 // ---------- Sound effects ----------
 //
-// NOTE: Most gameplay sounds (bg theme, move/claim, your-turn chime,
-// freeze/swap event sounds) now live in useGameplaySounds and are called
-// from the outer controllers, not from GameScreen. They are tested in
+// Most gameplay sounds (bg theme, move/claim, your-turn chime, freeze/swap
+// apply) now live in useGameplaySounds and are called from the outer
+// controllers, not from GameScreen — covered in
 // src/game/__tests__/useGameplaySounds.test.js.
 //
-// GameScreen still owns win/draw (gated on the trap animation state it owns)
-// so those tests stay here.
+// Win/draw moved to GameOverScreen's mount effect (issue #34) — covered in
+// src/components/__tests__/GameOverScreen.test.jsx.
 
 describe('GameScreen — sound effects', () => {
-  it('plays the win sound on gameover with a winner', () => {
-    const state = baseState({ phase: 'gameover', winner: 0 });
-    render(<GameScreen gameState={state} mySeats={[0]} onMove={() => {}} />);
-    expect(sounds.playWin).toHaveBeenCalledOnce();
-    expect(sounds.playDraw).not.toHaveBeenCalled();
-  });
-
-  it('plays the draw sound on gameover with no winner', () => {
-    const state = baseState({ phase: 'gameover', winner: null });
-    render(<GameScreen gameState={state} mySeats={[0]} onMove={() => {}} />);
-    expect(sounds.playDraw).toHaveBeenCalledOnce();
-    expect(sounds.playWin).not.toHaveBeenCalled();
-  });
-
   it('does NOT fire your-turn chime when currentPlayerIndex is not in mySeats', () => {
     render(<GameScreen gameState={baseState()} mySeats={[1]} onMove={() => {}} />);
     expect(sounds.playYourTurn).not.toHaveBeenCalled();
