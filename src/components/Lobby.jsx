@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { playClick } from '../game/sounds';
 
 const MAX_PLAYERS = 4;
 
@@ -51,6 +52,7 @@ export default function Lobby({
   const [copied, setCopied] = useState(false);
 
   function copyLink() {
+    playClick();
     navigator.clipboard.writeText(shareLink).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -121,7 +123,11 @@ export default function Lobby({
           matches the GameScreen's exit-game-btn (same class, same styling,
           same on-page-bg position) — issue #19. */}
       {onLeave && (
-        <button type="button" className="exit-game-btn" onClick={onLeave}>
+        <button
+          type="button"
+          className="exit-game-btn"
+          onClick={() => { playClick(); onLeave(); }}
+        >
           ← Exit to menu
         </button>
       )}
@@ -135,7 +141,7 @@ export default function Lobby({
           <button
             type="button"
             className="start-button"
-            onClick={() => onStart?.()}
+            onClick={() => { playClick(); onStart?.(); }}
           >
             START GAME →
           </button>

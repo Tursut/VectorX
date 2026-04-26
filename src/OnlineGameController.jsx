@@ -224,8 +224,18 @@ export default function OnlineGameController({
               {gameState ? 'Your current game will be lost.' : "You'll leave this room."}
             </p>
             <div className="exit-confirm-btns">
-              <button className="exit-confirm-yes" onClick={onExit}>Yes, exit</button>
-              <button className="exit-confirm-no" onClick={() => setExitConfirm(false)}>Keep playing</button>
+              <button
+                className="exit-confirm-yes"
+                onClick={() => { sounds.playClick(); onExit(); }}
+              >
+                Yes, exit
+              </button>
+              <button
+                className="exit-confirm-no"
+                onClick={() => { sounds.playClick(); setExitConfirm(false); }}
+              >
+                Keep playing
+              </button>
             </div>
           </motion.div>
         </motion.div>

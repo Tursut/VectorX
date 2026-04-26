@@ -21,6 +21,7 @@ function createContext() {
   portalJumpBuffer = null;
   eliminationBuffer = null;
   swapBuffer = null;
+  clickBuffer = null;
 }
 
 // Never auto-recreates a closed context — that must happen from a user gesture in resumeAudio().
@@ -413,6 +414,50 @@ export async function playBomb() {
   if (!c) return;
   const gain = c.createGain();
   gain.gain.value = BOMB_VOLUME;
+  gain.connect(out());
+  const src = c.createBufferSource();
+  src.buffer = buf;
+  src.connect(gain);
+  src.start(c.currentTime + 0.02);
+}
+
+// Universal pen-click sample. Fired from every mainline button onClick
+// in StartScreen, Lobby, and the exit-confirm modal. Volume sits well
+// below the gameplay samples since this fires constantly and shouldn't
+// overpower bg music or move/claim audio. Same one-shot
+// AudioBufferSource + lazy fetch/decode/cache pattern as the rest.
+const CLICK_FILE = `${import.meta.env.BASE_URL}click.mp3`;
+const CLICK_VOLUME = 0.5;
+let clickRawPromise = null;
+let clickBuffer = null;
+function primeClickRaw() {
+  if (clickRawPromise) return clickRawPromise;
+  if (typeof fetch === 'undefined') return Promise.resolve(null);
+  clickRawPromise = fetch(CLICK_FILE)
+    .then((res) => (res.ok ? res.arrayBuffer() : null))
+    .catch(() => null);
+  return clickRawPromise;
+}
+primeClickRaw();
+
+async function loadClickBuffer() {
+  if (clickBuffer) return clickBuffer;
+  const c = getCtx();
+  if (!c) return null;
+  const arr = await primeClickRaw();
+  if (!arr) return null;
+  clickBuffer = await c.decodeAudioData(arr.slice(0));
+  return clickBuffer;
+}
+
+export async function playClick() {
+  let buf;
+  try { buf = await loadClickBuffer(); } catch { return; }
+  if (!buf) return;
+  const c = getCtx();
+  if (!c) return;
+  const gain = c.createGain();
+  gain.gain.value = CLICK_VOLUME;
   gain.connect(out());
   const src = c.createBufferSource();
   src.buffer = buf;

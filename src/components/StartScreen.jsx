@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { PLAYERS, ITEM_TYPES } from '../game/constants';
 import { generateDisplayName } from '../game/nameGenerator';
+import { playClick } from '../game/sounds';
 import { BUILD_TIME } from '../config';
 import SoundToggle from './SoundToggle';
 
@@ -123,6 +124,7 @@ export default function StartScreen({
   const canSubmit = isCreate ? canSubmitCreate : isJoin ? canSubmitJoin : true;
 
   function rerollDisplayName() {
+    playClick();
     cancelRerollAnim();
     const target = generateDisplayName();
     setSubmitError(null);
@@ -151,6 +153,7 @@ export default function StartScreen({
   // joiner view, so without this they'd be stuck with JOIN ROOM as the
   // only action.
   function backToMenuFromJoiner() {
+    playClick();
     setMode('this-device');
     setCode('');
     setSubmitError(null);
@@ -188,6 +191,7 @@ export default function StartScreen({
   }, [submitError, displayName, hasCode]);
 
   function handlePrimaryClick() {
+    playClick();
     // If a scramble is mid-flight, snap to its real target before validating
     // — otherwise we'd send a randomised string. The animation is ~200 ms,
     // so this is an edge case but worth handling.
@@ -320,7 +324,7 @@ at:          ${onlineErrorDebug.at ?? '(unknown)'}`}
               role="tab"
               aria-selected={mode === 'this-device'}
               className={`mode-switcher-tile ${mode === 'this-device' ? 'mode-switcher-tile-active' : ''}`}
-              onClick={() => setMode('this-device')}
+              onClick={() => { playClick(); setMode('this-device'); }}
             >
               <span className="mode-switcher-icon">🎮</span>
               <span className="mode-switcher-label">SAME SCREEN</span>
@@ -331,7 +335,7 @@ at:          ${onlineErrorDebug.at ?? '(unknown)'}`}
               role="tab"
               aria-selected={mode === 'create'}
               className={`mode-switcher-tile ${mode === 'create' ? 'mode-switcher-tile-active' : ''}`}
-              onClick={() => setMode('create')}
+              onClick={() => { playClick(); setMode('create'); }}
             >
               <span className="mode-switcher-icon">➕</span>
               <span className="mode-switcher-label">CREATE ROOM</span>
@@ -342,7 +346,7 @@ at:          ${onlineErrorDebug.at ?? '(unknown)'}`}
               role="tab"
               aria-selected={mode === 'join'}
               className={`mode-switcher-tile ${mode === 'join' ? 'mode-switcher-tile-active' : ''}`}
-              onClick={() => setMode('join')}
+              onClick={() => { playClick(); setMode('join'); }}
             >
               <span className="mode-switcher-icon">🔗</span>
               <span className="mode-switcher-label">JOIN ROOM</span>
@@ -504,7 +508,7 @@ at:          ${onlineErrorDebug.at ?? '(unknown)'}`}
               <button
                 type="button"
                 className={`mode-btn ${magicItems ? 'mode-btn-active mode-btn-magic' : ''}`}
-                onClick={() => !magicItems && onToggleMagicItems()}
+                onClick={() => { playClick(); if (!magicItems) onToggleMagicItems(); }}
               >
                 <span className="mode-btn-icon">✨</span>
                 <span className="mode-btn-label">MAGIC</span>
@@ -513,7 +517,7 @@ at:          ${onlineErrorDebug.at ?? '(unknown)'}`}
               <button
                 type="button"
                 className={`mode-btn ${!magicItems ? 'mode-btn-active mode-btn-classic' : ''}`}
-                onClick={() => magicItems && onToggleMagicItems()}
+                onClick={() => { playClick(); if (magicItems) onToggleMagicItems(); }}
               >
                 <span className="mode-btn-icon">⚔️</span>
                 <span className="mode-btn-label">CLASSIC</span>
@@ -553,7 +557,7 @@ at:          ${onlineErrorDebug.at ?? '(unknown)'}`}
         )}
 
         {!isOnline && (
-          <button className="sandbox-entry-btn" onClick={onSandbox}>🧪 testing ground</button>
+          <button className="sandbox-entry-btn" onClick={() => { playClick(); onSandbox?.(); }}>🧪 testing ground</button>
         )}
       </div>
 
