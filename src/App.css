@@ -916,6 +916,19 @@
   margin: 0;
 }
 
+/* First-tap audio hint. Browser autoplay policy (iOS Safari/Chrome
+   especially) blocks audio until a user gesture, so the menu music
+   can't start until you tap. The hint disappears the moment that
+   first gesture lands. Quiet styling so it doesn't compete with
+   the title — slightly smaller than the subtitle, faded, no decoration. */
+.start-audio-hint {
+  font-size: 11px;
+  color: #6c6c8c;
+  font-family: 'Segoe UI', sans-serif;
+  letter-spacing: 0.5px;
+  margin: -4px 0 0 0;
+}
+
 .start-characters {
   display: flex;
   gap: 10px;

@@ -131,7 +131,7 @@ export default function OnlineGameController({
   useGameplaySounds(
     gameState,
     mySeatId !== null && mySeatId !== undefined ? [mySeatId] : [],
-    { enabled: countdown === null },
+    { enabled: countdown === null, trapPlaying },
   );
 
   // Send HELLO on every transition INTO 'open'. The ref is reset on any other

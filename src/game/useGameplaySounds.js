@@ -9,7 +9,13 @@ import { useEffect, useRef } from 'react';
 import { isBotPlayer, shouldRouletteFreezeSwap } from './rouletteCriteria';
 import * as sounds from './sounds';
 
-export function useGameplaySounds(gameState, mySeats = [], { enabled = true } = {}) {
+// After phase becomes 'gameover', wait this long before kicking the
+// menu loop back in. Covers the win-fanfare sample's natural playback
+// (~3 s) so the menu music doesn't trample the cue. Trap-chain
+// drawing time is handled separately via the `trapPlaying` flag.
+const MENU_RESUME_AFTER_GAMEOVER_MS = 3500;
+
+export function useGameplaySounds(gameState, mySeats = [], { enabled = true, trapPlaying = false } = {}) {
   const prevTurnRef = useRef(null);
 
   // (iOS audio-recovery listeners now live at module load in sounds.js so
@@ -19,28 +25,49 @@ export function useGameplaySounds(gameState, mySeats = [], { enabled = true } = 
   // Background theme. Two mutually-exclusive tracks:
   //   - in-game (bg-spring) plays while phase === 'playing'
   //   - menu (bg-menu) plays in the start screen / lobby / leaderboard
-  // Cleanup on unmount silences both. The `enabled` flag lets
-  // OnlineGameController hold the music until the pre-game 3-2-1-GO
-  // countdown finishes (issue #35); during the countdown both tracks
-  // stay silent so the countdown beats own the audio space.
+  // The `enabled` flag (#35) keeps both silent during the pre-game
+  // 3-2-1-GO countdown. The `trapPlaying` flag + a post-gameover delay
+  // hold the menu music until the trap chain (#36) and the win sound
+  // have finished their wind-down — otherwise the menu would kick
+  // in over the elimination + fanfare.
   useEffect(() => {
     if (!enabled) {
       sounds.stopBgTheme();
       sounds.stopMenuTheme();
-      return () => {};
+      return undefined;
     }
     if (gameState?.phase === 'playing') {
       sounds.stopMenuTheme();
       sounds.startBgTheme();
-    } else {
-      sounds.stopBgTheme();
-      sounds.startMenuTheme();
+      return undefined;
     }
-    return () => {
-      sounds.stopBgTheme();
+    sounds.stopBgTheme();
+    if (trapPlaying) {
+      // Trap chain still drawing — let the elimination sound own the
+      // audio space.
       sounds.stopMenuTheme();
-    };
-  }, [gameState?.phase, enabled]);
+      return undefined;
+    }
+    if (gameState?.phase === 'gameover') {
+      // Trap is done; the win/draw sound is now playing on
+      // GameOverScreen mount. Defer the menu loop so the fanfare
+      // gets its full beat first.
+      const t = setTimeout(() => sounds.startMenuTheme(), MENU_RESUME_AFTER_GAMEOVER_MS);
+      return () => clearTimeout(t);
+    }
+    // Start screen / lobby / null → menu immediately.
+    sounds.startMenuTheme();
+    return undefined;
+  }, [gameState?.phase, enabled, trapPlaying]);
+
+  // Hard stop on unmount — covers exiting to the start screen, an
+  // online disconnect, or the page tearing down. Single mount-only
+  // effect so the per-phase effect above can return phase-specific
+  // cleanups without losing the unmount guarantee.
+  useEffect(() => () => {
+    sounds.stopBgTheme();
+    sounds.stopMenuTheme();
+  }, []);
 
   // Freeze / swap apply sounds moved to useDerivedAnimations#fireImmediate
   // so they line up with the deferred visual after the bot-pick roulette

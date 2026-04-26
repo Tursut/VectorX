@@ -113,7 +113,7 @@ describe('useGameplaySounds — menu vs in-game theme', () => {
     expect(sounds.startBgTheme).toHaveBeenCalledOnce();
   });
 
-  it('switches in-game → menu when the game ends (phase becomes "gameover")', () => {
+  it('defers the menu loop past the win sound when the game ends (issue: menu used to kick over the fanfare)', () => {
     const { rerender } = renderHook(
       ({ s, seats }) => useGameplaySounds(s, seats),
       { initialProps: { s: baseState({ phase: 'playing' }), seats: [0] } },
@@ -121,6 +121,42 @@ describe('useGameplaySounds — menu vs in-game theme', () => {
     expect(sounds.startBgTheme).toHaveBeenCalledOnce();
     rerender({ s: baseState({ phase: 'gameover', winner: 0 }), seats: [0] });
     expect(sounds.stopBgTheme).toHaveBeenCalled();
+    // Win sound just started — menu loop must NOT have kicked in yet.
+    expect(sounds.startMenuTheme).not.toHaveBeenCalled();
+    // After the deferred-resume timer (3.5 s), menu loop fires.
+    act(() => { vi.advanceTimersByTime(3500); });
+    expect(sounds.startMenuTheme).toHaveBeenCalledOnce();
+  });
+
+  it('keeps menu silent while trap chain is still drawing (trapPlaying=true)', () => {
+    const { rerender } = renderHook(
+      ({ s, seats, opts }) => useGameplaySounds(s, seats, opts),
+      {
+        initialProps: {
+          s: baseState({ phase: 'playing' }),
+          seats: [0],
+          opts: { trapPlaying: false },
+        },
+      },
+    );
+    rerender({
+      s: baseState({ phase: 'gameover', winner: 0 }),
+      seats: [0],
+      opts: { trapPlaying: true },
+    });
+    // Trap is still drawing — menu must NOT start, even with the
+    // post-gameover delay timer.
+    act(() => { vi.advanceTimersByTime(10_000); });
+    expect(sounds.startMenuTheme).not.toHaveBeenCalled();
+
+    // Trap drains. NOW the gameover delay timer should be set up.
+    rerender({
+      s: baseState({ phase: 'gameover', winner: 0 }),
+      seats: [0],
+      opts: { trapPlaying: false },
+    });
+    expect(sounds.startMenuTheme).not.toHaveBeenCalled();
+    act(() => { vi.advanceTimersByTime(3500); });
     expect(sounds.startMenuTheme).toHaveBeenCalledOnce();
   });
 
