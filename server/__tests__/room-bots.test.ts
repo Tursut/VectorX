@@ -332,6 +332,97 @@ describe('computeTurnDelay (bot pacing)', () => {
     const d = computeTurnDelay(game, lobby);
     expect(d).toBeLessThan(200);
   });
+
+  // Roulette-suspense pacing (issue #30). When the prior turn ended
+  // with a bot-driven freeze/swap that the client will roulette over,
+  // the next turn alarm is pushed out by ~6.2 s so the next bot
+  // doesn't start moving + the human's turn timer doesn't start
+  // ticking while the wheel is still rolling. Mirrors the client's
+  // skipRoulette gates.
+  it('adds the roulette delay after a bot freeze when humans are alive and ≥ 2 opponents remain', () => {
+    const game = initGame(false, 3) as {
+      players: Array<{ id: number; isEliminated: boolean }>;
+      currentPlayerIndex: number;
+      lastEvent: unknown;
+    };
+    game.currentPlayerIndex = 2;            // next seat after the bot's freeze
+    game.lastEvent = { type: 'freeze', byId: 1, targetId: 0 };  // bot 1 froze human 0
+    const lobby = {
+      players: [{ id: 0, displayName: 'Alice', isBot: false, disconnectedAt: null }],
+    };
+    for (let i = 0; i < 50; i++) {
+      const d = computeTurnDelay(game, lobby);
+      // Base bot delay (800–1400) + 6200 = 7000–7600.
+      expect(d).toBeGreaterThanOrEqual(7000);
+      expect(d).toBeLessThan(7600);
+    }
+  });
+
+  it('adds the roulette delay before a HUMAN turn after a bot swap, so their 10 s budget starts post-roulette', () => {
+    const game = initGame(false, 3) as {
+      players: Array<{ id: number; isEliminated: boolean }>;
+      currentPlayerIndex: number;
+      lastEvent: unknown;
+    };
+    game.currentPlayerIndex = 0;            // human's turn next
+    game.lastEvent = { type: 'swap', byId: 1, targetId: 2 };  // bot 1 swapped with bot 2
+    const lobby = {
+      players: [{ id: 0, displayName: 'Alice', isBot: false, disconnectedAt: null }],
+    };
+    expect(computeTurnDelay(game, lobby)).toBe(10_000 + 6200);
+  });
+
+  it('does NOT add the roulette delay for a HUMAN-driven freeze (humans pick targets manually, no suspense)', () => {
+    const game = initGame(false, 3) as {
+      players: Array<{ id: number; isEliminated: boolean }>;
+      currentPlayerIndex: number;
+      lastEvent: unknown;
+    };
+    game.currentPlayerIndex = 1;            // bot's turn next
+    game.lastEvent = { type: 'freeze', byId: 0, targetId: 1 };  // human 0 froze a bot
+    const lobby = {
+      players: [{ id: 0, displayName: 'Alice', isBot: false, disconnectedAt: null }],
+    };
+    for (let i = 0; i < 50; i++) {
+      const d = computeTurnDelay(game, lobby);
+      expect(d).toBeLessThan(1400);  // base bot delay only
+    }
+  });
+
+  it('does NOT add the roulette delay when only one alive opponent remains (no choice to roulette over)', () => {
+    const game = initGame(false, 3) as {
+      players: Array<{ id: number; isEliminated: boolean }>;
+      currentPlayerIndex: number;
+      lastEvent: unknown;
+    };
+    // Only human (0) and bot 3 are alive.
+    game.players[1].isEliminated = true;
+    game.players[2].isEliminated = true;
+    game.currentPlayerIndex = 0;
+    game.lastEvent = { type: 'freeze', byId: 3, targetId: 0 };
+    const lobby = {
+      players: [{ id: 0, displayName: 'Alice', isBot: false, disconnectedAt: null }],
+    };
+    expect(computeTurnDelay(game, lobby)).toBe(10_000);  // no bump
+  });
+
+  it('does NOT add the roulette delay when no humans are alive (bots-only endgame keeps speed-run pace)', () => {
+    const game = initGame(false, 3) as {
+      players: Array<{ id: number; isEliminated: boolean }>;
+      currentPlayerIndex: number;
+      lastEvent: unknown;
+    };
+    game.players[0].isEliminated = true;    // human is out
+    game.currentPlayerIndex = 2;
+    game.lastEvent = { type: 'swap', byId: 1, targetId: 3 };
+    const lobby = {
+      players: [{ id: 0, displayName: 'Alice', isBot: false, disconnectedAt: null }],
+    };
+    for (let i = 0; i < 50; i++) {
+      const d = computeTurnDelay(game, lobby);
+      expect(d).toBeLessThan(200);  // speed-run pace, no bump
+    }
+  });
 });
 
 describe('seat recycling invariant', () => {

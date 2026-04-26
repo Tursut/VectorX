@@ -33,6 +33,14 @@ import { PLAYERS, TURN_TIME } from '../src/game/constants';
 // Human turn-timer budget. TURN_TIME is seconds in the shared constants; the
 // DO alarm API expects milliseconds.
 const TURN_TIME_MS = TURN_TIME * 1000;
+// Roulette suspense (issue #30): when a bot applies freeze/swap with ≥ 2
+// alive opponents and ≥ 1 alive human, the client plays a ~6 s drum-roll
+// before showing the result. We push the next turn alarm out by this
+// amount so the next bot doesn't move + the human's turn timer doesn't
+// start while the wheel is still rolling. Stays in lockstep with the
+// hop / hold / reveal totals in src/game/useDerivedAnimations.js — bump
+// here whenever those constants change.
+const ROULETTE_DELAY_MS = 6200;
 
 interface Env {
   ROOM: DurableObjectNamespace<RoomDurableObject>;
@@ -1005,16 +1013,40 @@ export function computeTurnDelay(
   lobby: { players: Array<{ id: number }> },
 ): number {
   const currentPlayer = game.players[game.currentPlayerIndex];
-  const isHuman = lobby.players.some((p) => p.id === currentPlayer.id);
-  if (isHuman) return TURN_TIME_MS;
   const humanIds = new Set(lobby.players.map((p) => p.id));
+  const isHuman = humanIds.has(currentPlayer.id);
   const anyHumanAlive = game.players.some(
     (p: { id: number; isEliminated: boolean }) =>
       !p.isEliminated && humanIds.has(p.id),
   );
-  return anyHumanAlive
-    ? 800 + Math.floor(Math.random() * 600)
-    : 120 + Math.floor(Math.random() * 80);
+
+  const baseDelay = isHuman
+    ? TURN_TIME_MS
+    : anyHumanAlive
+      ? 800 + Math.floor(Math.random() * 600)
+      : 120 + Math.floor(Math.random() * 80);
+
+  // Bot freeze/swap roulette extension. When the prior turn ended with
+  // a bot-applied freeze/swap that the client will roulette over (≥ 2
+  // alive opponents, ≥ 1 alive human — same skip rules the client
+  // mirrors), push the alarm out by ROULETTE_DELAY_MS so the next
+  // turn doesn't start over the suspense.
+  const ev = game.lastEvent;
+  if (
+    ev &&
+    (ev.type === 'freeze' || ev.type === 'swap') &&
+    !humanIds.has(ev.byId) &&
+    anyHumanAlive
+  ) {
+    const aliveOpponents = game.players.filter(
+      (p: { id: number; isEliminated: boolean }) =>
+        !p.isEliminated && p.id !== ev.byId,
+    ).length;
+    if (aliveOpponents > 1) {
+      return baseDelay + ROULETTE_DELAY_MS;
+    }
+  }
+  return baseDelay;
 }
 
 function lowestUnusedId(used: number[]): number {
