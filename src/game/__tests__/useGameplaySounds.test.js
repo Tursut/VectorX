@@ -10,6 +10,8 @@ vi.mock('../sounds', () => ({
   resumeAudio: vi.fn(),
   startBgTheme: vi.fn(),
   stopBgTheme: vi.fn(),
+  startMenuTheme: vi.fn(),
+  stopMenuTheme: vi.fn(),
   playMove: vi.fn(),
   playClaim: vi.fn(),
   playYourTurn: vi.fn(),
@@ -80,6 +82,58 @@ describe('useGameplaySounds — bg theme', () => {
     expect(sounds.startBgTheme).not.toHaveBeenCalled();
     rerender({ s: baseState(), seats: [0], opts: { enabled: true } });
     expect(sounds.startBgTheme).toHaveBeenCalledOnce();
+  });
+});
+
+describe('useGameplaySounds — menu vs in-game theme', () => {
+  it('starts the menu theme on the start screen (gameState is null)', () => {
+    renderHook(({ s, seats }) => useGameplaySounds(s, seats), {
+      initialProps: { s: null, seats: [] },
+    });
+    expect(sounds.startMenuTheme).toHaveBeenCalledOnce();
+    expect(sounds.startBgTheme).not.toHaveBeenCalled();
+  });
+
+  it('starts the menu theme during the lobby (phase !== "playing")', () => {
+    renderHook(({ s, seats }) => useGameplaySounds(s, seats), {
+      initialProps: { s: baseState({ phase: 'lobby' }), seats: [0] },
+    });
+    expect(sounds.startMenuTheme).toHaveBeenCalledOnce();
+    expect(sounds.startBgTheme).not.toHaveBeenCalled();
+  });
+
+  it('switches menu → in-game when the game starts (phase becomes "playing")', () => {
+    const { rerender } = renderHook(
+      ({ s, seats }) => useGameplaySounds(s, seats),
+      { initialProps: { s: null, seats: [0] } },
+    );
+    expect(sounds.startMenuTheme).toHaveBeenCalledOnce();
+    rerender({ s: baseState({ phase: 'playing' }), seats: [0] });
+    expect(sounds.stopMenuTheme).toHaveBeenCalled();
+    expect(sounds.startBgTheme).toHaveBeenCalledOnce();
+  });
+
+  it('switches in-game → menu when the game ends (phase becomes "gameover")', () => {
+    const { rerender } = renderHook(
+      ({ s, seats }) => useGameplaySounds(s, seats),
+      { initialProps: { s: baseState({ phase: 'playing' }), seats: [0] } },
+    );
+    expect(sounds.startBgTheme).toHaveBeenCalledOnce();
+    rerender({ s: baseState({ phase: 'gameover', winner: 0 }), seats: [0] });
+    expect(sounds.stopBgTheme).toHaveBeenCalled();
+    expect(sounds.startMenuTheme).toHaveBeenCalledOnce();
+  });
+
+  it('keeps both themes silent while the pre-game countdown is up (enabled=false)', () => {
+    renderHook(({ s, seats, opts }) => useGameplaySounds(s, seats, opts), {
+      initialProps: {
+        s: baseState({ phase: 'playing' }),
+        seats: [0],
+        opts: { enabled: false },
+      },
+    });
+    expect(sounds.startBgTheme).not.toHaveBeenCalled();
+    expect(sounds.startMenuTheme).not.toHaveBeenCalled();
   });
 });
 

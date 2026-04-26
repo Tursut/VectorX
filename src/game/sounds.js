@@ -21,7 +21,8 @@ function createContext() {
   // fails to play after the runtime closed our context (e.g. a long
   // backgrounded tab on Chrome desktop). Anyone observing this should NOT
   // see "no music" — they should see music re-init from the next gesture.
-  bgBuffer = null;
+  bgTrack.dropCache();
+  menuTrack.dropCache();
   winBuffer = null;
   freezeBuffer = null;
   bombBuffer = null;
@@ -53,14 +54,18 @@ export function setMuted(val) {
 // while the page was backgrounded.
 export function resumeAudio() {
   if (!ctx || ctx.state === 'closed') {
-    const wasPlaying = bgPlaying;
-    bgPlaying = false;
-    bgSource = null;
-    bgSourceEnded = false;
+    // Snapshot which themes were playing BEFORE we drop the context, so
+    // we can restart whichever the user was hearing once the new context
+    // is up.
+    const bgWas = bgTrack.resetForNewContext();
+    const menuWas = menuTrack.resetForNewContext();
     createContext();
     if (!ctx) return; // No WebAudio support — silent no-op.
-    if (wasPlaying) {
-      ctx.resume().then(() => startBgTheme()).catch(() => {});
+    if (bgWas || menuWas) {
+      ctx.resume().then(() => {
+        if (bgWas) bgTrack.start();
+        else if (menuWas) menuTrack.start();
+      }).catch(() => {});
     } else {
       ctx.resume().catch(() => {});
     }
@@ -69,14 +74,11 @@ export function resumeAudio() {
   if (ctx.state === 'suspended') {
     ctx.resume().catch(() => {});
   }
-  // ctx is up — but the bg-source under it might have been terminated by
-  // iOS during a background period. If we expected music to be playing and
-  // the source is missing or onended fired, rebuild it.
-  if (bgPlaying && (bgSource === null || bgSourceEnded)) {
-    bgLoadToken += 1;
-    bgSourceEnded = false;
-    startBgSource(bgLoadToken);
-  }
+  // ctx is up — but a track's source might have been terminated by iOS
+  // during a background period. recoverIfNeeded rebuilds either source
+  // if it expected to be playing.
+  bgTrack.recoverIfNeeded();
+  menuTrack.recoverIfNeeded();
 }
 
 // Global audio-recovery listeners — issue #17.
@@ -120,120 +122,152 @@ function makeReverb(c, delayTime = 0.06, feedback = 0.22, wet = 0.18) {
   return delay; // send audio here to add reverb
 }
 
-// ── Background theme ──────────────────────────────────────────────────────────
-// A single looping mp3 (public/bg-spring.mp3) plays under the whole game. We
-// attach it to a dedicated gain node at 0.7 so bg music sits ~30% quieter
-// than the effects that run through masterGain directly. No synth fallback;
-// if the sample fails to load, the bg just stays silent.
+// ── Background themes ────────────────────────────────────────────────────────
+// Two looping mp3s share the same plumbing via a `makeBgTrack` factory:
+//
+//   - bg-spring.mp3      — under the active game (phase === 'playing')
+//   - starostin… .mp3    — under the start screen / lobby / leaderboard
+//
+// Both use a dedicated gain node so they sit ~30–60% quieter than the
+// effects that run through masterGain directly. The two are mutually
+// exclusive — useGameplaySounds picks whichever matches the current
+// phase, and mid-flight start/stop calls invalidate any pending decode
+// via a load token so a late-arriving sample can't sneak in after a
+// quick toggle.
 
-const BG_VOLUME = 0.504; // bg music sits quiet under effects; tuned by ear.
+const BG_VOLUME = 0.504;       // bg music sits quiet under in-game effects.
 const BG_FILE = `${import.meta.env.BASE_URL}bg-spring.mp3`;
+const MENU_VOLUME = 0.4;       // light menu bg, even quieter than in-game.
+const MENU_FILE = `${import.meta.env.BASE_URL}bg-menu.mp3`;
 
-let bgPlaying = false;
-let bgSource = null;
-let bgBuffer = null;
-// Token prevents a late-arriving decode from starting playback for a request
-// the user has since cancelled (stopBgTheme/quick-toggle).
-let bgLoadToken = 0;
-// True once iOS / the runtime has fired the current bgSource's `onended`
-// event. Loop sources with `loop = true` shouldn't end on their own, so a
-// fired onended means the runtime killed the source — typically because
-// the page was backgrounded for too long. resumeAudio inspects this flag
-// and rebuilds the source if needed.
-let bgSourceEnded = false;
+function makeBgTrack(file, volume) {
+  let playing = false;
+  let source = null;
+  let buffer = null;
+  // Token prevents a late-arriving decode from starting playback for a
+  // request the user has since cancelled (stop / quick-toggle).
+  let loadToken = 0;
+  // True once the runtime has fired the current source's `onended`. A
+  // looping source shouldn't end on its own, so a fired onended means the
+  // runtime killed it — typically iOS killing audio on a long backgrounded
+  // page. resumeAudio uses this to detect a dead source and rebuild it.
+  let sourceEnded = false;
 
-// Kicked off at module load so the 4 MB download happens in parallel with the
-// rest of app init — by the time the user starts a game, this promise is
-// usually already resolved. Decoded on first play (can't decode without an
-// AudioContext, which only exists after a user gesture). index.html also
-// carries a <link rel="preload" as="audio"> that starts the request even
-// earlier, during HTML parsing; that + this both hit the HTTP cache so the
-// second request is free.
-let bgRawPromise = null;
-function primeBgRaw() {
-  if (bgRawPromise) return bgRawPromise;
-  if (typeof fetch === 'undefined') return Promise.resolve(null);
-  bgRawPromise = fetch(BG_FILE)
-    .then((res) => (res.ok ? res.arrayBuffer() : null))
-    .catch(() => null);
-  return bgRawPromise;
-}
-primeBgRaw();
-
-function stopBgSourceIfAny() {
-  if (bgSource) {
-    // Detach onended first so an explicit stop() doesn't spuriously
-    // signal "iOS killed the source" (which would trigger recovery).
-    bgSource.onended = null;
-    try { bgSource.stop(); } catch { /* already stopped */ }
-    try { bgSource.disconnect(); } catch { /* already disconnected */ }
-    bgSource = null;
+  // Kicked off at module load so the download happens in parallel with the
+  // rest of app init. Decoded on first play (can't decode without an
+  // AudioContext, which only exists after a user gesture).
+  let rawPromise = null;
+  function primeRaw() {
+    if (rawPromise) return rawPromise;
+    if (typeof fetch === 'undefined') return Promise.resolve(null);
+    rawPromise = fetch(file)
+      .then((res) => (res.ok ? res.arrayBuffer() : null))
+      .catch(() => null);
+    return rawPromise;
   }
-  bgSourceEnded = false;
-}
 
-async function loadBgBuffer() {
-  if (bgBuffer) return bgBuffer;
-  const c = getCtx();
-  if (!c) return null;
-  const arr = await primeBgRaw();
-  if (!arr) throw new Error(`bg ${BG_FILE} failed to preload`);
-  // decodeAudioData detaches the ArrayBuffer; the promise cache holds the
-  // same buffer for reuse, so pass a clone on first decode. Subsequent calls
-  // return the cached AudioBuffer before reaching this point.
-  bgBuffer = await c.decodeAudioData(arr.slice(0));
-  return bgBuffer;
-}
+  function stopSourceIfAny() {
+    if (source) {
+      // Detach onended so an explicit stop() doesn't spuriously signal
+      // "iOS killed the source" (which would trigger recovery).
+      source.onended = null;
+      try { source.stop(); } catch { /* already stopped */ }
+      try { source.disconnect(); } catch { /* already disconnected */ }
+      source = null;
+    }
+    sourceEnded = false;
+  }
 
-async function startBgSource(token) {
-  let buf;
-  try { buf = await loadBgBuffer(); } catch { return; }
-  if (!buf || !bgPlaying || token !== bgLoadToken) return;
-  const c = getCtx();
-  if (!c) return;
-  // Make sure the context is actually running before we schedule playback.
-  // getCtx() above kicks an unawaited resume() — on Chrome, resuming after
-  // a long backgrounded period can silently no-op if it isn't awaited, and
-  // then src.start() schedules audio that never plays. Await the resume so
-  // we either have a running context or a clear failure.
-  if (c.state === 'suspended') {
-    try { await c.resume(); } catch (err) {
-      console.warn('[sounds] bg theme resume failed', err);
-      return;
+  async function loadBuffer() {
+    if (buffer) return buffer;
+    const c = getCtx();
+    if (!c) return null;
+    const arr = await primeRaw();
+    if (!arr) throw new Error(`bg ${file} failed to preload`);
+    // decodeAudioData detaches the ArrayBuffer; the promise cache holds the
+    // same buffer for reuse, so pass a clone on first decode.
+    buffer = await c.decodeAudioData(arr.slice(0));
+    return buffer;
+  }
+
+  async function startSource(token) {
+    let buf;
+    try { buf = await loadBuffer(); } catch { return; }
+    if (!buf || !playing || token !== loadToken) return;
+    const c = getCtx();
+    if (!c) return;
+    if (c.state === 'suspended') {
+      try { await c.resume(); } catch (err) {
+        console.warn(`[sounds] ${file} resume failed`, err);
+        return;
+      }
+    }
+    if (!playing || token !== loadToken) return;
+    stopSourceIfAny();
+    const gain = c.createGain();
+    gain.gain.value = volume;
+    gain.connect(masterGain);
+    const src = c.createBufferSource();
+    src.buffer = buf;
+    src.loop = true;
+    src.connect(gain);
+    src.onended = () => { if (source === src) sourceEnded = true; };
+    sourceEnded = false;
+    src.start(c.currentTime + 0.02);
+    source = src;
+  }
+
+  function start() {
+    if (playing) return;
+    playing = true;
+    loadToken += 1;
+    startSource(loadToken);
+  }
+
+  function stop() {
+    playing = false;
+    loadToken += 1; // invalidate any in-flight decode
+    stopSourceIfAny();
+  }
+
+  function recoverIfNeeded() {
+    if (playing && (source === null || sourceEnded)) {
+      loadToken += 1;
+      sourceEnded = false;
+      startSource(loadToken);
     }
   }
-  if (!bgPlaying || token !== bgLoadToken) return;
-  stopBgSourceIfAny();
-  const gain = c.createGain();
-  gain.gain.value = BG_VOLUME;
-  gain.connect(masterGain);
-  const src = c.createBufferSource();
-  src.buffer = buf;
-  src.loop = true;
-  src.connect(gain);
-  // onended only fires for a looping source if something killed it (iOS
-  // background, runtime resource pressure, ctx close). Flagging this lets
-  // resumeAudio detect a dead source and rebuild it on the next gesture.
-  src.onended = () => {
-    if (bgSource === src) bgSourceEnded = true;
-  };
-  bgSourceEnded = false;
-  src.start(c.currentTime + 0.02);
-  bgSource = src;
+
+  // Called when the AudioContext closes (iOS background reclaim). Forget
+  // the source reference but report whether we WERE playing so resumeAudio
+  // can restart us once a new context is created.
+  function resetForNewContext() {
+    const was = playing;
+    playing = false;
+    source = null;
+    sourceEnded = false;
+    return was;
+  }
+
+  // The decoded buffer is bound to the current AudioContext. When that
+  // context closes, drop the cache so the next play decodes against the
+  // new context.
+  function dropCache() { buffer = null; }
+
+  // Kick off the prefetch at module load. Both tracks race the same HTTP
+  // cache that index.html's `<link rel="preload">` warmed up.
+  primeRaw();
+
+  return { start, stop, recoverIfNeeded, resetForNewContext, dropCache };
 }
 
-export function startBgTheme() {
-  if (bgPlaying) return;
-  bgPlaying = true;
-  bgLoadToken += 1;
-  startBgSource(bgLoadToken);
-}
+const bgTrack = makeBgTrack(BG_FILE, BG_VOLUME);
+const menuTrack = makeBgTrack(MENU_FILE, MENU_VOLUME);
 
-export function stopBgTheme() {
-  bgPlaying = false;
-  bgLoadToken += 1; // invalidate any in-flight decode
-  stopBgSourceIfAny();
-}
+export const startBgTheme = bgTrack.start;
+export const stopBgTheme = bgTrack.stop;
+export const startMenuTheme = menuTrack.start;
+export const stopMenuTheme = menuTrack.stop;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

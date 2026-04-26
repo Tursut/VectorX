@@ -17,6 +17,8 @@ vi.mock('../../game/sounds', () => ({
   resumeAudio: vi.fn(),
   startBgTheme: vi.fn(),
   stopBgTheme: vi.fn(),
+  startMenuTheme: vi.fn(),
+  stopMenuTheme: vi.fn(),
   playMove: vi.fn(),
   playClaim: vi.fn(),
   playYourTurn: vi.fn(),
