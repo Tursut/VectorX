@@ -16,6 +16,7 @@ function createContext() {
   // see "no music" — they should see music re-init from the next gesture.
   bgBuffer = null;
   winBuffer = null;
+  freezeBuffer = null;
 }
 
 // Never auto-recreates a closed context — that must happen from a user gesture in resumeAudio().
@@ -382,32 +383,48 @@ export function playBomb() {
 }
 
 // Crystalline ascending arpeggio with icy LFO shimmer
-export function playFreeze() {
+// Iced-magic sample. Mirrors the win-fanfare load pattern (one-shot
+// AudioBufferSource, lazy fetch + decode, cache invalidated on context
+// recreate). Played when a freeze gets APPLIED to a target — pickup is
+// silent for freeze (the freezeSelectActive cell-targeting overlay is
+// the visual cue that the user is in freeze-pick mode).
+const FREEZE_FILE = `${import.meta.env.BASE_URL}freeze-apply.mp3`;
+const FREEZE_VOLUME = 0.85;
+let freezeRawPromise = null;
+let freezeBuffer = null;
+function primeFreezeRaw() {
+  if (freezeRawPromise) return freezeRawPromise;
+  if (typeof fetch === 'undefined') return Promise.resolve(null);
+  freezeRawPromise = fetch(FREEZE_FILE)
+    .then((res) => (res.ok ? res.arrayBuffer() : null))
+    .catch(() => null);
+  return freezeRawPromise;
+}
+primeFreezeRaw();
+
+async function loadFreezeBuffer() {
+  if (freezeBuffer) return freezeBuffer;
+  const c = getCtx();
+  if (!c) return null;
+  const arr = await primeFreezeRaw();
+  if (!arr) return null;
+  freezeBuffer = await c.decodeAudioData(arr.slice(0));
+  return freezeBuffer;
+}
+
+export async function playFreeze() {
+  let buf;
+  try { buf = await loadFreezeBuffer(); } catch { return; }
+  if (!buf) return;
   const c = getCtx();
   if (!c) return;
-  const lfo = c.createOscillator();
-  lfo.type = 'sine';
-  lfo.frequency.setValueAtTime(8, c.currentTime);
-  lfo.frequency.linearRampToValueAtTime(14, c.currentTime + 0.65);
-  const lfoG = c.createGain();
-  lfoG.gain.value = 20;
-
-  [1047, 1319, 1568, 2093, 2637].forEach((freq, i) => {
-    const t = c.currentTime + i * 0.058;
-    const osc = c.createOscillator();
-    osc.type = 'sine';
-    osc.frequency.value = freq;
-    osc.detune.value = 4;
-    lfo.connect(lfoG); lfoG.connect(osc.frequency);
-    const g = c.createGain();
-    g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(0.12, t + 0.012);
-    g.gain.exponentialRampToValueAtTime(0.001, t + 0.62);
-    osc.connect(g); g.connect(out());
-    osc.start(t); osc.stop(t + 0.68);
-  });
-  lfo.start(c.currentTime);
-  lfo.stop(c.currentTime + 0.72);
+  const gain = c.createGain();
+  gain.gain.value = FREEZE_VOLUME;
+  gain.connect(out());
+  const src = c.createBufferSource();
+  src.buffer = buf;
+  src.connect(gain);
+  src.start(c.currentTime + 0.02);
 }
 
 // LFO-warped sine — slightly sci-fi, slightly silly

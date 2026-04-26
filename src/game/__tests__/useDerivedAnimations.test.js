@@ -191,7 +191,11 @@ describe('useDerivedAnimations — item pickup sounds', () => {
     expect(sounds.playSwapActivate).toHaveBeenCalledOnce();
   });
 
-  it('fires playFreeze when player lands on a freeze item (turnCount unchanged)', () => {
+  it('does NOT fire playFreeze on pickup — that sound only plays when freeze is APPLIED to a target', () => {
+    // Freeze is the odd one out among items: it has a pick-target step
+    // between pickup and effect. The sample plays on the apply step
+    // (driven by useGameplaySounds via lastEvent.type === 'freeze'),
+    // not here at the pickup transition.
     const prev = {
       ...baseState(),
       items: [{ id: 'f1', type: 'freeze', row: 0, col: 1 }],
@@ -201,14 +205,13 @@ describe('useDerivedAnimations — item pickup sounds', () => {
       players: prev.players.map((p, i) => i === 0 ? { ...p, row: 0, col: 1 } : p),
       items: [],
       freezeSelectActive: true,
-      // turnCount deliberately NOT incremented
     };
     const { rerender } = renderHook(
       ({ gameState }) => useDerivedAnimations(gameState),
       { initialProps: { gameState: prev } },
     );
     rerender({ gameState: next });
-    expect(sounds.playFreeze).toHaveBeenCalledOnce();
+    expect(sounds.playFreeze).not.toHaveBeenCalled();
   });
 
   it('does not fire pickup sounds when the item is still there', () => {
