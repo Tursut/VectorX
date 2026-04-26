@@ -87,7 +87,7 @@ export default function OnlineGameController({
   }, [connectionState]);
 
   // Derived animation overlays + item-pickup sounds; fed to GameScreen.
-  const { bombBlast, portalJump, swapFlash, flyingFreeze } = useDerivedAnimations(gameState);
+  const { bombBlast, portalJump, swapFlash, flyingFreeze, roulettePlayerId } = useDerivedAnimations(gameState);
 
   // Turn-timer visualization. The server is authoritative — it schedules the
   // real alarm and forfeits the seat on expiry — we just drive the indicator
@@ -325,6 +325,7 @@ export default function OnlineGameController({
           portalJump={portalJump}
           swapFlash={swapFlash}
           flyingFreeze={flyingFreeze}
+          roulettePlayerId={roulettePlayerId}
         />
         {exitConfirmModal}
         {/* Pre-game countdown — same overlay LocalGameController uses,

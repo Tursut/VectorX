@@ -4,18 +4,58 @@
 // locally; a wire broadcast online). No imperative pre-dispatch setup.
 //
 // Returned state is consumed as props by GameBoard: `bombBlast`, `portalJump`,
-// `swapFlash`, `flyingFreeze`. Each auto-clears after its animation duration.
+// `swapFlash`, `flyingFreeze`, `roulettePlayerId`. Each auto-clears after
+// its animation duration.
+//
+// Roulette suspense (issue #30): when a BOT applies freeze or swap to a
+// chosen target, this hook plays a short drum-roll first — a glowing
+// outline hops across alive opponents (with `playTick` per hop), eased
+// from fast to slow, finally landing on the actual target — and only
+// THEN dispatches the existing `flyingFreeze` / `swapFlash` animation.
+// Skipped (existing immediate behaviour) for human picks, for picks
+// with ≤ 1 alive opponent, and for picks while no humans are alive
+// (bots-only endgame already runs in #20's speed-run mode and shouldn't
+// be slowed by suspense theatre).
 
 import { useEffect, useRef, useState } from 'react';
-import { GRID_SIZE } from './constants';
+import { GRID_SIZE, PLAYERS } from './constants';
 import * as sounds from './sounds';
+
+// Bot detection that works for hotseat (no per-player isBot field —
+// derives from gremlinCount: the last `gc` seats are bots) and for
+// online (per-player isBot, set by the server's buildGameState).
+function isBotPlayer(gameState, player) {
+  if (!player) return false;
+  if (player.isBot !== undefined) return player.isBot;
+  const gc = gameState?.gremlinCount ?? 0;
+  return player.id >= PLAYERS.length - gc;
+}
+
+// EaseOut hop schedule: fast at first, slowing into the final reveal.
+// 8 hops, ~1.39 s total. Hard-capped well under 1.6 s budget.
+const ROULETTE_HOP_DURATIONS_MS = [60, 70, 90, 120, 160, 220, 290, 380];
+// Hold the spotlight on the actual target for a beat after the final
+// hop lands, before handing off to the existing fly-in / flash.
+const ROULETTE_HOLD_MS = 250;
 
 export function useDerivedAnimations(gameState) {
   const [bombBlast, setBombBlast] = useState(null);
   const [portalJump, setPortalJump] = useState(null);
   const [swapFlash, setSwapFlash] = useState(null);
   const [flyingFreeze, setFlyingFreeze] = useState(null);
+  const [roulettePlayerId, setRoulettePlayerId] = useState(null);
   const prevRef = useRef(null);
+  // Last `lastEvent` reference processed — guards against re-firing the
+  // roulette / fly-in on a reconnect-driven repeat GAME_STATE or any
+  // other re-render that doesn't actually represent a new event.
+  const lastEventRef = useRef(null);
+  // Pending hop timeouts so unmount / new event can clean them up.
+  const rouletteTimersRef = useRef([]);
+
+  function clearRouletteTimers() {
+    for (const t of rouletteTimersRef.current) clearTimeout(t);
+    rouletteTimersRef.current = [];
+  }
 
   // Auto-clear timeouts.
   useEffect(() => {
@@ -39,27 +79,100 @@ export function useDerivedAnimations(gameState) {
     return () => clearTimeout(t);
   }, [flyingFreeze]);
 
-  // Flying-freeze projectile — fires when lastEvent changes to a freeze event.
-  // The setState here is intentional: a discriminated-union change on lastEvent
-  // is an *event*, not derived state, and the animation overlay needs a
-  // re-render to mount. react-hooks/set-state-in-effect can't see that.
+  // Cleanup any in-flight roulette timers on unmount.
+  useEffect(() => () => clearRouletteTimers(), []);
+
+  // Freeze / swap event watcher. Routes a bot-driven event through the
+  // roulette before firing the existing fly-in / flash; routes a human
+  // event (or an unwatchable one) straight through, matching pre-#30
+  // timing.
   useEffect(() => {
     const ev = gameState?.lastEvent;
-    if (!ev || ev.type !== 'freeze') return;
+    if (!ev) return;
+    if (ev.type !== 'freeze' && ev.type !== 'swap') return;
+    // Reconnects deliver the same GAME_STATE (and the same `lastEvent`
+    // reference) again. Fire once per unique event reference.
+    if (lastEventRef.current === ev) return;
+    lastEventRef.current = ev;
+
     const collector = gameState.players.find((p) => p.id === ev.byId);
-    const frozen = gameState.players.find((p) => p.id === ev.targetId);
-    if (!collector || !frozen) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setFlyingFreeze({
-      fromRow: collector.row,
-      fromCol: collector.col,
-      toRow: frozen.row,
-      toCol: frozen.col,
+    const target = gameState.players.find((p) => p.id === ev.targetId);
+    if (!collector || !target) return;
+
+    const fireImmediate = () => {
+      if (ev.type === 'freeze') {
+        setFlyingFreeze({
+          fromRow: collector.row,
+          fromCol: collector.col,
+          toRow: target.row,
+          toCol: target.col,
+        });
+      } else {
+        setSwapFlash({
+          pos1: { row: collector.row, col: collector.col },
+          pos2: { row: target.row, col: target.col },
+        });
+      }
+    };
+
+    const isBotEvent = isBotPlayer(gameState, collector);
+    const opponents = gameState.players.filter(
+      (p) => !p.isEliminated && p.id !== ev.byId,
+    );
+    const aliveHumans = gameState.players.filter(
+      (p) => !p.isEliminated && !isBotPlayer(gameState, p),
+    );
+    const skipRoulette =
+      !isBotEvent ||
+      opponents.length <= 1 ||
+      aliveHumans.length === 0;
+
+    if (skipRoulette) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      fireImmediate();
+      return;
+    }
+
+    // Build the hop schedule. Each non-final hop picks a random
+    // opponent ≠ the previous hop, so the highlight visibly travels.
+    // The final hop is the actual target.
+    const hops = [];
+    let prevId = -1;
+    for (let i = 0; i < ROULETTE_HOP_DURATIONS_MS.length - 1; i++) {
+      const choices = opponents.filter((p) => p.id !== prevId);
+      const pick = choices[Math.floor(Math.random() * choices.length)];
+      hops.push({ playerId: pick.id, dur: ROULETTE_HOP_DURATIONS_MS[i] });
+      prevId = pick.id;
+    }
+    hops.push({
+      playerId: target.id,
+      dur: ROULETTE_HOP_DURATIONS_MS[ROULETTE_HOP_DURATIONS_MS.length - 1],
     });
+
+    // Schedule the hops + the final fly-in/flash handoff.
+    clearRouletteTimers();
+    let cumulative = 0;
+    hops.forEach((hop) => {
+      const at = cumulative;
+      rouletteTimersRef.current.push(setTimeout(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setRoulettePlayerId(hop.playerId);
+        sounds.playTick();
+      }, at));
+      cumulative += hop.dur;
+    });
+    rouletteTimersRef.current.push(setTimeout(() => {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setRoulettePlayerId(null);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      fireImmediate();
+    }, cumulative + ROULETTE_HOLD_MS));
   }, [gameState?.lastEvent, gameState?.players]);
 
-  // Main state-diff: detect item pickups, portal jumps, swap flashes from the
-  // (prev → current) turn transition. Item-pickup sounds fire here too.
+  // Main state-diff: detect item pickups + portal jumps from the
+  // (prev → current) turn transition. Item-pickup sounds fire here.
+  // Swap flash + freeze fly-in moved to the freeze/swap event watcher
+  // above (post-#30 it can sit alongside the roulette state machine).
   useEffect(() => {
     if (!gameState) { prevRef.current = null; return; }
     const prev = prevRef.current;
@@ -136,27 +249,7 @@ export function useDerivedAnimations(gameState) {
         }
       }
     }
-
-    // Swap flash: prev.swapActive → false, some other player now sits at
-    // prevMover's previous position.
-    if (prev.swapActive && !gameState.swapActive) {
-      const prevMover = prev.players[prev.currentPlayerIndex];
-      if (prevMover) {
-        const partner = gameState.players.find(
-          (p) =>
-            p.id !== mover.id &&
-            p.row === prevMover.row &&
-            p.col === prevMover.col,
-        );
-        if (partner) {
-          setSwapFlash({
-            pos1: { row: prevMover.row, col: prevMover.col },
-            pos2: { row: mover.row, col: mover.col },
-          });
-        }
-      }
-    }
   }, [gameState]);
 
-  return { bombBlast, portalJump, swapFlash, flyingFreeze };
+  return { bombBlast, portalJump, swapFlash, flyingFreeze, roulettePlayerId };
 }

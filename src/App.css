@@ -238,6 +238,22 @@
   to   { box-shadow: 0 0 24px 8px var(--player-color); }
 }
 
+/* Roulette spotlight — drum-roll outline that hops between alive
+   opponents while a bot resolves a freeze/swap target (issue #30).
+   Brighter + sharper than the per-turn opponent pulse, with a quick
+   pop on each hop because the keyframes restart whenever the
+   highlighted cell changes. */
+.cell-roulette {
+  z-index: 2;
+  box-shadow: 0 0 0 3px #fff, 0 0 22px 6px var(--player-color);
+  animation: rouletteFlash 0.18s ease-out;
+}
+
+@keyframes rouletteFlash {
+  from { transform: scale(1.04); }
+  to   { transform: scale(1); }
+}
+
 .cell-trapped {
   z-index: 1;
   animation: trapPulse 2.5s ease-in-out forwards;

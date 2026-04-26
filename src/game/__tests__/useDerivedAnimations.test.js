@@ -78,6 +78,7 @@ describe('useDerivedAnimations — no-op paths', () => {
       portalJump: null,
       swapFlash: null,
       flyingFreeze: null,
+      roulettePlayerId: null,
     });
   });
 
@@ -269,9 +270,12 @@ describe('useDerivedAnimations — portal jump', () => {
 // ---------- Swap flash ----------
 
 describe('useDerivedAnimations — swap flash', () => {
-  it('fires swapFlash when two players exchange positions', () => {
+  it('fires swapFlash from lastEvent = swap (human pick — no roulette)', () => {
     const prev = { ...baseState(), swapActive: true };
-    // Player 0 at (0,0) swaps with player 3 at (9,9).
+    // Player 0 at (0,0) swaps with player 3 at (9,9). After the swap the
+    // server stamps lastEvent and the players' positions are exchanged in
+    // the same broadcast. swapFlash uses the *post-swap* positions of
+    // collector + target — same anchor points the existing visual hits.
     const nextPlayers = prev.players.map((p) => {
       if (p.id === 0) return { ...p, row: 9, col: 9 };
       if (p.id === 3) return { ...p, row: 0, col: 0 };
@@ -283,6 +287,7 @@ describe('useDerivedAnimations — swap flash', () => {
       currentPlayerIndex: 1,
       turnCount: 1,
       swapActive: false,
+      lastEvent: { type: 'swap', byId: 0, targetId: 3 },
     };
     const { result, rerender } = renderHook(
       ({ gameState }) => useDerivedAnimations(gameState),
@@ -290,8 +295,8 @@ describe('useDerivedAnimations — swap flash', () => {
     );
     rerender({ gameState: next });
     expect(result.current.swapFlash).toEqual({
-      pos1: { row: 0, col: 0 },
-      pos2: { row: 9, col: 9 },
+      pos1: { row: 9, col: 9 },
+      pos2: { row: 0, col: 0 },
     });
   });
 });

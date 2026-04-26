@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { PLAYERS } from '../game/constants';
 import Cell from './Cell';
 
-export default function GameBoard({ grid, players, validMoveSet, onCellClick, currentPlayerIndex, items, portalActive, swapActive, freezeSelectActive = false, isGremlinTurn, isOpponentTurn = false, bombBlast, portalJump, swapFlash, trappedPlayers = [], winnerPlayer = null, flyingFreeze = null, frozenPlayerId = null, frozenTurnsLeft = 0 }) {
+export default function GameBoard({ grid, players, validMoveSet, onCellClick, currentPlayerIndex, items, portalActive, swapActive, freezeSelectActive = false, isGremlinTurn, isOpponentTurn = false, bombBlast, portalJump, swapFlash, trappedPlayers = [], winnerPlayer = null, flyingFreeze = null, roulettePlayerId = null, frozenPlayerId = null, frozenTurnsLeft = 0 }) {
   const playerPositions = {};
   const deathCells = {};
   const itemMap = {};
@@ -62,6 +62,7 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
               isSwapFlash={swapFlashSet ? swapFlashSet.has(key) : false}
               isTrapped={trappedPlayers.some(tp => tp.row === ri && tp.col === ci)}
               isFreezeTarget={!isGremlinTurn && freezeSelectActive && players.some(p => !p.isEliminated && p.id !== players[currentPlayerIndex].id && p.row === ri && p.col === ci)}
+              isRoulette={roulettePlayerId !== null && players.some(p => p.id === roulettePlayerId && p.row === ri && p.col === ci)}
             />
           );
         })

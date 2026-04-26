@@ -10,7 +10,7 @@ function badgeColor(turnsLeft) {
 
 const spring = { type: 'spring', stiffness: 380, damping: 28 };
 
-export default function Cell({ row, col, cell, isValidMove, isCurrentPlayer, isOpponentTurn, playerHere, deathHere, itemHere, portalActive, swapActive, playerColor, onCellClick, isBombOrigin, isBombCleared, isPortalOrigin, isPortalDest, isSwapFlash, isTrapped, isFreezeTarget }) {
+export default function Cell({ row, col, cell, isValidMove, isCurrentPlayer, isOpponentTurn, isRoulette, playerHere, deathHere, itemHere, portalActive, swapActive, playerColor, onCellClick, isBombOrigin, isBombCleared, isPortalOrigin, isPortalDest, isSwapFlash, isTrapped, isFreezeTarget }) {
   const owner = cell.owner !== null ? PLAYERS[cell.owner] : null;
 
   let className = 'cell';
@@ -25,6 +25,10 @@ export default function Cell({ row, col, cell, isValidMove, isCurrentPlayer, isO
   // got the glow); broadened to cover remote human opponents in online
   // mode so you can see who you're waiting for (issue #24).
   if (isOpponentTurn) className += ' cell-opponent-thinking';
+  // Roulette spotlight — drum-roll outline as a bot picks a freeze/swap
+  // target (issue #30). Each hop re-applies this class on a different
+  // cell, so the keyframes restart per hop and produce a quick pop.
+  if (isRoulette) className += ' cell-roulette';
   if (isBombCleared) className += ' cell-bomb-cleared';
   if (isTrapped) className += ' cell-trapped';
   if (isFreezeTarget) className += ' cell-freeze-target';

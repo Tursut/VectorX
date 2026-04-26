@@ -53,6 +53,7 @@ export default function GameScreen({
   portalJump = null,
   swapFlash = null,
   flyingFreeze = null,
+  roulettePlayerId = null,
 }) {
   const [trappedPlayers, setTrappedPlayers] = useState([]);
   const [eliminationPending, setEliminationPending] = useState(false);
@@ -210,6 +211,7 @@ export default function GameScreen({
                 trappedPlayers={trappedPlayers}
                 winnerPlayer={winnerPlayer}
                 flyingFreeze={flyingFreeze}
+                roulettePlayerId={roulettePlayerId}
                 frozenPlayerId={gameState.frozenPlayerId ?? null}
                 frozenTurnsLeft={gameState.frozenTurnsLeft ?? 0}
               />
