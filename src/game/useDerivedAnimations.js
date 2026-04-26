@@ -110,11 +110,13 @@ export function useDerivedAnimations(gameState) {
         sounds.playPortal();
       } else if (pickedUp.type === 'swap') {
         sounds.playSwapActivate();
+      } else if (pickedUp.type === 'freeze') {
+        // playTick is a placeholder pickup cue (issue #28). The
+        // iced-magic sample (playFreeze) still plays on apply via
+        // useGameplaySounds when lastEvent.type === 'freeze' lands —
+        // pickup vs apply stay audibly distinct.
+        sounds.playTick();
       }
-      // Freeze pickup is intentionally silent — playFreeze fires later
-      // when the user actually applies it to a target (driven by
-      // useGameplaySounds via lastEvent.type === 'freeze'). The cell-
-      // targeting overlay is the cue that we're in freeze-pick mode.
     }
 
     // Portal jump: prev.portalActive → false, mover moved >1 cell (Chebyshev).

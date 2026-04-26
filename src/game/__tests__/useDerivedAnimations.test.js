@@ -13,6 +13,7 @@ vi.mock('../sounds', () => ({
   playSwapActivate: vi.fn(),
   playPortalJump: vi.fn(),
   playFreeze: vi.fn(),
+  playTick: vi.fn(),
 }));
 
 // Import AFTER the mock is in place.
@@ -191,11 +192,13 @@ describe('useDerivedAnimations — item pickup sounds', () => {
     expect(sounds.playSwapActivate).toHaveBeenCalledOnce();
   });
 
-  it('does NOT fire playFreeze on pickup — that sound only plays when freeze is APPLIED to a target', () => {
+  it('fires playTick on freeze pickup as a placeholder cue, but not playFreeze (that fires on apply)', () => {
     // Freeze is the odd one out among items: it has a pick-target step
-    // between pickup and effect. The sample plays on the apply step
-    // (driven by useGameplaySounds via lastEvent.type === 'freeze'),
-    // not here at the pickup transition.
+    // between pickup and effect. The iced-magic sample (playFreeze)
+    // plays on the apply step (driven by useGameplaySounds via
+    // lastEvent.type === 'freeze'). Pickup gets a quick playTick as a
+    // placeholder cue (issue #28) so the user has audible feedback at
+    // the moment they grab the item.
     const prev = {
       ...baseState(),
       items: [{ id: 'f1', type: 'freeze', row: 0, col: 1 }],
@@ -211,6 +214,7 @@ describe('useDerivedAnimations — item pickup sounds', () => {
       { initialProps: { gameState: prev } },
     );
     rerender({ gameState: next });
+    expect(sounds.playTick).toHaveBeenCalledOnce();
     expect(sounds.playFreeze).not.toHaveBeenCalled();
   });
 
