@@ -137,9 +137,10 @@ function makeReverb(c, delayTime = 0.06, feedback = 0.22, wet = 0.18) {
 
 const BG_VOLUME = 0.504;       // bg music sits quiet under in-game effects.
 const BG_FILE = `${import.meta.env.BASE_URL}bg-spring.mp3`;
-// Web-audio gain isn't perceptually linear — 0.4 sounded louder than "40%"
-// in playtest, 0.25 still too loud, settling at 0.3 / "30%" target.
-const MENU_VOLUME = 0.3;
+// Web-audio gain isn't perceptually linear — 0.25 still sounded too loud
+// in playtest. Dropping to 0.15: clearly a soft bed under foreground
+// sounds. Iterate down further if still too present.
+const MENU_VOLUME = 0.15;
 const MENU_FILE = `${import.meta.env.BASE_URL}bg-menu.mp3`;
 // Default fade-out length when stopping a track (issue: menu used to cut
 // abruptly the moment the countdown started). Used by both tracks.
