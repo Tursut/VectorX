@@ -86,22 +86,7 @@ describe('useGameplaySounds — move + claim + your-turn', () => {
   });
 });
 
-describe('useGameplaySounds — event sounds', () => {
-  it('plays freeze sound when lastEvent is a freeze event', () => {
-    const { rerender } = renderHook(({ s }) => useGameplaySounds(s, []), {
-      initialProps: { s: baseState() },
-    });
-    rerender({ s: baseState({ lastEvent: { type: 'freeze', byId: 0, targetId: 1 } }) });
-    expect(sounds.playFreeze).toHaveBeenCalledOnce();
-    expect(sounds.playSwap).not.toHaveBeenCalled();
-  });
-
-  it('plays swap sound when lastEvent is a swap event', () => {
-    const { rerender } = renderHook(({ s }) => useGameplaySounds(s, []), {
-      initialProps: { s: baseState() },
-    });
-    rerender({ s: baseState({ lastEvent: { type: 'swap', byId: 0, targetId: 1 } }) });
-    expect(sounds.playSwap).toHaveBeenCalledOnce();
-    expect(sounds.playFreeze).not.toHaveBeenCalled();
-  });
-});
+// freeze / swap apply sounds moved to useDerivedAnimations#fireImmediate
+// in #30 so they line up with the deferred fly-in / flash visual after
+// the bot-pick roulette. Coverage now lives in
+// useDerivedAnimations.roulette.test.js.

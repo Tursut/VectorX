@@ -32,13 +32,10 @@ export function useGameplaySounds(gameState, mySeats = []) {
     return () => sounds.stopBgTheme();
   }, [gameState?.phase]);
 
-  // Freeze / swap event sounds — fire when the move that triggered them lands.
-  useEffect(() => {
-    const ev = gameState?.lastEvent;
-    if (!ev) return;
-    if (ev.type === 'freeze') sounds.playFreeze();
-    else if (ev.type === 'swap') sounds.playSwap();
-  }, [gameState?.lastEvent]);
+  // Freeze / swap apply sounds moved to useDerivedAnimations#fireImmediate
+  // so they line up with the deferred visual after the bot-pick roulette
+  // (issue #30). Human picks fall through the same fireImmediate path
+  // and so still fire at the same wall-clock moment as before.
 
   // Move + claim on turn change; your-turn chime when a seat I control is up.
   useEffect(() => {

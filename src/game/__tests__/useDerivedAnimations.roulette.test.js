@@ -14,6 +14,7 @@ vi.mock('../sounds', () => ({
   playBomb: vi.fn(),
   playPortal: vi.fn(),
   playSwapActivate: vi.fn(),
+  playSwap: vi.fn(),
   playPortalJump: vi.fn(),
   playFreeze: vi.fn(),
   playTick: vi.fn(),
@@ -22,9 +23,9 @@ vi.mock('../sounds', () => ({
 import { useDerivedAnimations } from '../useDerivedAnimations';
 import * as sounds from '../sounds';
 
-// Hop schedule must match useDerivedAnimations.js. 16 hops + hold + 3-blink reveal.
+// Hop schedule must match useDerivedAnimations.js. 13 hops + hold + 3-blink reveal.
 const HOP_DURATIONS = [
-  30, 38, 50, 65, 85, 110, 140, 175, 215, 265, 325, 400, 500, 650, 870, 1180,
+  65, 85, 110, 140, 175, 215, 265, 325, 400, 500, 650, 870, 1180,
 ];
 const HOP_HOLD_MS = 250;
 const REVEAL_MS = 900;
@@ -170,17 +171,23 @@ describe('roulette — engaged path', () => {
     rerender({ gameState: next });
 
     // Mid-roulette: roulettePlayerId set, swapFlash still deferred,
-    // pendingSwap set so GameBoard renders pre-swap layout.
+    // pendingSwap set so GameBoard renders pre-swap layout. The
+    // playSwap apply sound must NOT have fired yet — it's now bundled
+    // with the visual handoff so the click and the green flash line
+    // up.
     act(() => { vi.advanceTimersByTime(HOP_DURATIONS[0] + HOP_DURATIONS[1] + HOP_DURATIONS[2]); });
     expect(result.current.roulettePlayerId).not.toBeNull();
     expect(result.current.swapFlash).toBeNull();
     expect(result.current.pendingSwap).toEqual({ byId: 1, targetId: 0 });
+    expect(sounds.playSwap).not.toHaveBeenCalled();
 
     // Past the schedule: roulette clears, swapFlash fires, pendingSwap
-    // clears (icons can now slide to their swapped positions).
+    // clears (icons can now slide to their swapped positions), and the
+    // apply sound finally plays alongside the visual.
     act(() => { vi.advanceTimersByTime(ROULETTE_TOTAL_MS); });
     expect(result.current.roulettePlayerId).toBeNull();
     expect(result.current.pendingSwap).toBeNull();
+    expect(sounds.playSwap).toHaveBeenCalledOnce();
     expect(result.current.swapFlash).not.toBeNull();
   });
 

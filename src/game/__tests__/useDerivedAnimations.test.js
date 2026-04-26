@@ -11,6 +11,7 @@ vi.mock('../sounds', () => ({
   playBomb: vi.fn(),
   playPortal: vi.fn(),
   playSwapActivate: vi.fn(),
+  playSwap: vi.fn(),
   playPortalJump: vi.fn(),
   playFreeze: vi.fn(),
   playTick: vi.fn(),

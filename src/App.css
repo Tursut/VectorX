@@ -245,7 +245,7 @@
    highlighted cell changes. */
 .cell-roulette {
   z-index: 2;
-  box-shadow: 0 0 0 3px #fff, 0 0 22px 6px var(--player-color);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.55), 0 0 22px 6px var(--player-color);
   animation: rouletteFlash 0.18s ease-out;
 }
 
@@ -265,15 +265,15 @@
 
 @keyframes rouletteReveal {
   0%, 33%, 66% {
-    box-shadow: 0 0 0 4px #fff, 0 0 28px 8px var(--player-color);
+    box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.65), 0 0 28px 8px var(--player-color);
     transform: scale(1.08);
   }
   16%, 50%, 83% {
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.25), 0 0 6px 2px var(--player-color);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18), 0 0 6px 2px var(--player-color);
     transform: scale(1);
   }
   100% {
-    box-shadow: 0 0 0 5px #fff, 0 0 32px 10px var(--player-color);
+    box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.7), 0 0 32px 10px var(--player-color);
     transform: scale(1.12);
   }
 }

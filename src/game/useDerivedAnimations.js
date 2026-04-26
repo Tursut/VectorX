@@ -31,12 +31,14 @@ function isBotPlayer(gameState, player) {
   return player.id >= PLAYERS.length - gc;
 }
 
-// EaseOut hop schedule: fast at first, slowing dramatically into the
-// final reveal — the last 3 hops are unmistakably long so the wheel
-// looks like it's coasting to a stop.
-// 16 hops, ~5.1 s total + reveal blink ≈ 6 s end-to-end.
+// EaseOut hop schedule: skips the very-fast initial flicker hops
+// (those barely register visually) and starts at a pace the eye can
+// follow, slowing dramatically into the final reveal — the last 3
+// hops are unmistakably long so the wheel looks like it's coasting
+// to a stop.
+// 13 hops, ~5.0 s total + reveal blink ≈ 6 s end-to-end.
 const ROULETTE_HOP_DURATIONS_MS = [
-  30, 38, 50, 65, 85, 110, 140, 175, 215, 265, 325, 400, 500, 650, 870, 1180,
+  65, 85, 110, 140, 175, 215, 265, 325, 400, 500, 650, 870, 1180,
 ];
 // Brief pause after the final hop before the 3-blink reveal starts —
 // the spotlight settles for a beat ("…and the winner is…") before
@@ -117,6 +119,10 @@ export function useDerivedAnimations(gameState) {
     const target = gameState.players.find((p) => p.id === ev.targetId);
     if (!collector || !target) return;
 
+    // Fires the deferred visual + sound for the freeze/swap apply.
+    // Sounds moved here from useGameplaySounds so they line up with
+    // the animation rather than playing the moment GAME_STATE arrives
+    // (which, when a roulette is rolling, is ~6 s too early).
     const fireImmediate = () => {
       if (ev.type === 'freeze') {
         setFlyingFreeze({
@@ -125,11 +131,13 @@ export function useDerivedAnimations(gameState) {
           toRow: target.row,
           toCol: target.col,
         });
+        sounds.playFreeze();
       } else {
         setSwapFlash({
           pos1: { row: collector.row, col: collector.col },
           pos2: { row: target.row, col: target.col },
         });
+        sounds.playSwap();
       }
     };
 
