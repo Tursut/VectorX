@@ -81,7 +81,7 @@ function getSpawnCandidates(grid, players, items) {
 }
 
 function trySpawnItem(state) {
-  if (!state.magicItems || state.sandboxMode) return state;
+  if (!state.magicItems) return state;
 
   const newNextSpawnIn = state.nextSpawnIn - 1;
   if (newNextSpawnIn > 0) return { ...state, nextSpawnIn: newNextSpawnIn };
@@ -89,7 +89,10 @@ function trySpawnItem(state) {
   // Timer hit zero — reset it regardless of whether we actually spawn
   const reset = { ...state, nextSpawnIn: randomInt(ITEM_SPAWN_MIN, ITEM_SPAWN_MAX) };
 
-  if (state.turnCount < ITEM_SPAWN_AFTER || state.items.length >= MAX_ITEMS_ON_BOARD) {
+  // Sandbox skips the warm-up window so items show up right away — the
+  // testing ground exists to exercise item flows fast.
+  const warmupSkipped = state.sandboxMode || state.turnCount >= ITEM_SPAWN_AFTER;
+  if (!warmupSkipped || state.items.length >= MAX_ITEMS_ON_BOARD) {
     return reset;
   }
 
@@ -415,7 +418,7 @@ export function initSandboxGame() {
     magicItems: true,
     gremlinCount: 3,
     items: [],
-    nextSpawnIn: 999,
+    nextSpawnIn: 1,
     portalActive: false,
     swapActive: false,
     freezeSelectActive: false,
