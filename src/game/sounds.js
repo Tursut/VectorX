@@ -19,6 +19,7 @@ function createContext() {
   freezeBuffer = null;
   bombBuffer = null;
   portalJumpBuffer = null;
+  eliminationBuffer = null;
 }
 
 // Never auto-recreates a closed context — that must happen from a user gesture in resumeAudio().
@@ -311,30 +312,49 @@ export function playTick(urgency = 0) {
   osc.start(t); osc.stop(t + 0.05);
 }
 
-// Descending "wah wah wah" with reverb tail for drama
-export function playElimination() {
+// Retro lose-jingle sample. Same one-shot AudioBufferSource + lazy
+// fetch/decode pattern as the other samples. Fired by GameScreen 450 ms
+// after a player flips to isEliminated, in the trap-animation timing
+// chain (450 ms wind-up → trap animation → elimination sound → 2.5 s
+// settle). Don't speed any of those up — beats are intentional per
+// CLAUDE.md.
+const ELIMINATION_FILE = `${import.meta.env.BASE_URL}elimination.mp3`;
+const ELIMINATION_VOLUME = 0.85;
+let eliminationRawPromise = null;
+let eliminationBuffer = null;
+function primeEliminationRaw() {
+  if (eliminationRawPromise) return eliminationRawPromise;
+  if (typeof fetch === 'undefined') return Promise.resolve(null);
+  eliminationRawPromise = fetch(ELIMINATION_FILE)
+    .then((res) => (res.ok ? res.arrayBuffer() : null))
+    .catch(() => null);
+  return eliminationRawPromise;
+}
+primeEliminationRaw();
+
+async function loadEliminationBuffer() {
+  if (eliminationBuffer) return eliminationBuffer;
+  const c = getCtx();
+  if (!c) return null;
+  const arr = await primeEliminationRaw();
+  if (!arr) return null;
+  eliminationBuffer = await c.decodeAudioData(arr.slice(0));
+  return eliminationBuffer;
+}
+
+export async function playElimination() {
+  let buf;
+  try { buf = await loadEliminationBuffer(); } catch { return; }
+  if (!buf) return;
   const c = getCtx();
   if (!c) return;
-  const rev = makeReverb(c, 0.08, 0.28, 0.22);
-  [392, 330, 220].forEach((freq, i) => {
-    const t = c.currentTime + i * 0.24;
-    const osc = c.createOscillator();
-    osc.type = 'sawtooth';
-    osc.detune.value = -4;
-    osc.frequency.setValueAtTime(freq * 1.04, t);
-    osc.frequency.linearRampToValueAtTime(freq * 0.92, t + 0.22);
-    const filter = c.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(1600, t);
-    filter.frequency.exponentialRampToValueAtTime(360, t + 0.24);
-    const g = c.createGain();
-    g.gain.setValueAtTime(0.22, t);
-    g.gain.exponentialRampToValueAtTime(0.001, t + 0.36);
-    osc.connect(filter); filter.connect(g);
-    g.connect(out());
-    g.connect(rev);
-    osc.start(t); osc.stop(t + 0.42);
-  });
+  const gain = c.createGain();
+  gain.gain.value = ELIMINATION_VOLUME;
+  gain.connect(out());
+  const src = c.createBufferSource();
+  src.buffer = buf;
+  src.connect(gain);
+  src.start(c.currentTime + 0.02);
 }
 
 // Ascending double sparkle
