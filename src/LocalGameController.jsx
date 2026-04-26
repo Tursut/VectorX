@@ -5,6 +5,7 @@ import { getGremlinMove } from './game/ai';
 import { PLAYERS, TURN_TIME } from './game/constants';
 import { useDerivedAnimations } from './game/useDerivedAnimations';
 import { useGameplaySounds } from './game/useGameplaySounds';
+import { useBackGuard } from './useBackGuard';
 import * as sounds from './game/sounds';
 import StartScreen from './components/StartScreen';
 import GameScreen from './components/GameScreen';
@@ -200,6 +201,24 @@ export default function LocalGameController({
   }
 
   const mySeats = humanSeats(gameState);
+
+  // Browser back-button guard (issue #29). Mid-game in-progress play
+  // routes through the same exit-confirm modal the in-app "Exit to
+  // menu" button uses. Sandbox routes straight back to the start
+  // screen (no confirm — sandbox is throwaway tooling). Start screen
+  // is unguarded so back leaves the SPA naturally. Gameover is also
+  // unguarded — the result is final, no state to lose.
+  const backGuardActive =
+    (screen === 'game' && gameState?.phase === 'playing') ||
+    screen === 'sandbox';
+  useBackGuard(backGuardActive, () => {
+    if (screen === 'game') {
+      setExitConfirm(true);
+    } else if (screen === 'sandbox') {
+      setScreen('start');
+      dispatch({ type: 'RESET' });
+    }
+  });
 
   // Gameplay sound effects — called at controller level so sandbox mode (which
   // doesn't mount GameScreen) gets bg theme, move/claim, your-turn chime, and

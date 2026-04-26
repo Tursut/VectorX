@@ -19,6 +19,7 @@ import { TURN_TIME } from './game/constants';
 import { useNetworkGame } from './net/useNetworkGame';
 import { useDerivedAnimations } from './game/useDerivedAnimations';
 import { useGameplaySounds } from './game/useGameplaySounds';
+import { useBackGuard } from './useBackGuard';
 import * as sounds from './game/sounds';
 import Lobby from './components/Lobby';
 import GameScreen from './components/GameScreen';
@@ -205,6 +206,18 @@ export default function OnlineGameController({
     setSoundEnabled(next);
     sounds.setMuted(!next);
   }
+
+  // Browser back-button guard (issue #29). Active iff we're rendering
+  // the lobby or an active game — NOT any of the StatusScreen variants
+  // (connect / closed / fatal / joining) where back should leave
+  // naturally, and NOT gameover where the result is final.
+  const guardActive =
+    connectionState === 'open' &&
+    helloSent.current &&
+    !lastError &&
+    lobby !== null &&
+    (!gameState || gameState.phase === 'playing');
+  useBackGuard(guardActive, () => setExitConfirm(true));
 
   // ---------- Status screens ----------
   // Priority: initial connect → reconnecting → fatal error → joining.
