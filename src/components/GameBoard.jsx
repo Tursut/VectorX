@@ -167,7 +167,7 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
               pointerEvents: 'none',
               zIndex: 7,
             }}
-            initial={{ scale: 0.7, opacity: 0, y: -10 }}
+            initial={{ scale: 0.4, opacity: 0, y: -10 }}
             animate={{ scale: 1, opacity: 1, y: -10 }}
             exit={{ scale: 0.4, opacity: 0, transition: { duration: 0.18 } }}
             transition={{ duration: 0.14, ease: 'easeOut' }}
