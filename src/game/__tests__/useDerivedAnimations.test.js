@@ -79,6 +79,7 @@ describe('useDerivedAnimations — no-op paths', () => {
       swapFlash: null,
       flyingFreeze: null,
       roulettePlayerId: null,
+      pendingSwap: null,
     });
   });
 

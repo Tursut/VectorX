@@ -2,12 +2,32 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { PLAYERS } from '../game/constants';
 import Cell from './Cell';
 
-export default function GameBoard({ grid, players, validMoveSet, onCellClick, currentPlayerIndex, items, portalActive, swapActive, freezeSelectActive = false, isGremlinTurn, isOpponentTurn = false, bombBlast, portalJump, swapFlash, trappedPlayers = [], winnerPlayer = null, flyingFreeze = null, roulettePlayerId = null, frozenPlayerId = null, frozenTurnsLeft = 0 }) {
+export default function GameBoard({ grid, players, validMoveSet, onCellClick, currentPlayerIndex, items, portalActive, swapActive, freezeSelectActive = false, isGremlinTurn, isOpponentTurn = false, bombBlast, portalJump, swapFlash, trappedPlayers = [], winnerPlayer = null, flyingFreeze = null, roulettePlayerId = null, pendingSwap = null, frozenPlayerId = null, frozenTurnsLeft = 0 }) {
+  // While a swap roulette is rolling (issue #30), the server-applied swap has
+  // already exchanged the two players' positions in gameState — but we want
+  // them to *appear* still in their pre-swap spots until the spotlight lands.
+  // Because a swap is symmetrical, each player's pre-swap position is the
+  // OTHER player's current (post-swap) position, so we can derive the
+  // pre-swap layout from the current gameState alone.
+  const renderPlayers = pendingSwap
+    ? players.map((p) => {
+        if (p.id === pendingSwap.byId) {
+          const t = players.find((q) => q.id === pendingSwap.targetId);
+          return t ? { ...p, row: t.row, col: t.col } : p;
+        }
+        if (p.id === pendingSwap.targetId) {
+          const b = players.find((q) => q.id === pendingSwap.byId);
+          return b ? { ...p, row: b.row, col: b.col } : p;
+        }
+        return p;
+      })
+    : players;
+
   const playerPositions = {};
   const deathCells = {};
   const itemMap = {};
 
-  players.forEach((p) => {
+  renderPlayers.forEach((p) => {
     if (!p.isEliminated) {
       playerPositions[`${p.row},${p.col}`] = PLAYERS[p.id];
     } else if (p.deathCell) {
@@ -19,8 +39,8 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
     itemMap[`${item.row},${item.col}`] = item;
   });
 
-  const currentPlayer = players[currentPlayerIndex];
-  const playerColor = PLAYERS[players[currentPlayerIndex].id].color;
+  const currentPlayer = renderPlayers[currentPlayerIndex];
+  const playerColor = PLAYERS[renderPlayers[currentPlayerIndex].id].color;
 
   const bombOriginKey = bombBlast ? `${bombBlast.origin.row},${bombBlast.origin.col}` : null;
   const bombClearedSet = bombBlast ? new Set(bombBlast.cleared.map(c => `${c.row},${c.col}`)) : null;
@@ -31,7 +51,7 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
     : null;
 
   const frozenPlayerData = frozenPlayerId !== null
-    ? players.find(p => p.id === frozenPlayerId && !p.isEliminated)
+    ? renderPlayers.find(p => p.id === frozenPlayerId && !p.isEliminated)
     : null;
 
   return (
@@ -61,8 +81,8 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
               isPortalDest={portalToKey === key}
               isSwapFlash={swapFlashSet ? swapFlashSet.has(key) : false}
               isTrapped={trappedPlayers.some(tp => tp.row === ri && tp.col === ci)}
-              isFreezeTarget={!isGremlinTurn && freezeSelectActive && players.some(p => !p.isEliminated && p.id !== players[currentPlayerIndex].id && p.row === ri && p.col === ci)}
-              isRoulette={roulettePlayerId !== null && players.some(p => p.id === roulettePlayerId && p.row === ri && p.col === ci)}
+              isFreezeTarget={!isGremlinTurn && freezeSelectActive && renderPlayers.some(p => !p.isEliminated && p.id !== renderPlayers[currentPlayerIndex].id && p.row === ri && p.col === ci)}
+              isRoulette={roulettePlayerId !== null && renderPlayers.some(p => p.id === roulettePlayerId && p.row === ri && p.col === ci)}
             />
           );
         })
@@ -99,8 +119,11 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
       </AnimatePresence>
 
       {/* ── Frozen badge — top-left "❄️ N" pill, persists until real turn arrives ── */}
+      {/* Hidden while a roulette is rolling (issue #30): the freeze is already
+          applied server-side, but showing the badge before the spotlight lands
+          would spoil who got hit. */}
       <AnimatePresence>
-        {frozenPlayerData && !flyingFreeze && (
+        {frozenPlayerData && !flyingFreeze && roulettePlayerId === null && (
           <motion.div
             key={`frozen-badge-${frozenPlayerId}-${frozenTurnsLeft}`}
             style={{
@@ -184,7 +207,7 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
            the wobbly celebration motion.div above (z-index 4) is the only avatar
            we want during the wind-down, otherwise we'd render two stacked icons. */}
       <AnimatePresence>
-        {players.filter(p => !p.isEliminated && p.id !== winnerPlayer?.id).map(p => (
+        {renderPlayers.filter(p => !p.isEliminated && p.id !== winnerPlayer?.id).map(p => (
           <motion.div
             key={`icon-${p.id}`}
             layout

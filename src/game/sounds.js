@@ -4,7 +4,14 @@ let ctx = null;
 let masterGain = null;
 
 function createContext() {
-  ctx = new (window.AudioContext || window.webkitAudioContext)();
+  // Bail silently in environments without WebAudio (jsdom test runner,
+  // legacy browsers). Without this guard the page-load resume listeners
+  // below would throw uncaught exceptions on every click in jsdom and
+  // fail the test runner even though no test depends on audio.
+  const Ctor = typeof window !== 'undefined'
+    && (window.AudioContext || window.webkitAudioContext);
+  if (!Ctor) return;
+  ctx = new Ctor();
   masterGain = ctx.createGain();
   masterGain.gain.value = 1;
   masterGain.connect(ctx.destination);
@@ -51,6 +58,7 @@ export function resumeAudio() {
     bgSource = null;
     bgSourceEnded = false;
     createContext();
+    if (!ctx) return; // No WebAudio support — silent no-op.
     if (wasPlaying) {
       ctx.resume().then(() => startBgTheme()).catch(() => {});
     } else {

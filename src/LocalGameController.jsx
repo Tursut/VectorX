@@ -74,7 +74,7 @@ export default function LocalGameController({
 
   // Animation overlays derived from gameState diffs (also fires item-pickup
   // sounds). Passed down to GameScreen / sandbox GameBoard.
-  const { bombBlast, portalJump, swapFlash, flyingFreeze, roulettePlayerId } = useDerivedAnimations(gameState);
+  const { bombBlast, portalJump, swapFlash, flyingFreeze, roulettePlayerId, pendingSwap } = useDerivedAnimations(gameState);
 
   // Dismiss toast after its display duration.
   useEffect(() => {
@@ -304,6 +304,7 @@ export default function LocalGameController({
               swapFlash={swapFlash}
               flyingFreeze={flyingFreeze}
               roulettePlayerId={roulettePlayerId}
+              pendingSwap={pendingSwap}
             />
             <AnimatePresence>
               {exitConfirm && (

@@ -31,12 +31,15 @@ function isBotPlayer(gameState, player) {
   return player.id >= PLAYERS.length - gc;
 }
 
-// EaseOut hop schedule: fast at first, slowing into the final reveal.
-// 8 hops, ~1.39 s total. Hard-capped well under 1.6 s budget.
-const ROULETTE_HOP_DURATIONS_MS = [60, 70, 90, 120, 160, 220, 290, 380];
+// EaseOut hop schedule: fast at first, slowing dramatically into the
+// final reveal — same physics as a lottery wheel coasting to a stop.
+// 12 hops, ~3.3 s total + 500 ms hold ≈ 3.8 s end-to-end.
+const ROULETTE_HOP_DURATIONS_MS = [
+  40, 55, 75, 100, 135, 180, 235, 305, 395, 510, 660, 850,
+];
 // Hold the spotlight on the actual target for a beat after the final
 // hop lands, before handing off to the existing fly-in / flash.
-const ROULETTE_HOLD_MS = 250;
+const ROULETTE_HOLD_MS = 500;
 
 export function useDerivedAnimations(gameState) {
   const [bombBlast, setBombBlast] = useState(null);
@@ -44,6 +47,11 @@ export function useDerivedAnimations(gameState) {
   const [swapFlash, setSwapFlash] = useState(null);
   const [flyingFreeze, setFlyingFreeze] = useState(null);
   const [roulettePlayerId, setRoulettePlayerId] = useState(null);
+  // While a swap roulette is rolling we want the two players' icons to
+  // appear at their PRE-swap positions (since the GAME_STATE we received
+  // has already exchanged them). GameBoard reads this to invert the pair
+  // back to their pre-swap layout until the spotlight lands.
+  const [pendingSwap, setPendingSwap] = useState(null);
   const prevRef = useRef(null);
   // Last `lastEvent` reference processed — guards against re-firing the
   // roulette / fly-in on a reconnect-driven repeat GAME_STATE or any
@@ -133,6 +141,14 @@ export function useDerivedAnimations(gameState) {
       return;
     }
 
+    // Defer the visible "applied" state until the spotlight lands. For
+    // swap, that means rendering both players at their PRE-swap spots
+    // throughout the roll — set pendingSwap which GameBoard reads.
+    if (ev.type === 'swap') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setPendingSwap({ byId: ev.byId, targetId: ev.targetId });
+    }
+
     // Build the hop schedule. Each non-final hop picks a random
     // opponent ≠ the previous hop, so the highlight visibly travels.
     // The final hop is the actual target.
@@ -164,6 +180,8 @@ export function useDerivedAnimations(gameState) {
     rouletteTimersRef.current.push(setTimeout(() => {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setRoulettePlayerId(null);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setPendingSwap(null);
       // eslint-disable-next-line react-hooks/set-state-in-effect
       fireImmediate();
     }, cumulative + ROULETTE_HOLD_MS));
@@ -251,5 +269,5 @@ export function useDerivedAnimations(gameState) {
     }
   }, [gameState]);
 
-  return { bombBlast, portalJump, swapFlash, flyingFreeze, roulettePlayerId };
+  return { bombBlast, portalJump, swapFlash, flyingFreeze, roulettePlayerId, pendingSwap };
 }

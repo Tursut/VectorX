@@ -22,9 +22,11 @@ vi.mock('../sounds', () => ({
 import { useDerivedAnimations } from '../useDerivedAnimations';
 import * as sounds from '../sounds';
 
-// Total time for the 8-hop schedule + 250ms hold.
-// Hop durations: 60+70+90+120+160+220+290+380 = 1390ms, + 250ms hold = 1640ms.
-const ROULETTE_TOTAL_MS = 60 + 70 + 90 + 120 + 160 + 220 + 290 + 380 + 250;
+// Hop schedule must match useDerivedAnimations.js. 12 hops + 500ms hold.
+const HOP_DURATIONS = [40, 55, 75, 100, 135, 180, 235, 305, 395, 510, 660, 850];
+const HOP_HOLD_MS = 500;
+const ROULETTE_TOTAL_MS =
+  HOP_DURATIONS.reduce((a, b) => a + b, 0) + HOP_HOLD_MS;
 
 // 4-player state: human (id 0) + 3 bots (ids 1, 2, 3) via gremlinCount = 3.
 function baseState({ gremlinCount = 3 } = {}) {
@@ -136,15 +138,14 @@ describe('roulette — engaged path', () => {
     expect(sounds.playTick).toHaveBeenCalled();
 
     // Advance to the end of the hop schedule + hold. Final hop lands on
-    // the actual target (id 0); then 250ms later roulette clears and the
-    // deferred flyingFreeze fires.
+    // the actual target (id 0); then 500 ms later the roulette clears
+    // and the deferred flyingFreeze fires.
     act(() => { vi.advanceTimersByTime(ROULETTE_TOTAL_MS); });
     expect(result.current.roulettePlayerId).toBeNull();
     expect(result.current.flyingFreeze).toEqual({
       fromRow: 0, fromCol: 9, toRow: 0, toCol: 0,
     });
-    // 8 hops → 8 ticks.
-    expect(sounds.playTick).toHaveBeenCalledTimes(8);
+    expect(sounds.playTick).toHaveBeenCalledTimes(HOP_DURATIONS.length);
   });
 
   it('runs the hop schedule for a bot swap and only fires swapFlash on resolution', () => {
@@ -156,14 +157,18 @@ describe('roulette — engaged path', () => {
     );
     rerender({ gameState: next });
 
-    // Mid-roulette: roulettePlayerId set, swapFlash still deferred.
-    act(() => { vi.advanceTimersByTime(60 + 70 + 90); });
+    // Mid-roulette: roulettePlayerId set, swapFlash still deferred,
+    // pendingSwap set so GameBoard renders pre-swap layout.
+    act(() => { vi.advanceTimersByTime(HOP_DURATIONS[0] + HOP_DURATIONS[1] + HOP_DURATIONS[2]); });
     expect(result.current.roulettePlayerId).not.toBeNull();
     expect(result.current.swapFlash).toBeNull();
+    expect(result.current.pendingSwap).toEqual({ byId: 1, targetId: 0 });
 
-    // Past the schedule: roulette clears, swapFlash fires.
+    // Past the schedule: roulette clears, swapFlash fires, pendingSwap
+    // clears (icons can now slide to their swapped positions).
     act(() => { vi.advanceTimersByTime(ROULETTE_TOTAL_MS); });
     expect(result.current.roulettePlayerId).toBeNull();
+    expect(result.current.pendingSwap).toBeNull();
     expect(result.current.swapFlash).not.toBeNull();
   });
 
@@ -184,14 +189,13 @@ describe('roulette — engaged path', () => {
 
     // Drive each hop one by one, recording roulettePlayerId after each.
     const visited = [];
-    const durations = [60, 70, 90, 120, 160, 220, 290, 380];
-    durations.forEach((d, idx) => {
+    HOP_DURATIONS.forEach((d, idx) => {
       // The first hop is at t=0 — flush it immediately, then advance to
       // the next.
       if (idx === 0) {
         act(() => { vi.advanceTimersByTime(0); });
       } else {
-        act(() => { vi.advanceTimersByTime(durations[idx - 1]); });
+        act(() => { vi.advanceTimersByTime(HOP_DURATIONS[idx - 1]); });
       }
       visited.push(result.current.roulettePlayerId);
     });
@@ -216,13 +220,13 @@ describe('roulette — engaged path', () => {
     );
     rerender({ gameState: stateA });
     act(() => { vi.advanceTimersByTime(ROULETTE_TOTAL_MS); });
-    expect(sounds.playTick).toHaveBeenCalledTimes(8);
+    expect(sounds.playTick).toHaveBeenCalledTimes(HOP_DURATIONS.length);
 
     // Re-render with the same lastEvent reference (e.g. reconnect-driven
     // GAME_STATE replay). Should not re-trigger the roulette.
     const stateB = { ...stateA, turnCount: stateA.turnCount + 1 };
     rerender({ gameState: stateB });
     act(() => { vi.advanceTimersByTime(ROULETTE_TOTAL_MS); });
-    expect(sounds.playTick).toHaveBeenCalledTimes(8);
+    expect(sounds.playTick).toHaveBeenCalledTimes(HOP_DURATIONS.length);
   });
 });
