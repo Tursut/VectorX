@@ -397,8 +397,11 @@ export function getCurrentValidMoves(state) {
 
 export function initSandboxGame() {
   const grid = createInitialGrid();
-  const sandboxPlayers = [PLAYERS[0], PLAYERS[3]]; // Reginald (human) + Buzzilda (bot)
-  const players = sandboxPlayers.map((p) => {
+  // 1 human (Reginald, id 0) + 3 bots (ids 1, 2, 3) so the testing
+  // ground exercises the same 4-player dynamics as a real match —
+  // freeze/swap roulette in particular needs ≥ 2 alive opponents to
+  // engage at all.
+  const players = PLAYERS.map((p) => {
     grid[p.startRow][p.startCol] = { owner: p.id };
     return { id: p.id, row: p.startRow, col: p.startCol, isEliminated: false, deathCell: null };
   });
@@ -410,7 +413,7 @@ export function initSandboxGame() {
     winner: null,
     turnCount: 0,
     magicItems: true,
-    gremlinCount: 1,
+    gremlinCount: 3,
     items: [],
     nextSpawnIn: 999,
     portalActive: false,
