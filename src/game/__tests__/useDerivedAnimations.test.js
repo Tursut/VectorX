@@ -82,6 +82,7 @@ describe('useDerivedAnimations — no-op paths', () => {
       roulettePlayerId: null,
       rouletteRevealing: false,
       pendingSwap: null,
+      rouletteActor: null,
       rouletteActive: false,
     });
   });

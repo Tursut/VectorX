@@ -1,8 +1,8 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { PLAYERS } from '../game/constants';
+import { PLAYERS, ITEM_TYPES } from '../game/constants';
 import Cell from './Cell';
 
-export default function GameBoard({ grid, players, validMoveSet, onCellClick, currentPlayerIndex, items, portalActive, swapActive, freezeSelectActive = false, isGremlinTurn, isOpponentTurn = false, bombBlast, portalJump, swapFlash, trappedPlayers = [], winnerPlayer = null, flyingFreeze = null, roulettePlayerId = null, rouletteRevealing = false, pendingSwap = null, frozenPlayerId = null, frozenTurnsLeft = 0 }) {
+export default function GameBoard({ grid, players, validMoveSet, onCellClick, currentPlayerIndex, items, portalActive, swapActive, freezeSelectActive = false, isGremlinTurn, isOpponentTurn = false, bombBlast, portalJump, swapFlash, trappedPlayers = [], winnerPlayer = null, flyingFreeze = null, roulettePlayerId = null, rouletteRevealing = false, pendingSwap = null, rouletteActor = null, frozenPlayerId = null, frozenTurnsLeft = 0 }) {
   // While a swap roulette is rolling (issue #30), the server-applied swap has
   // already exchanged the two players' positions in gameState — but we want
   // them to *appear* still in their pre-swap spots until the spotlight lands.
@@ -54,8 +54,33 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
     ? renderPlayers.find(p => p.id === frozenPlayerId && !p.isEliminated)
     : null;
 
+  // Roulette actor (issue #37) — the player who picked the freeze/swap
+  // item that the wheel is rolling for. Look up against renderPlayers
+  // so the halo + item icon track the PRE-swap position during a swap
+  // roulette (matching where the actor's avatar is rendered).
+  const rouletteActorData = rouletteActor
+    ? renderPlayers.find(p => p.id === rouletteActor.playerId && !p.isEliminated)
+    : null;
+  const rouletteActorItemIcon = rouletteActor
+    ? ITEM_TYPES[rouletteActor.itemKind]?.icon
+    : null;
+
   return (
-    <div className="board" data-testid="game-board" style={{ '--player-color': playerColor, position: 'relative' }}>
+    <div
+      className="board"
+      data-testid="game-board"
+      style={{
+        '--player-color': playerColor,
+        // Actor's colour for .cell-roulette-actor halo (issue #37) —
+        // the board-level --player-color tracks the CURRENT player,
+        // which has advanced past the actor by the time the wheel
+        // is rolling.
+        '--roulette-actor-color': rouletteActor
+          ? PLAYERS[rouletteActor.playerId].color
+          : 'transparent',
+        position: 'relative',
+      }}
+    >
       {grid.map((row, ri) =>
         row.map((cell, ci) => {
           const key = `${ri},${ci}`;
@@ -84,6 +109,7 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
               isFreezeTarget={!isGremlinTurn && freezeSelectActive && renderPlayers.some(p => !p.isEliminated && p.id !== renderPlayers[currentPlayerIndex].id && p.row === ri && p.col === ci)}
               isRoulette={roulettePlayerId !== null && renderPlayers.some(p => p.id === roulettePlayerId && p.row === ri && p.col === ci)}
               isRouletteReveal={rouletteRevealing && roulettePlayerId !== null && renderPlayers.some(p => p.id === roulettePlayerId && p.row === ri && p.col === ci)}
+              isRouletteActor={rouletteActorData !== null && rouletteActorData.row === ri && rouletteActorData.col === ci}
             />
           );
         })
@@ -115,6 +141,38 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
             transition={{ duration: 0.55, type: 'spring', stiffness: 180, damping: 22 }}
           >
             <span className="frozen-count-badge">❄️ 3</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Roulette actor item icon (issue #37) ──
+           Floats the freeze/swap icon above the actor's cell for the
+           whole wheel + reveal so it's clear who picked the item and
+           what's at stake. Reuses the .item-wrapper / .item-icon
+           styles used for items resting on the board. */}
+      <AnimatePresence>
+        {rouletteActorData && rouletteActorItemIcon && (
+          <motion.div
+            key={`roulette-actor-item-${rouletteActor.playerId}-${rouletteActor.itemKind}`}
+            className="roulette-actor-item"
+            style={{
+              position: 'absolute',
+              left: `calc(4px + ${rouletteActorData.col} * (var(--cell-size) + var(--board-gap)))`,
+              top:  `calc(4px + ${rouletteActorData.row} * (var(--cell-size) + var(--board-gap)))`,
+              width: 'var(--cell-size)',
+              height: 'var(--cell-size)',
+              display: 'flex',
+              alignItems: 'flex-start',
+              justifyContent: 'center',
+              pointerEvents: 'none',
+              zIndex: 7,
+            }}
+            initial={{ scale: 0.4, opacity: 0, y: 6 }}
+            animate={{ scale: 1, opacity: 1, y: -10 }}
+            exit={{ scale: 0.4, opacity: 0, transition: { duration: 0.18 } }}
+            transition={{ type: 'spring', stiffness: 380, damping: 22 }}
+          >
+            <span className="roulette-actor-item-icon">{rouletteActorItemIcon}</span>
           </motion.div>
         )}
       </AnimatePresence>

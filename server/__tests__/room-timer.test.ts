@@ -155,9 +155,16 @@ describe('turn timer: alarm scheduled at TURN_TIME_MS on human turn', () => {
     expect(snap.alarm).not.toBeNull();
     // Human deadline is much longer than the bot's 800–1400ms delay.
     // Allow a generous lower bound to tolerate test-runner scheduling.
+    // Upper bound covers both branches:
+    //   - turnCount > 0 → TURN_TIME_MS (10 s) only
+    //   - turnCount === 0 → TURN_TIME_MS + COUNTDOWN_DELAY_MS (16.2 s)
+    //     because of the pre-game countdown bump (issue #35).
+    // advanceUntilHumansTurn returns immediately when seat 0 is
+    // already current — which can happen on the first turn — so we
+    // accept either.
     const msUntilAlarm = snap.alarm! - before;
     expect(msUntilAlarm).toBeGreaterThan(5_000);
-    expect(msUntilAlarm).toBeLessThanOrEqual(TURN_TIME_MS + 100);
+    expect(msUntilAlarm).toBeLessThanOrEqual(TURN_TIME_MS + 6200 + 100);
   });
 });
 

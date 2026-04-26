@@ -132,6 +132,11 @@ describe('roulette — engaged path', () => {
     );
     rerender({ gameState: next });
 
+    // rouletteActor is set synchronously when the wheel engages so
+    // GameBoard can show the halo + item icon for the whole sequence
+    // (issue #37). Verify before flushing any timers.
+    expect(result.current.rouletteActor).toEqual({ playerId: 1, itemKind: 'freeze' });
+
     // The first hop is scheduled at t=0. Tick once to flush it onto state.
     act(() => { vi.advanceTimersByTime(0); });
     // After the first hop fires, roulettePlayerId is set to a non-bot-self
@@ -143,22 +148,39 @@ describe('roulette — engaged path', () => {
 
     // Halfway through the reveal blink (after all hops + hold + half
     // the reveal): spotlight is pinned to the actual target, the
-    // reveal flag is on, and the freeze fly-in is STILL deferred.
+    // reveal flag is on, the freeze fly-in is STILL deferred, and
+    // the actor halo + item icon are STILL pinned to the picker.
     const totalHopsMs = HOP_DURATIONS.reduce((a, b) => a + b, 0);
     act(() => { vi.advanceTimersByTime(totalHopsMs + HOP_HOLD_MS + REVEAL_MS / 2); });
     expect(result.current.roulettePlayerId).toBe(0);
     expect(result.current.rouletteRevealing).toBe(true);
     expect(result.current.flyingFreeze).toBeNull();
+    expect(result.current.rouletteActor).toEqual({ playerId: 1, itemKind: 'freeze' });
 
     // Past the reveal: roulette clears and the deferred flyingFreeze
-    // finally fires.
+    // finally fires. rouletteActor clears at the same moment so the
+    // halo + item icon disappear as the fly-in starts.
     act(() => { vi.advanceTimersByTime(REVEAL_MS); });
     expect(result.current.roulettePlayerId).toBeNull();
     expect(result.current.rouletteRevealing).toBe(false);
+    expect(result.current.rouletteActor).toBeNull();
     expect(result.current.flyingFreeze).toEqual({
       fromRow: 0, fromCol: 9, toRow: 0, toCol: 0,
     });
     expect(sounds.playTick).toHaveBeenCalledTimes(HOP_DURATIONS.length);
+  });
+
+  it('rouletteActor stays null when the roulette is skipped (human pick fires fly-in immediately)', () => {
+    const prev = baseState({ gremlinCount: 0 });  // all humans
+    const next = { ...prev, lastEvent: { type: 'freeze', byId: 0, targetId: 3 } };
+    const { result, rerender } = renderHook(
+      ({ gameState }) => useDerivedAnimations(gameState),
+      { initialProps: { gameState: prev } },
+    );
+    rerender({ gameState: next });
+    // Skip path fires fireImmediate synchronously; never sets the actor.
+    expect(result.current.flyingFreeze).not.toBeNull();
+    expect(result.current.rouletteActor).toBeNull();
   });
 
   it('runs the hop schedule for a bot swap and only fires swapFlash on resolution', () => {

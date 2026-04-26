@@ -278,6 +278,37 @@
   }
 }
 
+/* Roulette actor (issue #37) — low-intensity halo on the cell whose
+   player picked the freeze/swap item. Persists for the entire wheel
+   + reveal so it's clear where the item came from. Stays out of the
+   spotlight's way: no pulse, soft inner glow in the actor's player
+   colour (set via --roulette-actor-color on .board). */
+.cell-roulette-actor {
+  z-index: 1;
+  box-shadow:
+    inset 0 0 0 2px var(--roulette-actor-color),
+    0 0 12px 2px var(--roulette-actor-color);
+}
+
+/* Actor's "I have this item" icon hovering above the actor's cell.
+   Floats slightly above the cell (negative y) and pulses gently so
+   the eye finds it without competing with the spotlight on
+   opponents. */
+.roulette-actor-item {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.45));
+}
+
+.roulette-actor-item-icon {
+  font-size: calc(var(--cell-size) * 0.55);
+  line-height: 1;
+  animation: rouletteActorItemPulse 1.4s ease-in-out infinite alternate;
+}
+
+@keyframes rouletteActorItemPulse {
+  from { transform: translateY(0)    scale(1); }
+  to   { transform: translateY(-3px) scale(1.08); }
+}
+
 .cell-trapped {
   z-index: 1;
   animation: trapPulse 2.5s ease-in-out forwards;

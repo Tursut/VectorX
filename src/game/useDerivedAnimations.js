@@ -55,6 +55,12 @@ export function useDerivedAnimations(gameState) {
   // has already exchanged them). GameBoard reads this to invert the pair
   // back to their pre-swap layout until the spotlight lands.
   const [pendingSwap, setPendingSwap] = useState(null);
+  // Actor + item-kind for the in-flight roulette (issue #37). Lets
+  // GameBoard mark the picker's cell with a halo + float the item
+  // icon above them throughout the wheel, so the user can see WHO
+  // grabbed the item and WHICH item is being decided. Cleared at the
+  // same moment as roulettePlayerId / pendingSwap in the handoff.
+  const [rouletteActor, setRouletteActor] = useState(null);
   const prevRef = useRef(null);
   // Last `lastEvent` reference processed — guards against re-firing the
   // roulette / fly-in on a reconnect-driven repeat GAME_STATE or any
@@ -150,6 +156,11 @@ export function useDerivedAnimations(gameState) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setPendingSwap({ byId: ev.byId, targetId: ev.targetId });
     }
+    // Actor halo + item icon (issue #37). Lives for the whole wheel
+    // so the user can see who grabbed the item + which one is being
+    // decided.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setRouletteActor({ playerId: ev.byId, itemKind: ev.type });
 
     // Build the hop schedule. Each non-final hop picks a random
     // opponent ≠ the previous hop, so the highlight visibly travels.
@@ -203,6 +214,8 @@ export function useDerivedAnimations(gameState) {
       setRoulettePlayerId(null);
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setPendingSwap(null);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setRouletteActor(null);
       // eslint-disable-next-line react-hooks/set-state-in-effect
       fireImmediate();
     }, cumulative + ROULETTE_HOLD_MS + ROULETTE_REVEAL_MS));
@@ -295,7 +308,7 @@ export function useDerivedAnimations(gameState) {
   // valid-move dots / turn-timer ticks while the suspense is still
   // playing). Stays true through the hops, hold, AND the 3-blink
   // reveal — only flips false the moment fireImmediate runs.
-  const rouletteActive = roulettePlayerId !== null || rouletteRevealing || pendingSwap !== null;
+  const rouletteActive = roulettePlayerId !== null || rouletteRevealing || pendingSwap !== null || rouletteActor !== null;
 
-  return { bombBlast, portalJump, swapFlash, flyingFreeze, roulettePlayerId, rouletteRevealing, pendingSwap, rouletteActive };
+  return { bombBlast, portalJump, swapFlash, flyingFreeze, roulettePlayerId, rouletteRevealing, pendingSwap, rouletteActor, rouletteActive };
 }
