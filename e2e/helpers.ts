@@ -24,7 +24,7 @@ export async function gotoApp(page: Page): Promise<void> {
 // online-mode E2E spec uses — share-link join tests cold-open into JOIN
 // mode directly, so they don't go through this helper).
 export async function selectOnlineMode(page: Page): Promise<void> {
-  await page.getByRole('tab', { name: /create room/i }).click();
+  await page.getByTestId('hero-play-online').click();
 }
 
 // Fill the online form. `code` is optional — when the URL hash pre-filled it,

@@ -210,7 +210,7 @@ const { gameState, lobby, connectionState, mySeatId, lastError,
 
 ### Online mode (`src/OnlineGameController.jsx`, Step 16)
 
-Online is a thin socket + lobby shell that reuses the in-game renderer. After the Step-16 UX merge, entry lives on `StartScreen` (mode switcher → Name + Code inputs). Once the user submits, `App.jsx` mounts `OnlineGameController` under a `<Suspense>` boundary.
+Online is a thin socket + lobby shell that reuses the in-game renderer. Entry lives on `StartScreen`, which now renders a three-view IA — `menu` (PLAY + PLAY WITH FRIENDS hero buttons + a tertiary "pass-and-play on this device" text-link), `online` (multiplayer drawer with name + create/join sub-state and a "got a code?" toggle), and `local` (the hotseat slider that used to live behind the SAME SCREEN tab). Cold-open share links + retry-after-rejection bypass the menu and land directly in `online` with `joinMode=true`. Once the user submits, `App.jsx` mounts `OnlineGameController` under a `<Suspense>` boundary.
 
 `OnlineGameController` calls `useNetworkGame({ url: wsUrl(code) })` and routes on connection state + game phase:
 
@@ -291,7 +291,7 @@ src/
     sounds.js                    ← Web Audio API synth (SFX + bg theme), resumeAudio, setMuted — client-only
     useDerivedAnimations.js      ← React hook: diffs (prev → current) gameState to produce {bombBlast, portalJump, swapFlash, flyingFreeze} overlays + fire item-pickup sounds. Called once per controller; works identically in local and online.
   components/
-    StartScreen.jsx              ← menu: start game, sandbox, toggle magic items, pick gremlin count, sound toggle
+    StartScreen.jsx              ← three-view IA (menu / online / local). Menu: PLAY + PLAY WITH FRIENDS heroes + pass-and-play link + rules + sandbox link. Online: name input, magic toggle, create/join sub-state. Local: hotseat slider + magic toggle. Sound toggle in corner across all views.
     GameBoard.jsx                ← 10×10 grid rendering + cell animations
     Cell.jsx                     ← single cell, owner glow, valid-move hint, item icon, trapped state
     PlayerPanel.jsx              ← live sidebar: territory counts, elimination state

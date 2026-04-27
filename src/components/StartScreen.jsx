@@ -7,9 +7,6 @@ import { BUILD_TIME } from '../config';
 import SoundToggle from './SoundToggle';
 import TapToBeginModal from './TapToBeginModal';
 
-// Room-code alphabet mirrors server/protocol.ts. Filter as the user types;
-// paste extracts the code from a share link (/r/ABCDE) before falling back
-// to the first 5-char alphabet token.
 const CODE_ALPHABET_RE = /[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]/g;
 const CODE_TOKEN_RE = /[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{5}/;
 
@@ -34,8 +31,6 @@ function isCodeValid(code) {
   return /^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{5}$/.test(code);
 }
 
-// Replace each letter with a random letter of the same case; spaces stay
-// spaces. Used by the dice-button scramble animation.
 function scrambleString(target) {
   return target
     .split('')
@@ -64,46 +59,45 @@ export default function StartScreen({
   onlineError = null,
   onlineErrorDebug = null,
 }) {
-  // Online handlers are required for the create/join tiles to show. When
-  // ENABLE_ONLINE is false, App.jsx passes null for both and the screen
-  // behaves exactly like the hotseat-only design.
   const onlineAvailable =
     typeof onCreateOnline === 'function' &&
     typeof onJoinOnline === 'function';
 
-  // Three-mode state: 'this-device' (hotseat + bots), 'create' (host a new
-  // online room), 'join' (enter someone else's room).
-  const [mode, setMode] = useState(onlineAvailable ? defaultMode : 'this-device');
+  // Three views drive the screen now: 'menu' (the front door — PLAY +
+  // PLAY WITH FRIENDS hero buttons), 'online' (multiplayer drawer, with
+  // a nested create/join sub-state), and 'local' (the hotseat slider
+  // section that used to live behind the SAME SCREEN tab).
+  // Cold-open share links + retry-after-rejection bypass the menu and
+  // land directly in 'online' with joinMode=true; offline builds skip
+  // 'menu' and go straight to 'local'.
+  const initialView =
+    !onlineAvailable
+      ? 'local'
+      : (defaultMode === 'create' || defaultMode === 'join')
+        ? 'online'
+        : 'menu';
+  const [view, setView] = useState(initialView);
+  const [joinMode, setJoinMode] = useState(defaultMode === 'join');
+
   const [code, setCode] = useState(filterCode(defaultCode));
   // App.jsx prefills this when re-rendering after a server-side join rejection
-  // (e.g. DUPLICATE_NAME) so the user lands on the join form with the rejected
-  // name still in the field — they just edit and retry. Otherwise we seed a
-  // quirky "Otis the Sly"-style suggestion via the name generator so the user
-  // has a delightful one-tap default; the reroll button below shuffles it.
+  // so the user lands on the join form with the rejected name still in the
+  // field — they just edit and retry. Otherwise we seed a quirky
+  // "Otis the Sly"-style suggestion via the name generator.
   const [displayName, setDisplayName] = useState(
     () => defaultDisplayName || generateDisplayName(),
   );
-  // 'name' | 'code' | null. Set when the user submits with that field still
-  // invalid; rendered as an inline message + a brief shake on the input.
-  // Clears as soon as the offending field becomes valid (via useEffect below).
   const [submitError, setSubmitError] = useState(null);
   const nameInputRef = useRef(null);
   const codeInputRef = useRef(null);
-  // Tracks the in-flight reroll scramble: { id, target } where id is the
-  // setInterval handle and target is the final name to settle on. Lets us
-  // cancel cleanly on unmount or user typing, and snap to the real name if
-  // the user submits mid-animation.
   const rerollAnimRef = useRef({ id: null, target: null });
 
-  // Cancel a pending scramble animation. Idempotent.
   function cancelRerollAnim() {
     if (rerollAnimRef.current.id !== null) {
       clearInterval(rerollAnimRef.current.id);
       rerollAnimRef.current.id = null;
     }
   }
-
-  // Cleanup on unmount so stray intervals don't update unmounted state.
   useEffect(() => () => cancelRerollAnim(), []);
 
   const humanCount = PLAYERS.length - gremlinCount;
@@ -113,25 +107,25 @@ export default function StartScreen({
     humanCount === 1 ? 'Just you vs the gremlins. Good luck.' :
     `${humanCount} humans, ${gremlinCount} gremlins.`;
 
-  const isCreate = mode === 'create';
-  const isJoin = mode === 'join';
-  const isOnline = isCreate || isJoin;
+  const isOnline = view === 'online';
+  const isLocal = view === 'local';
+  const isMenu = view === 'menu';
   const hasCode = isCodeValid(code);
-  // A "joiner" landed on a share link: join tile + valid code pre-filled.
-  // Strip the screen down to just name + code + JOIN for them.
-  const isJoiner = isJoin && hasCode;
+  // A "joiner" landed on a share link: online view in join mode with a
+  // valid code already pre-filled. Strip the screen down to just name +
+  // code + JOIN for them.
+  const isJoiner = isOnline && joinMode && hasCode;
   const canSubmitCreate = isDisplayNameValid(displayName);
   const canSubmitJoin = isDisplayNameValid(displayName) && hasCode;
-  const canSubmit = isCreate ? canSubmitCreate : isJoin ? canSubmitJoin : true;
+  const canSubmit =
+    isOnline ? (joinMode ? canSubmitJoin : canSubmitCreate) : true;
 
   function rerollDisplayName() {
     playClick();
     cancelRerollAnim();
     const target = generateDisplayName();
     setSubmitError(null);
-    rerollAnimRef.current.target = target;    // ~200 ms slot-machine scramble: 7 frames of random letters at 28 ms each,
-    // then snap to the target. Same-case letters keep the silhouette stable
-    // so the eye stays on the new name as it settles.
+    rerollAnimRef.current.target = target;
     const FRAMES = 7;
     const FRAME_MS = 28;
     let step = 0;
@@ -146,16 +140,14 @@ export default function StartScreen({
     }, FRAME_MS);
   }
 
-  // Back-out from a cold-open join. Drops the joiner-stripped view by
-  // switching to the default hotseat mode + clearing the pre-filled code,
-  // and strips the share-link hash so a refresh doesn't re-trigger join
-  // mode. This is the only way out for someone who tapped a share link
-  // and changed their mind — the mode-switcher tabs are hidden in the
-  // joiner view, so without this they'd be stuck with JOIN ROOM as the
-  // only action.
-  function backToMenuFromJoiner() {
+  // Back-out from the online or local drawer to the menu. Also handles
+  // the cold-open joiner case — a user who tapped a share link and then
+  // changed their mind needs the share-link hash stripped so a refresh
+  // doesn't loop them back into join mode.
+  function backToMenu() {
     playClick();
-    setMode('this-device');
+    setView(onlineAvailable ? 'menu' : 'local');
+    setJoinMode(false);
     setCode('');
     setSubmitError(null);
     if (typeof window !== 'undefined' && window.location.hash.startsWith('#/r/')) {
@@ -181,8 +173,6 @@ export default function StartScreen({
     }
   }
 
-  // When the offending field becomes valid (user starts typing), drop the error
-  // so the inline message + shake disappear without waiting for another submit.
   useEffect(() => {
     if (submitError === 'name' && isDisplayNameValid(displayName)) {
       setSubmitError(null);
@@ -193,16 +183,13 @@ export default function StartScreen({
 
   function handlePrimaryClick() {
     playClick();
-    // If a scramble is mid-flight, snap to its real target before validating
-    // — otherwise we'd send a randomised string. The animation is ~200 ms,
-    // so this is an edge case but worth handling.
     let effectiveName = displayName;
     if (rerollAnimRef.current.id !== null) {
       cancelRerollAnim();
       effectiveName = rerollAnimRef.current.target;
       setDisplayName(effectiveName);
     }
-    if (isCreate) {
+    if (isOnline && !joinMode) {
       if (!isDisplayNameValid(effectiveName)) {
         setSubmitError('name');
         nameInputRef.current?.focus();
@@ -212,9 +199,7 @@ export default function StartScreen({
       onCreateOnline({ displayName: effectiveName.trim(), magicItems });
       return;
     }
-    if (isJoin) {
-      // Validate name first, then code — focus the first invalid field so the
-      // user only has to fix one thing at a time.
+    if (isOnline && joinMode) {
       if (!isDisplayNameValid(effectiveName)) {
         setSubmitError('name');
         nameInputRef.current?.focus();
@@ -232,18 +217,42 @@ export default function StartScreen({
     onStart?.();
   }
 
-  const primaryLabel = isCreate
-    ? 'CREATE ROOM →'
-    : isJoin
-      ? 'JOIN ROOM →'
-      : 'START THE GAME →';
+  // PLAY — instant solo. No name input, no toggles. Uses whatever
+  // gremlinCount + magicItems are in App state (defaults to 1 human
+  // + 3 bots, magic on per LocalGameController).
+  function handlePlaySolo() {
+    playClick();
+    onStart?.();
+  }
+
+  function openOnline() {
+    playClick();
+    setView('online');
+    setJoinMode(false);
+    setSubmitError(null);
+  }
+
+  function openLocal() {
+    playClick();
+    setView('local');
+    setSubmitError(null);
+  }
+
+  function toggleJoinMode() {
+    playClick();
+    setJoinMode((j) => !j);
+    setSubmitError(null);
+  }
+
+  const primaryLabel =
+    isOnline && joinMode ? 'JOIN ROOM →' :
+    isOnline ? 'CREATE ROOM →' :
+    'START THE GAME →';
 
   // Joiners don't pick magic items — the host does. Hide Magic/Classic
-  // toggle in that case; everyone else sees it.
-  const showMagicToggle = !isJoiner;
+  // toggle in that case; create + local views see it.
+  const showMagicToggle = !isJoiner && (isLocal || (isOnline && !joinMode));
 
-  // Name input shared by both online drawers (create + join). Inline so the
-  // surrounding drawers keep their existing crossfade/JSX shapes.
   const nameInput = (
     <>
       <label className="join-field">
@@ -282,11 +291,6 @@ export default function StartScreen({
     </>
   );
 
-  // Inline error + optional debug context. Rendered identically in both
-  // online drawers (create + join). Debug lands here when App.jsx routes a
-  // server-side ALREADY_STARTED / DUPLICATE_NAME / ROOM_FULL bounce back to
-  // the start screen with diagnostic context — meant to be screenshotted
-  // and reported, not read at a glance.
   const errorBlock = onlineError && (
     <>
       <p className="online-error" role="alert">{onlineError}</p>
@@ -314,63 +318,68 @@ at:          ${onlineErrorDebug.at ?? '(unknown)'}`}
           Four players. One grid. Only one walks away smiling.
         </p>
 
-        {/* Tile row + drawer wrapped in one container so the parent's
-            `gap: 20px` doesn't pry them apart — inside here they can touch,
-            letting the active tile merge into the drawer visually. */}
-        <div className="mode-block">
-          {/* Mode switcher — hidden for joiners (share-link minimal view) */}
-          {onlineAvailable && !isJoiner && (
-          <div className="mode-switcher" role="tablist" aria-label="Game mode">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={mode === 'this-device'}
-              className={`mode-switcher-tile ${mode === 'this-device' ? 'mode-switcher-tile-active' : ''}`}
-              onClick={() => { playClick(); setMode('this-device'); }}
+        <AnimatePresence mode="wait" initial={false}>
+          {isMenu && (
+            <motion.div
+              key="menu-view"
+              className="start-view start-menu"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2 }}
             >
-              <span className="mode-switcher-icon">🎮</span>
-              <span className="mode-switcher-label">SAME SCREEN</span>
-              <span className="mode-switcher-sub">Pass-and-play. Bots fill open seats.</span>
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={mode === 'create'}
-              className={`mode-switcher-tile ${mode === 'create' ? 'mode-switcher-tile-active' : ''}`}
-              onClick={() => { playClick(); setMode('create'); }}
-            >
-              <span className="mode-switcher-icon">➕</span>
-              <span className="mode-switcher-label">CREATE ROOM</span>
-              <span className="mode-switcher-sub">Start a new room for friends</span>
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={mode === 'join'}
-              className={`mode-switcher-tile ${mode === 'join' ? 'mode-switcher-tile-active' : ''}`}
-              onClick={() => { playClick(); setMode('join'); }}
-            >
-              <span className="mode-switcher-icon">🔗</span>
-              <span className="mode-switcher-label">JOIN ROOM</span>
-              <span className="mode-switcher-sub">Enter a code to join a room</span>
-            </button>
-          </div>
-        )}
-
-        {/* Mode-specific drawer — crossfades in place at a fixed height so
-            switching tiles doesn't shift the layout below. The outer
-            .mode-drawer owns the border/bg and visually merges with the
-            active tile above (see App.css). */}
-        <div className="mode-drawer">
-          <AnimatePresence mode="wait" initial={false}>
-            {mode === 'this-device' && (
-              <motion.div
-                key="this-device-drawer"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.18 }}
+              <button
+                type="button"
+                className="hero-button hero-button-primary"
+                data-testid="hero-play"
+                onClick={handlePlaySolo}
               >
+                <span className="hero-button-label">PLAY</span>
+                <span className="hero-button-sub">you vs three bots</span>
+              </button>
+
+              {onlineAvailable && (
+                <button
+                  type="button"
+                  className="hero-button hero-button-secondary"
+                  data-testid="hero-play-online"
+                  onClick={openOnline}
+                >
+                  <span className="hero-button-label">PLAY WITH FRIENDS</span>
+                  <span className="hero-button-sub">create or join a room</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                className="hero-text-link"
+                data-testid="hero-pass-and-play"
+                onClick={openLocal}
+              >
+                pass-and-play on this device →
+              </button>
+            </motion.div>
+          )}
+
+          {isLocal && (
+            <motion.div
+              key="local-view"
+              className="start-view"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2 }}
+            >
+              {onlineAvailable && (
+                <button
+                  type="button"
+                  className="exit-game-btn back-to-menu"
+                  onClick={backToMenu}
+                >
+                  ← Back to menu
+                </button>
+              )}
+              <div className="mode-drawer">
                 <div className="gremlin-section">
                   <p className="gremlin-question">Who's playing?</p>
                   <div className="gremlin-slots">
@@ -404,108 +413,94 @@ at:          ${onlineErrorDebug.at ?? '(unknown)'}`}
                   />
                   <p className="gremlin-sub">{gremlinLabel}</p>
                 </div>
-              </motion.div>
-            )}
+              </div>
+            </motion.div>
+          )}
 
-            {mode === 'create' && (
-              <motion.div
-                key="create-drawer"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.18 }}
+          {isOnline && (
+            <motion.div
+              key="online-view"
+              className="start-view"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2 }}
+            >
+              <button
+                type="button"
+                className="exit-game-btn back-to-menu"
+                onClick={backToMenu}
               >
+                ← Back to menu
+              </button>
+              <div className="mode-drawer">
                 <div className="online-section">
                   {nameInput}
-                  {errorBlock}
-                </div>
-              </motion.div>
-            )}
-
-            {mode === 'join' && (
-              <motion.div
-                key="join-drawer"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.18 }}
-              >
-                <div className="online-section">
-                  {nameInput}
-                  <label className="join-field code-field">
-                    <span>Room code</span>
-                    {/* OTP-style 5-box grid (issue #25). One hidden input is the
-                        source of truth; the boxes are pure visual overlays
-                        rendering code[i]. Tests still hit the input via
-                        getByLabel('Room code') / .toHaveValue(...). */}
-                    <div
-                      className={`code-grid${submitError === 'code' ? ' input-shake input-error' : ''}`}
-                    >
-                      {Array.from({ length: 5 }, (_, i) => {
-                        const ch = code[i];
-                        const isActive = i === code.length;
-                        const isFilled = ch !== undefined;
-                        return (
-                          <div
-                            key={i}
-                            className={
-                              'code-cell' +
-                              (isActive ? ' code-cell-active' : '') +
-                              (isFilled ? ' code-cell-filled' : '')
-                            }
-                            aria-hidden="true"
-                          >
-                            {ch ?? ''}
-                          </div>
-                        );
-                      })}
-                      <input
-                        ref={codeInputRef}
-                        className="code-input-overlay"
-                        type="text"
-                        value={code}
-                        onChange={handleCodeChange}
-                        onPaste={handleCodePaste}
-                        inputMode="text"
-                        autoCapitalize="characters"
-                        autoCorrect="off"
-                        spellCheck={false}
-                        autoComplete="off"
-                        maxLength={5}
-                        aria-label="Room code"
-                        aria-invalid={submitError === 'code'}
-                      />
-                    </div>
-                  </label>
+                  {joinMode && (
+                    <label className="join-field code-field">
+                      <span>Room code</span>
+                      <div
+                        className={`code-grid${submitError === 'code' ? ' input-shake input-error' : ''}`}
+                      >
+                        {Array.from({ length: 5 }, (_, i) => {
+                          const ch = code[i];
+                          const isActive = i === code.length;
+                          const isFilled = ch !== undefined;
+                          return (
+                            <div
+                              key={i}
+                              className={
+                                'code-cell' +
+                                (isActive ? ' code-cell-active' : '') +
+                                (isFilled ? ' code-cell-filled' : '')
+                              }
+                              aria-hidden="true"
+                            >
+                              {ch ?? ''}
+                            </div>
+                          );
+                        })}
+                        <input
+                          ref={codeInputRef}
+                          className="code-input-overlay"
+                          type="text"
+                          value={code}
+                          onChange={handleCodeChange}
+                          onPaste={handleCodePaste}
+                          inputMode="text"
+                          autoCapitalize="characters"
+                          autoCorrect="off"
+                          spellCheck={false}
+                          autoComplete="off"
+                          maxLength={5}
+                          aria-label="Room code"
+                          aria-invalid={submitError === 'code'}
+                        />
+                      </div>
+                    </label>
+                  )}
                   {submitError === 'code' && (
                     <p className="field-error" role="alert">Enter a 5-character room code.</p>
                   )}
+                  {!isJoiner && (
+                    <button
+                      type="button"
+                      className="online-mode-toggle"
+                      data-testid="toggle-join-mode"
+                      onClick={toggleJoinMode}
+                    >
+                      {joinMode ? 'host a new room instead' : 'got a code? join a room →'}
+                    </button>
+                  )}
                   {errorBlock}
                 </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-        </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-        {/* "← Back to menu" sits below the form card, aligned to its left
-            edge — same vocabulary as the Lobby and GameScreen exit links.
-            Only rendered in the joiner-stripped view (mode-switcher hidden),
-            since otherwise the user can just tap a different mode tile. */}
-        {isJoiner && (
-          <button
-            type="button"
-            className="exit-game-btn"
-            onClick={backToMenuFromJoiner}
-          >
-            ← Back to menu
-          </button>
-        )}
-
-        {/* Magic / Classic toggle — hidden entirely for share-link joiners */}
-        {!isJoiner && (
-        <div className="mode-section">
-          {showMagicToggle ? (
+        {showMagicToggle && (
+          <div className="mode-section">
             <div className="mode-selector">
               <button
                 type="button"
@@ -526,30 +521,31 @@ at:          ${onlineErrorDebug.at ?? '(unknown)'}`}
                 <span className="mode-btn-sub">Pure territory, no surprises.</span>
               </button>
             </div>
-          ) : (
-            <div className="mode-hostnote">
-              <span className="mode-btn-icon">✨</span>
-              The host picks magic items for this room.
-            </div>
-          )}
 
-          {magicItems && showMagicToggle && (
-            <div className="magic-items-list">
-              {Object.values(ITEM_TYPES).map((item) => (
-                <div key={item.type} className="magic-item-entry">
-                  <span className="magic-item-icon">{item.icon}</span>
-                  <div>
-                    <span className="magic-item-name" style={{ color: item.color }}>{item.name}</span>
-                    <span className="magic-item-desc"> — {item.desc}</span>
+            {magicItems && (
+              <div className="magic-items-list">
+                {Object.values(ITEM_TYPES).map((item) => (
+                  <div key={item.type} className="magic-item-entry">
+                    <span className="magic-item-icon">{item.icon}</span>
+                    <div>
+                      <span className="magic-item-name" style={{ color: item.color }}>{item.name}</span>
+                      <span className="magic-item-desc"> — {item.desc}</span>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+                ))}
+              </div>
+            )}
+          </div>
         )}
 
-        {!isJoiner && (
+        {isOnline && joinMode && !showMagicToggle && (
+          <div className="mode-hostnote">
+            <span className="mode-btn-icon">✨</span>
+            The host picks magic items for this room.
+          </div>
+        )}
+
+        {isMenu && (
           <div className="start-rules">
             <p>🗺️ Move onto any adjacent square — including diagonally.</p>
             <p>🔒 Claimed squares are locked forever. No take-backs.</p>
@@ -558,21 +554,23 @@ at:          ${onlineErrorDebug.at ?? '(unknown)'}`}
           </div>
         )}
 
-        {!isOnline && (
+        {isMenu && (
           <button className="sandbox-entry-btn" onClick={() => { playClick(); onSandbox?.(); }}>🧪 testing ground</button>
         )}
       </div>
 
-      <div className="start-button-bar">
-        <button
-          className="start-button"
-          data-testid="primary-button"
-          onClick={handlePrimaryClick}
-          aria-disabled={!canSubmit}
-        >
-          {primaryLabel}
-        </button>
-      </div>
+      {!isMenu && (
+        <div className="start-button-bar">
+          <button
+            className="start-button"
+            data-testid="primary-button"
+            onClick={handlePrimaryClick}
+            aria-disabled={!canSubmit}
+          >
+            {primaryLabel}
+          </button>
+        </div>
+      )}
 
       <p className="start-build-stamp">built {BUILD_TIME}</p>
     </div>
