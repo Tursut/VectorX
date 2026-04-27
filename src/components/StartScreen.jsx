@@ -435,6 +435,13 @@ at:          ${onlineErrorDebug.at ?? '(unknown)'}`}
               </button>
               <div className="mode-drawer">
                 <div className="online-section">
+                  {!isJoiner && (
+                    <p className="online-intro">
+                      {joinMode
+                        ? 'Pop in the code your friend sent.'
+                        : 'Create a room and share the link — friends drop in from anywhere.'}
+                    </p>
+                  )}
                   {nameInput}
                   {joinMode && (
                     <label className="join-field code-field">
@@ -483,14 +490,17 @@ at:          ${onlineErrorDebug.at ?? '(unknown)'}`}
                     <p className="field-error" role="alert">Enter a 5-character room code.</p>
                   )}
                   {!isJoiner && (
-                    <button
-                      type="button"
-                      className="online-mode-toggle"
-                      data-testid="toggle-join-mode"
-                      onClick={toggleJoinMode}
-                    >
-                      {joinMode ? 'host a new room instead' : 'got a code? join a room →'}
-                    </button>
+                    <>
+                      <div className="online-divider" aria-hidden="true">or</div>
+                      <button
+                        type="button"
+                        className="online-mode-toggle"
+                        data-testid="toggle-join-mode"
+                        onClick={toggleJoinMode}
+                      >
+                        {joinMode ? 'host a new room instead →' : 'got a code? join a room →'}
+                      </button>
+                    </>
                   )}
                   {errorBlock}
                 </div>

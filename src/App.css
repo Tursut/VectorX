@@ -2513,25 +2513,65 @@
   padding-left: 0;
 }
 
-/* Toggle inside the online drawer that flips between create + join
-   modes. Subtle text-link style, same family as .hero-text-link but
-   with a left-aligned underline-on-hover for affordance. */
+/* One-line description above the form fields explaining what
+   creating / joining a room does. Calm italic so it sits behind
+   the input visually but still reads as context. */
+.online-intro {
+  font-family: 'Segoe UI', sans-serif;
+  font-size: 13px;
+  font-style: italic;
+  color: #aaaacc;
+  text-align: center;
+  margin: 0;
+  line-height: 1.45;
+}
+
+/* "or" divider between the form and the alternative-mode button.
+   Horizontal hairlines flank a tiny uppercase label so the eye reads
+   the separation as "two distinct paths" instead of one continuous
+   form. */
+.online-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: 'Segoe UI', sans-serif;
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #66668a;
+  margin: 4px 0;
+}
+.online-divider::before,
+.online-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #2a2a44;
+}
+
+/* Alternative-mode button inside the online drawer. Styled as a
+   secondary button — lavender-bordered, full width, transparent fill —
+   so it reads as a real second path next to the primary CTA at the
+   bottom, not a fine-print toggle. Same vocabulary as the
+   .hero-button-secondary used on the menu, just smaller. */
 .online-mode-toggle {
   background: none;
-  border: none;
-  color: #8a8aac;
-  font-size: 13px;
+  border: 1.5px solid #333355;
+  color: #c8caff;
   font-family: 'Segoe UI', sans-serif;
+  font-size: 14px;
   cursor: pointer;
   text-align: center;
-  padding: 6px;
+  padding: 11px 14px;
+  border-radius: 10px;
   letter-spacing: 0.3px;
-  transition: color 0.15s;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
 @media (hover: hover) {
   .online-mode-toggle:hover {
-    color: #c8caff;
-    text-decoration: underline;
+    color: #ffffff;
+    border-color: #7a8cff;
+    background: rgba(122, 140, 255, 0.08);
   }
 }
 
