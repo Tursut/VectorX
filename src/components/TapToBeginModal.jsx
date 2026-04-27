@@ -142,7 +142,6 @@ export default function TapToBeginModal() {
               ))}
             </div>
             <h2 className="tap-to-begin-title">TAP TO BEGIN</h2>
-            <p className="tap-to-begin-sub">the grid awaits</p>
           </motion.div>
         </motion.div>
       )}

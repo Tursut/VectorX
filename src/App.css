@@ -977,15 +977,8 @@
   letter-spacing: 3px;
   color: #c8caff;
   text-shadow: 0 0 14px rgba(122, 140, 255, 0.55);
-  margin: 0 0 6px;
-  animation: titlePulse 3s ease-in-out infinite alternate;
-}
-.tap-to-begin-sub {
-  font-family: 'Segoe UI', sans-serif;
-  font-style: italic;
-  font-size: 13px;
-  color: #aaaacc;
   margin: 0;
+  animation: titlePulse 3s ease-in-out infinite alternate;
 }
 @media (max-width: 420px) {
   .tap-to-begin-card { padding: 28px 24px 24px; }
