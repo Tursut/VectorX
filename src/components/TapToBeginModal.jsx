@@ -63,8 +63,11 @@ export default function TapToBeginModal() {
           className="tap-to-begin-overlay"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.5 }}
+          // Backdrop holds at full opacity while the avatars fly
+          // out, then fades. Without the delay the whole overlay
+          // dims during the fly-out and the motion barely reads.
+          exit={{ opacity: 0, transition: { duration: 0.3, delay: 0.5 } }}
+          transition={{ duration: 0.3 }}
           // Capture the click so it can't bleed through to the
           // start-screen mode tabs / buttons underneath. The
           // document-level pointerdown listener also fires (handles
@@ -80,7 +83,9 @@ export default function TapToBeginModal() {
             className="tap-to-begin-card"
             initial={{ scale: 0.92, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.9, opacity: 0 }}
+            // Card fades together with the backdrop, after the
+            // avatars have left.
+            exit={{ scale: 0.9, opacity: 0, transition: { duration: 0.3, delay: 0.5 } }}
             transition={{ type: 'spring', stiffness: 280, damping: 22 }}
           >
             <div className="tap-to-begin-avatars">
@@ -91,7 +96,9 @@ export default function TapToBeginModal() {
                   // Fly-in: each avatar starts off-screen in a
                   // different corner with a tumble, then springs to
                   // its row position. On dismissal, exit reverses
-                  // the trajectory so they retreat the way they came.
+                  // the trajectory — full opacity throughout so the
+                  // motion is visible (the overlay's delayed fade
+                  // hides them at the end).
                   initial={{
                     x: FLY_IN_STARTS[i].x,
                     y: FLY_IN_STARTS[i].y,
@@ -104,12 +111,10 @@ export default function TapToBeginModal() {
                     x: FLY_IN_STARTS[i].x,
                     y: FLY_IN_STARTS[i].y,
                     rotate: FLY_IN_STARTS[i].rotate,
-                    scale: 0.4,
-                    opacity: 0,
+                    scale: 0.5,
                     transition: {
-                      type: 'spring',
-                      stiffness: 180,
-                      damping: 18,
+                      duration: 0.5,
+                      ease: [0.7, 0, 0.84, 0],
                       delay: i * 0.05,
                     },
                   }}
