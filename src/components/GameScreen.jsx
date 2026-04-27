@@ -74,6 +74,22 @@ export default function GameScreen({
   const currentIsBot = isBotPlayer(gameState, currentPlayerState);
   const myTurn = mySeats.includes(currentSeat);
 
+  // Issue #39 — while the freeze/swap roulette is rolling, the reducer
+  // has already advanced currentPlayerIndex to the next seat, but the
+  // 6-second animation belongs to the actor's turn. Override only the
+  // *displayed* seat for the on-board "whose turn" pulse and the
+  // PlayerPanel "← NOW" banner so they keep pointing at the actor
+  // until the wheel resolves. Turn logic (validMoves, myTurn, taunt,
+  // bot driver) still reads currentSeat — that part of state is
+  // already correct, only the UI surface was misaligned.
+  const displayedSeat =
+    rouletteActive && rouletteActor != null
+      ? rouletteActor.playerId
+      : currentSeat;
+  const displayedPlayerState = gameState.players[displayedSeat];
+  const displayedIsOpponent =
+    !mySeats.includes(displayedSeat) && !displayedPlayerState?.isEliminated;
+
   // While the freeze/swap roulette is rolling (issue #30) we hide the
   // valid-move dots so the human can't interrupt the suspense — the
   // turn really is theirs (gameState advanced when the bot picked the
@@ -137,7 +153,7 @@ export default function GameScreen({
           <div className="game-center">
             <PlayerPanel
               players={gameState.players}
-              currentPlayerIndex={currentSeat}
+              currentPlayerIndex={displayedSeat}
               gremlinCount={gameState.gremlinCount ?? 0}
               frozenPlayerId={gameState.frozenPlayerId ?? null}
               frozenTurnsLeft={gameState.frozenTurnsLeft ?? 0}
@@ -162,13 +178,13 @@ export default function GameScreen({
                 players={gameState.players}
                 validMoveSet={validMoveSet}
                 onCellClick={(row, col) => { if (myTurn) onMove(row, col); }}
-                currentPlayerIndex={currentSeat}
+                currentPlayerIndex={displayedSeat}
                 items={gameState.items}
                 portalActive={gameState.portalActive}
                 swapActive={gameState.swapActive}
                 freezeSelectActive={gameState.freezeSelectActive}
                 isGremlinTurn={currentIsBot}
-                isOpponentTurn={!myTurn && !currentPlayerState.isEliminated}
+                isOpponentTurn={displayedIsOpponent}
                 bombBlast={bombBlast}
                 portalJump={portalJump}
                 swapFlash={swapFlash}

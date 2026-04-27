@@ -38,8 +38,13 @@ vi.mock('../TurnIndicator', () => ({
   default: ({ player }) => <div data-testid="turn-indicator">{player?.name}</div>,
 }));
 vi.mock('../GameBoard', () => ({
-  default: ({ onCellClick }) => (
-    <button data-testid="cell" onClick={() => onCellClick(2, 3)}>cell</button>
+  default: ({ onCellClick, currentPlayerIndex, isOpponentTurn }) => (
+    <button
+      data-testid="cell"
+      data-current={currentPlayerIndex}
+      data-opponent-turn={String(Boolean(isOpponentTurn))}
+      onClick={() => onCellClick(2, 3)}
+    >cell</button>
   ),
 }));
 vi.mock('../GameOverScreen', () => ({
@@ -107,6 +112,65 @@ describe('GameScreen — rendering', () => {
     render(<GameScreen gameState={state} mySeats={[0]} onMove={() => {}} />);
     expect(screen.getByTestId('gameover')).toBeInTheDocument();
     expect(screen.queryByTestId('cell')).toBeNull();
+  });
+});
+
+// ---------- Roulette override (issue #39) ----------
+
+describe('GameScreen — roulette overrides displayed current player', () => {
+  // Setup: bot at seat 2 just used freeze on the human at seat 0.
+  // The reducer has already advanced currentPlayerIndex to seat 3
+  // (the next bot), but the 6-second roulette animation is rolling
+  // for seat 2's pick. The on-board pulse + PlayerPanel banner must
+  // stay on seat 2 (the actor) until the wheel resolves.
+  const ROULETTE_PROPS = {
+    gameState: baseState({ currentPlayerIndex: 3, gremlinCount: 3 }),
+    mySeats: [0],
+    onMove: () => {},
+    rouletteActive: true,
+    rouletteActor: { playerId: 2, itemKind: 'freeze' },
+  };
+
+  it('routes the actor to PlayerPanel as current while rolling', () => {
+    render(<GameScreen {...ROULETTE_PROPS} />);
+    expect(screen.getByTestId('player-panel')).toHaveTextContent('current=2');
+  });
+
+  it('routes the actor to GameBoard as current while rolling', () => {
+    render(<GameScreen {...ROULETTE_PROPS} />);
+    expect(screen.getByTestId('cell')).toHaveAttribute('data-current', '2');
+  });
+
+  it('keeps isOpponentTurn=true so the cell pulse renders on the actor', () => {
+    // Even though the next-up seat (3) is a bot — i.e. the current
+    // gameState.currentPlayerIndex is "not my turn" anyway — the
+    // pulse must drive off the *displayed* seat (2), which is also
+    // not in mySeats. So the flag stays true regardless of who's
+    // technically up next. The bug surface this prevents: if the
+    // next-up seat happened to be the local human, the original
+    // !myTurn computation would flip false and the pulse would
+    // disappear during the roulette.
+    render(
+      <GameScreen
+        {...ROULETTE_PROPS}
+        gameState={baseState({ currentPlayerIndex: 0, gremlinCount: 3 })}
+        mySeats={[0]}
+      />,
+    );
+    expect(screen.getByTestId('cell')).toHaveAttribute('data-opponent-turn', 'true');
+    expect(screen.getByTestId('cell')).toHaveAttribute('data-current', '2');
+  });
+
+  it('falls back to currentPlayerIndex when the roulette is not active', () => {
+    render(
+      <GameScreen
+        {...ROULETTE_PROPS}
+        rouletteActive={false}
+        rouletteActor={null}
+      />,
+    );
+    expect(screen.getByTestId('player-panel')).toHaveTextContent('current=3');
+    expect(screen.getByTestId('cell')).toHaveAttribute('data-current', '3');
   });
 });
 
