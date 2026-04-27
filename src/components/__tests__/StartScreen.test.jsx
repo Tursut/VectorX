@@ -350,6 +350,26 @@ describe('StartScreen — testing ground link', () => {
   });
 });
 
+// ---------- Waiting flourish (issue #45) ----------
+
+describe('StartScreen — creatingRoom waiting flourish', () => {
+  it('hides the primary button and shows the flourish while creatingRoom is true', () => {
+    render(
+      <StartScreen
+        {...withOnline({ defaultMode: 'create', creatingRoom: true })}
+      />,
+    );
+    expect(screen.queryByTestId('primary-button')).toBeNull();
+    expect(screen.getByRole('status')).toBeInTheDocument();
+  });
+
+  it('shows the primary button when creatingRoom is false', () => {
+    render(<StartScreen {...withOnline({ defaultMode: 'create' })} />);
+    expect(screen.getByTestId('primary-button')).toBeInTheDocument();
+    expect(screen.queryByRole('status')).toBeNull();
+  });
+});
+
 // ---------- Online error surfacing ----------
 
 describe('StartScreen — onlineError', () => {

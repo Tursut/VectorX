@@ -65,6 +65,11 @@ export default function App() {
   // tweak the name and retry without losing context.
   const [pendingDisplayName, setPendingDisplayName] = useState('');
   const [pendingCode, setPendingCode] = useState('');
+  // True while the POST /rooms is in flight (issue #45). Drives the
+  // WaitingFlourish indicator on StartScreen so the user has visible
+  // feedback during the 1-3 s wait. Cleared either when the fetch
+  // resolves (handed off to OnlineGameController) or on error.
+  const [creatingRoom, setCreatingRoom] = useState(false);
 
   async function handleCreateOnline({ displayName, magicItems }) {
     // Synchronous call inside the click handler chain so iOS Safari counts
@@ -77,15 +82,18 @@ export default function App() {
     setOnlineErrorDebug(null);
     setPendingDisplayName('');
     setPendingCode('');
+    setCreatingRoom(true);
     try {
       const res = await fetch(`${SERVER_URL}/rooms`, { method: 'POST' });
       if (!res.ok) throw new Error(`Server returned ${res.status}`);
       const body = await res.json();
       setColdOpenCode(null);
       setOnline({ code: body.code, displayName, magicItems });
+      setCreatingRoom(false);
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err);
       setOnlineError(`Couldn't reach the server: ${reason}`);
+      setCreatingRoom(false);
     }
   }
 
@@ -135,6 +143,7 @@ export default function App() {
     setOnlineErrorDebug(null);
     setPendingDisplayName('');
     setPendingCode('');
+    setCreatingRoom(false);
     clearRoomHash();
   }
 
@@ -167,6 +176,7 @@ export default function App() {
       defaultDisplayName={pendingDisplayName}
       onlineError={onlineError}
       onlineErrorDebug={onlineErrorDebug}
+      creatingRoom={creatingRoom}
     />
   );
 }

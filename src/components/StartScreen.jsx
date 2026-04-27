@@ -6,6 +6,7 @@ import { playClick } from '../game/sounds';
 import { BUILD_TIME } from '../config';
 import SoundToggle from './SoundToggle';
 import TapToBeginModal from './TapToBeginModal';
+import WaitingFlourish from './WaitingFlourish';
 
 const CODE_ALPHABET_RE = /[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]/g;
 const CODE_TOKEN_RE = /[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{5}/;
@@ -58,6 +59,7 @@ export default function StartScreen({
   defaultDisplayName = '',
   onlineError = null,
   onlineErrorDebug = null,
+  creatingRoom = false,
 }) {
   const onlineAvailable =
     typeof onCreateOnline === 'function' &&
@@ -571,14 +573,18 @@ at:          ${onlineErrorDebug.at ?? '(unknown)'}`}
 
       {!isMenu && (
         <div className="start-button-bar">
-          <button
-            className="start-button"
-            data-testid="primary-button"
-            onClick={handlePrimaryClick}
-            aria-disabled={!canSubmit}
-          >
-            {primaryLabel}
-          </button>
+          {creatingRoom ? (
+            <WaitingFlourish />
+          ) : (
+            <button
+              className="start-button"
+              data-testid="primary-button"
+              onClick={handlePrimaryClick}
+              aria-disabled={!canSubmit}
+            >
+              {primaryLabel}
+            </button>
+          )}
         </div>
       )}
 
