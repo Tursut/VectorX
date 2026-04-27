@@ -250,6 +250,19 @@ export default function LocalGameController({
     : false;
   const sandboxValidMoves = gameState?.sandboxMode && !sandboxIsGremlinTurn && !rouletteActive ? getCurrentValidMoves(gameState) : [];
   const sandboxValidMoveSet = new Set(sandboxValidMoves.map((m) => `${m.row},${m.col}`));
+  // heldItemActor union for the sandbox path — same logic as
+  // GameScreen.jsx (issue #41), inlined here because the sandbox
+  // renders GameBoard directly without the GameScreen wrapper.
+  const sandboxHeldItemActor = gameState?.sandboxMode
+    ? (rouletteActor ?? (
+        (gameState.freezeSelectActive || gameState.swapActive) && sandboxIsGremlinTurn
+          ? {
+              playerId: gameState.currentPlayerIndex,
+              itemKind: gameState.freezeSelectActive ? 'freeze' : 'swap',
+            }
+          : null
+      ))
+    : null;
 
   return (
     <div className="app">
@@ -405,7 +418,7 @@ export default function LocalGameController({
                 roulettePlayerId={roulettePlayerId}
                 rouletteRevealing={rouletteRevealing}
                 pendingSwap={pendingSwap}
-                rouletteActor={rouletteActor}
+                heldItemActor={sandboxHeldItemActor}
                 trappedPlayers={trappedPlayers}
                 frozenPlayerId={gameState?.frozenPlayerId ?? null}
                 frozenTurnsLeft={gameState?.frozenTurnsLeft ?? 0}
