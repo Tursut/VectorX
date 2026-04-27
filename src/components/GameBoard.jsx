@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { PLAYERS, ITEM_TYPES } from '../game/constants';
 import Cell from './Cell';
 
-export default function GameBoard({ grid, players, validMoveSet, onCellClick, currentPlayerIndex, items, portalActive, swapActive, freezeSelectActive = false, isGremlinTurn, isOpponentTurn = false, bombBlast, portalJump, swapFlash, trappedPlayers = [], winnerPlayer = null, flyingFreeze = null, roulettePlayerId = null, rouletteRevealing = false, pendingSwap = null, rouletteActor = null, frozenPlayerId = null, frozenTurnsLeft = 0 }) {
+export default function GameBoard({ grid, players, validMoveSet, onCellClick, currentPlayerIndex, items, portalActive, swapActive, freezeSelectActive = false, isGremlinTurn, isOpponentTurn = false, bombBlast, portalJump, swapFlash, trappedPlayers = [], winnerPlayer = null, flyingFreeze = null, roulettePlayerId = null, rouletteRevealing = false, pendingSwap = null, heldItemActor = null, frozenPlayerId = null, frozenTurnsLeft = 0 }) {
   // While a swap roulette is rolling (issue #30), the server-applied swap has
   // already exchanged the two players' positions in gameState — but we want
   // them to *appear* still in their pre-swap spots until the spotlight lands.
@@ -54,15 +54,16 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
     ? renderPlayers.find(p => p.id === frozenPlayerId && !p.isEliminated)
     : null;
 
-  // Roulette actor (issue #37) — the player who picked the freeze/swap
-  // item that the wheel is rolling for. Look up against renderPlayers
-  // so the halo + item icon track the PRE-swap position during a swap
-  // roulette (matching where the actor's avatar is rendered).
-  const rouletteActorData = rouletteActor
-    ? renderPlayers.find(p => p.id === rouletteActor.playerId && !p.isEliminated)
+  // Held-item actor — the bot who's currently holding a freeze/swap.
+  // Spans both the pickup→select phase (issue #41) and the roulette
+  // phase (issue #37). Look up against renderPlayers so the halo +
+  // item icon track the PRE-swap position during a swap roulette
+  // (matching where the actor's avatar is rendered).
+  const heldItemActorData = heldItemActor
+    ? renderPlayers.find(p => p.id === heldItemActor.playerId && !p.isEliminated)
     : null;
-  const rouletteActorItemIcon = rouletteActor
-    ? ITEM_TYPES[rouletteActor.itemKind]?.icon
+  const heldItemActorIcon = heldItemActor
+    ? ITEM_TYPES[heldItemActor.itemKind]?.icon
     : null;
 
   return (
@@ -75,8 +76,8 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
         // the board-level --player-color tracks the CURRENT player,
         // which has advanced past the actor by the time the wheel
         // is rolling.
-        '--roulette-actor-color': rouletteActor
-          ? PLAYERS[rouletteActor.playerId].color
+        '--roulette-actor-color': heldItemActor
+          ? PLAYERS[heldItemActor.playerId].color
           : 'transparent',
         position: 'relative',
       }}
@@ -109,7 +110,7 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
               isFreezeTarget={!isGremlinTurn && freezeSelectActive && renderPlayers.some(p => !p.isEliminated && p.id !== renderPlayers[currentPlayerIndex].id && p.row === ri && p.col === ci)}
               isRoulette={roulettePlayerId !== null && renderPlayers.some(p => p.id === roulettePlayerId && p.row === ri && p.col === ci)}
               isRouletteReveal={rouletteRevealing && roulettePlayerId !== null && renderPlayers.some(p => p.id === roulettePlayerId && p.row === ri && p.col === ci)}
-              isRouletteActor={rouletteActorData !== null && rouletteActorData.row === ri && rouletteActorData.col === ci}
+              isRouletteActor={heldItemActorData !== null && heldItemActorData.row === ri && heldItemActorData.col === ci}
             />
           );
         })
@@ -145,20 +146,24 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
         )}
       </AnimatePresence>
 
-      {/* ── Roulette actor item icon (issue #37) ──
-           Floats the freeze/swap icon above the actor's cell for the
-           whole wheel + reveal so it's clear who picked the item and
-           what's at stake. Reuses the .item-wrapper / .item-icon
-           styles used for items resting on the board. */}
+      {/* ── Held-item actor icon (issues #37, #41) ──
+           Floats the freeze/swap icon above the actor's cell from
+           the moment the bot picks up the item, through the
+           ~1.6 s "thinking" select-phase, through the roulette
+           wheel and reveal. The (playerId, itemKind) key keeps the
+           same motion.div mounted across all phases so the
+           grow-in fires ONCE on pickup, not again when the roulette
+           starts. Reuses the .item-wrapper / .item-icon styles
+           used for items resting on the board. */}
       <AnimatePresence>
-        {rouletteActorData && rouletteActorItemIcon && (
+        {heldItemActorData && heldItemActorIcon && (
           <motion.div
-            key={`roulette-actor-item-${rouletteActor.playerId}-${rouletteActor.itemKind}`}
+            key={`held-item-actor-${heldItemActor.playerId}-${heldItemActor.itemKind}`}
             className="roulette-actor-item"
             style={{
               position: 'absolute',
-              left: `calc(4px + ${rouletteActorData.col} * (var(--cell-size) + var(--board-gap)))`,
-              top:  `calc(4px + ${rouletteActorData.row} * (var(--cell-size) + var(--board-gap)))`,
+              left: `calc(4px + ${heldItemActorData.col} * (var(--cell-size) + var(--board-gap)))`,
+              top:  `calc(4px + ${heldItemActorData.row} * (var(--cell-size) + var(--board-gap)))`,
               width: 'var(--cell-size)',
               height: 'var(--cell-size)',
               display: 'flex',
@@ -167,12 +172,18 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
               pointerEvents: 'none',
               zIndex: 7,
             }}
-            initial={{ scale: 0.4, opacity: 0, y: -10 }}
-            animate={{ scale: 1, opacity: 1, y: -10 }}
+            // Drop-from-above with a slight overshoot. Visible
+            // pickup beat: starts ~28 px above the cell at scale 0,
+            // overshoots to 1.25× at the 55% mark, settles at 1.0.
+            // ~0.4 s total — long enough to read as a deliberate
+            // celebration of the pickup, short enough not to
+            // delay the bot's next move.
+            initial={{ scale: 0, opacity: 0, y: -28 }}
+            animate={{ scale: [0, 1.25, 1], opacity: [0, 1, 1], y: [-28, -10, -10] }}
             exit={{ scale: 0.4, opacity: 0, transition: { duration: 0.18 } }}
-            transition={{ duration: 0.14, ease: 'easeOut' }}
+            transition={{ duration: 0.4, times: [0, 0.55, 1], ease: 'easeOut' }}
           >
-            <span className="roulette-actor-item-icon">{rouletteActorItemIcon}</span>
+            <span className="roulette-actor-item-icon">{heldItemActorIcon}</span>
           </motion.div>
         )}
       </AnimatePresence>

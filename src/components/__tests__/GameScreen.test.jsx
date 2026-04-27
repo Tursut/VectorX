@@ -38,11 +38,12 @@ vi.mock('../TurnIndicator', () => ({
   default: ({ player }) => <div data-testid="turn-indicator">{player?.name}</div>,
 }));
 vi.mock('../GameBoard', () => ({
-  default: ({ onCellClick, currentPlayerIndex, isOpponentTurn }) => (
+  default: ({ onCellClick, currentPlayerIndex, isOpponentTurn, heldItemActor }) => (
     <button
       data-testid="cell"
       data-current={currentPlayerIndex}
       data-opponent-turn={String(Boolean(isOpponentTurn))}
+      data-held-actor={heldItemActor ? `${heldItemActor.playerId}:${heldItemActor.itemKind}` : ''}
       onClick={() => onCellClick(2, 3)}
     >cell</button>
   ),
@@ -171,6 +172,103 @@ describe('GameScreen — roulette overrides displayed current player', () => {
     );
     expect(screen.getByTestId('player-panel')).toHaveTextContent('current=3');
     expect(screen.getByTestId('cell')).toHaveAttribute('data-current', '3');
+  });
+});
+
+// ---------- heldItemActor across pickup + roulette (issue #41) ----------
+
+describe('GameScreen — heldItemActor spans pickup + roulette', () => {
+  // Bot at seat 2 just stepped onto a freeze item. State has
+  // freezeSelectActive=true; currentPlayerIndex is still seat 2 (the
+  // bot picks a target on its NEXT move, after a ~1.6 s thinking
+  // delay). During that whole window the icon should be visible.
+  it('emits heldItemActor while a bot is in the freezeSelectActive pickup phase', () => {
+    render(
+      <GameScreen
+        gameState={baseState({
+          currentPlayerIndex: 2,
+          freezeSelectActive: true,
+          gremlinCount: 3, // seats 1-3 are bots, seat 0 is human
+        })}
+        mySeats={[0]}
+        onMove={() => {}}
+      />,
+    );
+    expect(screen.getByTestId('cell')).toHaveAttribute('data-held-actor', '2:freeze');
+  });
+
+  it('emits heldItemActor while a bot is in the swapActive pickup phase', () => {
+    render(
+      <GameScreen
+        gameState={baseState({
+          currentPlayerIndex: 2,
+          swapActive: true,
+          gremlinCount: 3,
+        })}
+        mySeats={[0]}
+        onMove={() => {}}
+      />,
+    );
+    expect(screen.getByTestId('cell')).toHaveAttribute('data-held-actor', '2:swap');
+  });
+
+  it('does NOT emit heldItemActor when the human is in pickup phase (humans select targets, no roulette)', () => {
+    render(
+      <GameScreen
+        gameState={baseState({
+          currentPlayerIndex: 0,
+          freezeSelectActive: true,
+          gremlinCount: 3,
+        })}
+        mySeats={[0]}
+        onMove={() => {}}
+      />,
+    );
+    expect(screen.getByTestId('cell')).toHaveAttribute('data-held-actor', '');
+  });
+
+  it('routes the rouletteActor through heldItemActor while the wheel is rolling', () => {
+    render(
+      <GameScreen
+        gameState={baseState({ currentPlayerIndex: 3, gremlinCount: 3 })}
+        mySeats={[0]}
+        onMove={() => {}}
+        rouletteActive
+        rouletteActor={{ playerId: 2, itemKind: 'freeze' }}
+      />,
+    );
+    expect(screen.getByTestId('cell')).toHaveAttribute('data-held-actor', '2:freeze');
+  });
+
+  it('rouletteActor takes precedence over a concurrent pickup (defence-in-depth)', () => {
+    // In practice these two states don't co-occur (the reducer flips
+    // freezeSelectActive=false when the freeze applies). But if they
+    // ever did, the roulette is the more specific signal.
+    render(
+      <GameScreen
+        gameState={baseState({
+          currentPlayerIndex: 2,
+          freezeSelectActive: true,
+          gremlinCount: 3,
+        })}
+        mySeats={[0]}
+        onMove={() => {}}
+        rouletteActive
+        rouletteActor={{ playerId: 1, itemKind: 'swap' }}
+      />,
+    );
+    expect(screen.getByTestId('cell')).toHaveAttribute('data-held-actor', '1:swap');
+  });
+
+  it('emits null when neither pickup nor roulette is active', () => {
+    render(
+      <GameScreen
+        gameState={baseState({ currentPlayerIndex: 2, gremlinCount: 3 })}
+        mySeats={[0]}
+        onMove={() => {}}
+      />,
+    );
+    expect(screen.getByTestId('cell')).toHaveAttribute('data-held-actor', '');
   });
 });
 

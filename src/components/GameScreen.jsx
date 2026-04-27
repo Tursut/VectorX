@@ -90,6 +90,24 @@ export default function GameScreen({
   const displayedIsOpponent =
     !mySeats.includes(displayedSeat) && !displayedPlayerState?.isEliminated;
 
+  // Issue #41 — span the held-item actor halo + icon across both the
+  // pickup→select phase AND the roulette phase. When a bot picks up
+  // freeze/swap, the state goes into freezeSelectActive/swapActive
+  // and the bot's ~1.6 s thinking delay runs before it picks a
+  // target. Without this, that whole window has no visual signal
+  // that the bot is holding an item — reads as a stall. The motion
+  // key uses (playerId, itemKind) so the icon mounts ONCE on pickup
+  // (with a punchy grow-in) and stays mounted through the roulette
+  // until the freeze/swap resolves.
+  const pickupHeld =
+    (gameState.freezeSelectActive || gameState.swapActive) && currentIsBot
+      ? {
+          playerId: currentSeat,
+          itemKind: gameState.freezeSelectActive ? 'freeze' : 'swap',
+        }
+      : null;
+  const heldItemActor = rouletteActor ?? pickupHeld;
+
   // While the freeze/swap roulette is rolling (issue #30) we hide the
   // valid-move dots so the human can't interrupt the suspense — the
   // turn really is theirs (gameState advanced when the bot picked the
@@ -194,7 +212,7 @@ export default function GameScreen({
                 roulettePlayerId={roulettePlayerId}
                 rouletteRevealing={rouletteRevealing}
                 pendingSwap={pendingSwap}
-                rouletteActor={rouletteActor}
+                heldItemActor={heldItemActor}
                 frozenPlayerId={gameState.frozenPlayerId ?? null}
                 frozenTurnsLeft={gameState.frozenTurnsLeft ?? 0}
               />
