@@ -28,9 +28,22 @@ const CROSS_DURATION_MIN_MS = 14_000;
 const CROSS_DURATION_MAX_MS = 22_000;
 const OFFSCREEN_WAIT_MIN_MS = 18_000;
 const OFFSCREEN_WAIT_MAX_MS = 50_000;
-const INITIAL_STAGGER_MAX_MS = 40_000;
 const ROTATE_MIN_MS = 8_000;
 const ROTATE_MAX_MS = 18_000;
+// First-trip stagger buckets, one per bubble. A randomly-chosen
+// bubble lands in each bucket on mount, so:
+//   - One bubble appears within ~1.5 s (user always sees activity
+//     quickly, even on quick post-game returns to the menu).
+//   - The other three are spread across 5-40 s so they don't all
+//     pile onto the screen at once.
+// Without this, INITIAL_STAGGER was a uniform 0-40 s per bubble
+// and most short visits to the menu showed nothing at all.
+const FIRST_TRIP_BUCKETS_MS = [
+  [300,   1500],
+  [5_000,  14_000],
+  [15_000, 28_000],
+  [25_000, 40_000],
+];
 // How far past the screen edge the bubble starts / ends. Has to
 // exceed the bubble's rendered size so it's fully hidden when
 // off-screen.
@@ -70,7 +83,7 @@ function randomTrip() {
   };
 }
 
-function FloatingBubble({ player }) {
+function FloatingBubble({ player, initialDelayMs }) {
   // null = off-screen / not rendered. Set to a trip object while
   // crossing. Each new trip gets a fresh `id` so the motion.div
   // remounts and replays initial → animate cleanly.
@@ -91,13 +104,13 @@ function FloatingBubble({ player }) {
       }, t.durationMs);
     };
 
-    timer = setTimeout(startTrip, rand(0, INITIAL_STAGGER_MAX_MS));
+    timer = setTimeout(startTrip, initialDelayMs);
 
     return () => {
       mounted = false;
       if (timer) clearTimeout(timer);
     };
-  }, []);
+  }, [initialDelayMs]);
 
   return (
     <AnimatePresence>
@@ -145,12 +158,25 @@ function FloatingBubble({ player }) {
 
 export default function MenuAvatarStage() {
   const prefersReducedMotion = useReducedMotion();
+  // Shuffle the four stagger buckets so the "first to appear"
+  // slot doesn't always go to Reginald. Computed once per mount
+  // (so a fresh return-to-menu picks a fresh order), via the
+  // useState init callback.
+  const [initialDelays] = useState(() => {
+    const shuffled = [...FIRST_TRIP_BUCKETS_MS].sort(() => Math.random() - 0.5);
+    return PLAYERS.map((_, i) => rand(shuffled[i][0], shuffled[i][1]));
+  });
+
   if (prefersReducedMotion) return null;
 
   return (
     <div className="menu-avatar-stage" aria-hidden="true">
-      {PLAYERS.map((p) => (
-        <FloatingBubble key={p.id} player={p} />
+      {PLAYERS.map((p, i) => (
+        <FloatingBubble
+          key={p.id}
+          player={p}
+          initialDelayMs={initialDelays[i]}
+        />
       ))}
     </div>
   );
