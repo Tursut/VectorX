@@ -9,36 +9,33 @@ import TapToBeginModal from './TapToBeginModal';
 import WaitingFlourish from './WaitingFlourish';
 import MenuAvatarStage from './MenuAvatarStage';
 
-// Delayed reveal + minimum display time for a transient flag.
-// When `condition` flips true, waits `delayMs` before returning
-// true — so fast operations (room created in < delayMs) never
-// show the indicator at all. Once true, stays true for at least
-// `minDurationMs` so the indicator can't flicker on and off in a
-// fraction of a second. The combination filters out both
-// "flashed for nothing" and "blinked off mid-animation" cases.
-function useDelayedFlag(condition, { delayMs, minDurationMs }) {
-  const [shown, setShown] = useState(false);
-  const shownAtRef = useRef(null);
+// Once-shown sticky flag. Returns true the moment `condition`
+// turns true; once true, stays true for at least `minDurationMs`
+// even if `condition` flips back to false earlier. Used to
+// guarantee the WaitingFlourish gets a minimum on-screen beat
+// for the user to read context, regardless of how fast the
+// underlying request actually finishes (issue #45 v3).
+function useStickyFlag(condition, minDurationMs) {
+  const [shown, setShown] = useState(condition);
+  const shownAtRef = useRef(condition ? Date.now() : null);
 
   useEffect(() => {
-    let timer = null;
     if (condition) {
       if (!shown) {
-        timer = setTimeout(() => {
-          setShown(true);
-          shownAtRef.current = Date.now();
-        }, delayMs);
+        setShown(true);
+        shownAtRef.current = Date.now();
       }
-    } else if (shown) {
-      const elapsed = shownAtRef.current ? Date.now() - shownAtRef.current : 0;
-      const remaining = Math.max(0, minDurationMs - elapsed);
-      timer = setTimeout(() => {
-        setShown(false);
-        shownAtRef.current = null;
-      }, remaining);
+      return undefined;
     }
-    return () => { if (timer) clearTimeout(timer); };
-  }, [condition, shown, delayMs, minDurationMs]);
+    if (!shown) return undefined;
+    const elapsed = shownAtRef.current ? Date.now() - shownAtRef.current : 0;
+    const remaining = Math.max(0, minDurationMs - elapsed);
+    const t = setTimeout(() => {
+      setShown(false);
+      shownAtRef.current = null;
+    }, remaining);
+    return () => clearTimeout(t);
+  }, [condition, shown, minDurationMs]);
 
   return shown;
 }
@@ -100,14 +97,12 @@ export default function StartScreen({
     typeof onCreateOnline === 'function' &&
     typeof onJoinOnline === 'function';
 
-  // Filter creatingRoom through delayed-reveal + minimum-display
-  // so the indicator only shows when the wait is actually long
-  // enough to need feedback, and never flickers on/off when the
-  // room creates in 500-700 ms (issue #45 v2).
-  const showCreateFlourish = useDelayedFlag(creatingRoom, {
-    delayMs: 400,
-    minDurationMs: 800,
-  });
+  // Always show the WaitingFlourish for at least 1 s once
+  // creatingRoom flips true — long enough to read the
+  // "Creating your playground" heading and notice the avatars,
+  // even on fast room-creation paths (issue #45 v3). Network-slow
+  // cases extend naturally to the actual wait.
+  const showCreateFlourish = useStickyFlag(creatingRoom, 1000);
 
   // Three views drive the screen now: 'menu' (the front door — PLAY +
   // PLAY WITH FRIENDS hero buttons), 'online' (multiplayer drawer, with
@@ -618,18 +613,34 @@ at:          ${onlineErrorDebug.at ?? '(unknown)'}`}
 
       {!isMenu && (
         <div className="start-button-bar">
-          {showCreateFlourish ? (
-            <WaitingFlourish />
-          ) : (
-            <button
-              className="start-button"
-              data-testid="primary-button"
-              onClick={handlePrimaryClick}
-              aria-disabled={!canSubmit}
-            >
-              {primaryLabel}
-            </button>
-          )}
+          <AnimatePresence mode="wait" initial={false}>
+            {showCreateFlourish ? (
+              <motion.div
+                key="flourish"
+                style={{ width: '100%' }}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.3, ease: 'easeOut' }}
+              >
+                <WaitingFlourish />
+              </motion.div>
+            ) : (
+              <motion.button
+                key="primary"
+                className="start-button"
+                data-testid="primary-button"
+                onClick={handlePrimaryClick}
+                aria-disabled={!canSubmit}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.25, ease: 'easeOut' }}
+              >
+                {primaryLabel}
+              </motion.button>
+            )}
+          </AnimatePresence>
         </div>
       )}
 

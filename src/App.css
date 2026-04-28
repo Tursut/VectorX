@@ -2669,6 +2669,15 @@
   line-height: 1;
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.4));
 }
+.waiting-flourish-heading {
+  font-family: 'Fredoka One', 'Segoe UI', sans-serif;
+  font-size: 17px;
+  letter-spacing: 1.2px;
+  color: #c8caff;
+  text-shadow: 0 0 12px rgba(122, 140, 255, 0.4);
+  margin: 0;
+  text-align: center;
+}
 .waiting-flourish-caption {
   font-style: italic;
   font-size: 13px;

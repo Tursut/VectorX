@@ -86,6 +86,7 @@ export default function WaitingFlourish() {
           );
         })}
       </div>
+      <p className="waiting-flourish-heading">Creating your playground</p>
       <motion.p
         key={captionIndex}
         className="waiting-flourish-caption"
