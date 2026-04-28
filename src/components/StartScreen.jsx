@@ -9,6 +9,40 @@ import TapToBeginModal from './TapToBeginModal';
 import WaitingFlourish from './WaitingFlourish';
 import MenuAvatarStage from './MenuAvatarStage';
 
+// Delayed reveal + minimum display time for a transient flag.
+// When `condition` flips true, waits `delayMs` before returning
+// true — so fast operations (room created in < delayMs) never
+// show the indicator at all. Once true, stays true for at least
+// `minDurationMs` so the indicator can't flicker on and off in a
+// fraction of a second. The combination filters out both
+// "flashed for nothing" and "blinked off mid-animation" cases.
+function useDelayedFlag(condition, { delayMs, minDurationMs }) {
+  const [shown, setShown] = useState(false);
+  const shownAtRef = useRef(null);
+
+  useEffect(() => {
+    let timer = null;
+    if (condition) {
+      if (!shown) {
+        timer = setTimeout(() => {
+          setShown(true);
+          shownAtRef.current = Date.now();
+        }, delayMs);
+      }
+    } else if (shown) {
+      const elapsed = shownAtRef.current ? Date.now() - shownAtRef.current : 0;
+      const remaining = Math.max(0, minDurationMs - elapsed);
+      timer = setTimeout(() => {
+        setShown(false);
+        shownAtRef.current = null;
+      }, remaining);
+    }
+    return () => { if (timer) clearTimeout(timer); };
+  }, [condition, shown, delayMs, minDurationMs]);
+
+  return shown;
+}
+
 const CODE_ALPHABET_RE = /[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]/g;
 const CODE_TOKEN_RE = /[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{5}/;
 
@@ -65,6 +99,15 @@ export default function StartScreen({
   const onlineAvailable =
     typeof onCreateOnline === 'function' &&
     typeof onJoinOnline === 'function';
+
+  // Filter creatingRoom through delayed-reveal + minimum-display
+  // so the indicator only shows when the wait is actually long
+  // enough to need feedback, and never flickers on/off when the
+  // room creates in 500-700 ms (issue #45 v2).
+  const showCreateFlourish = useDelayedFlag(creatingRoom, {
+    delayMs: 400,
+    minDurationMs: 800,
+  });
 
   // Three views drive the screen now: 'menu' (the front door — PLAY +
   // PLAY WITH FRIENDS hero buttons), 'online' (multiplayer drawer, with
@@ -575,7 +618,7 @@ at:          ${onlineErrorDebug.at ?? '(unknown)'}`}
 
       {!isMenu && (
         <div className="start-button-bar">
-          {creatingRoom ? (
+          {showCreateFlourish ? (
             <WaitingFlourish />
           ) : (
             <button

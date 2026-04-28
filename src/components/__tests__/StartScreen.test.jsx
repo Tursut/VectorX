@@ -5,7 +5,7 @@
 // (online + join + valid code) get a stripped view — the Magic/Classic
 // block, the create/join toggle, and the rules list all hide.
 
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import StartScreen from '../StartScreen.jsx';
@@ -351,16 +351,88 @@ describe('StartScreen — testing ground link', () => {
 });
 
 // ---------- Waiting flourish (issue #45) ----------
+//
+// The flourish is filtered through useDelayedFlag — only appears
+// 400 ms after creatingRoom flips true, and then stays visible
+// for at least 800 ms once it has appeared. So fast room
+// creation (typical case) shows nothing, slow room creation
+// shows a deliberate beat.
 
 describe('StartScreen — creatingRoom waiting flourish', () => {
-  it('hides the primary button and shows the flourish while creatingRoom is true', () => {
+  it('keeps the primary button visible during the 400 ms reveal delay', () => {
+    vi.useFakeTimers();
     render(
       <StartScreen
         {...withOnline({ defaultMode: 'create', creatingRoom: true })}
       />,
     );
+    // Immediately after click: button still there, no flourish yet.
+    expect(screen.getByTestId('primary-button')).toBeInTheDocument();
+    expect(screen.queryByRole('status')).toBeNull();
+    // Just before the delay completes: still nothing.
+    act(() => { vi.advanceTimersByTime(399); });
+    expect(screen.getByTestId('primary-button')).toBeInTheDocument();
+    expect(screen.queryByRole('status')).toBeNull();
+    vi.useRealTimers();
+  });
+
+  it('shows the flourish after the 400 ms delay if creatingRoom is still true', () => {
+    vi.useFakeTimers();
+    render(
+      <StartScreen
+        {...withOnline({ defaultMode: 'create', creatingRoom: true })}
+      />,
+    );
+    act(() => { vi.advanceTimersByTime(401); });
     expect(screen.queryByTestId('primary-button')).toBeNull();
     expect(screen.getByRole('status')).toBeInTheDocument();
+    vi.useRealTimers();
+  });
+
+  it('keeps the flourish for the 800 ms minimum once shown, even if creatingRoom flips false earlier', () => {
+    vi.useFakeTimers();
+    const { rerender } = render(
+      <StartScreen
+        {...withOnline({ defaultMode: 'create', creatingRoom: true })}
+      />,
+    );
+    act(() => { vi.advanceTimersByTime(401); });
+    expect(screen.getByRole('status')).toBeInTheDocument();
+    // Room created very quickly after the flourish appeared (only
+    // 100 ms in). Should keep the flourish for the remaining
+    // 700 ms instead of yanking it instantly.
+    act(() => { vi.advanceTimersByTime(100); });
+    rerender(
+      <StartScreen
+        {...withOnline({ defaultMode: 'create', creatingRoom: false })}
+      />,
+    );
+    expect(screen.getByRole('status')).toBeInTheDocument();
+    // Past the minimum display: now allowed to disappear.
+    act(() => { vi.advanceTimersByTime(800); });
+    expect(screen.queryByRole('status')).toBeNull();
+    vi.useRealTimers();
+  });
+
+  it('never shows the flourish when room creation completes inside the 400 ms delay', () => {
+    vi.useFakeTimers();
+    const { rerender } = render(
+      <StartScreen
+        {...withOnline({ defaultMode: 'create', creatingRoom: true })}
+      />,
+    );
+    // Fast case — the room came back at 250 ms.
+    act(() => { vi.advanceTimersByTime(250); });
+    rerender(
+      <StartScreen
+        {...withOnline({ defaultMode: 'create', creatingRoom: false })}
+      />,
+    );
+    // Even after the original 400 ms boundary the flourish never shows.
+    act(() => { vi.advanceTimersByTime(1000); });
+    expect(screen.queryByRole('status')).toBeNull();
+    expect(screen.getByTestId('primary-button')).toBeInTheDocument();
+    vi.useRealTimers();
   });
 
   it('shows the primary button when creatingRoom is false', () => {
