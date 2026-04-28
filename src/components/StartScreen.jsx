@@ -97,13 +97,12 @@ export default function StartScreen({
     typeof onCreateOnline === 'function' &&
     typeof onJoinOnline === 'function';
 
-  // Always show the WaitingFlourish for at least 1.6 s once
-  // creatingRoom flips true — long enough to read the heading
-  // (which crossfades from "Creating your playground" to
-  // "Creating your private room" at 800 ms) and notice the
-  // avatars, even on fast room-creation paths. Network-slow
-  // cases extend naturally to the actual wait.
-  const showCreateFlourish = useStickyFlag(creatingRoom, 1600);
+  // Always show the WaitingFlourish for at least 2.1 s once
+  // creatingRoom flips true — long enough to read each heading
+  // phrase (the swap fires at 1050 ms, giving ~1 s per phrase)
+  // and notice the avatars, even on fast room-creation paths.
+  // Network-slow cases extend naturally to the actual wait.
+  const showCreateFlourish = useStickyFlag(creatingRoom, 2100);
 
   // Three views drive the screen now: 'menu' (the front door — PLAY +
   // PLAY WITH FRIENDS hero buttons), 'online' (multiplayer drawer, with

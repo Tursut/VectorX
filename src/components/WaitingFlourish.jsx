@@ -31,13 +31,14 @@ const CAPTIONS = [
 // Heading rotates once partway through the wait so the user sees
 // the playful framing first ("Creating your playground") then the
 // accurate label ("Creating your private room") before the
-// lobby mounts. Pacing tuned to the 1600 ms minimum: the swap
-// fires at 800 ms, leaving ~800 ms on each label.
+// lobby mounts. Pacing tuned to the 2100 ms minimum: the swap
+// fires at the midpoint (1050 ms), leaving ~1 s on each label —
+// long enough to actually read.
 const HEADINGS = [
   'Creating your playground',
   'Creating your private room',
 ];
-const HEADING_SWITCH_AT_MS = 800;
+const HEADING_SWITCH_AT_MS = 1050;
 
 const CAPTION_INTERVAL_MS = 1100;
 const PARADE_INTERVAL_MS = 600;
