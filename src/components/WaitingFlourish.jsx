@@ -14,7 +14,7 @@
 // flourish so the wait reads as one continuous beat.
 
 import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { PLAYERS } from '../game/constants';
 
 const CAPTIONS = [
@@ -27,6 +27,17 @@ const CAPTIONS = [
   'Calibrating the trap-doors…',
   'Reminding Gerald not to eat the items…',
 ];
+
+// Heading rotates once partway through the wait so the user sees
+// the playful framing first ("Creating your playground") then the
+// accurate label ("Creating your private room") before the
+// lobby mounts. Pacing tuned to the 1600 ms minimum: the swap
+// fires at 800 ms, leaving ~800 ms on each label.
+const HEADINGS = [
+  'Creating your playground',
+  'Creating your private room',
+];
+const HEADING_SWITCH_AT_MS = 800;
 
 const CAPTION_INTERVAL_MS = 1100;
 const PARADE_INTERVAL_MS = 600;
@@ -49,6 +60,7 @@ const PARADE_ANIMS = [
 export default function WaitingFlourish() {
   const [captionIndex, setCaptionIndex] = useState(0);
   const [activeAvatar, setActiveAvatar] = useState(0);
+  const [headingIndex, setHeadingIndex] = useState(0);
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -62,6 +74,11 @@ export default function WaitingFlourish() {
       setActiveAvatar((i) => (i + 1) % PLAYERS.length);
     }, PARADE_INTERVAL_MS);
     return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    const id = setTimeout(() => setHeadingIndex(1), HEADING_SWITCH_AT_MS);
+    return () => clearTimeout(id);
   }, []);
 
   return (
@@ -86,7 +103,18 @@ export default function WaitingFlourish() {
           );
         })}
       </div>
-      <p className="waiting-flourish-heading">Creating your playground</p>
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.p
+          key={headingIndex}
+          className="waiting-flourish-heading"
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -4 }}
+          transition={{ duration: 0.35, ease: 'easeOut' }}
+        >
+          {HEADINGS[headingIndex]}
+        </motion.p>
+      </AnimatePresence>
       <motion.p
         key={captionIndex}
         className="waiting-flourish-caption"

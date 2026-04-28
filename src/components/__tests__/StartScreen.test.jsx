@@ -376,14 +376,14 @@ describe('StartScreen — creatingRoom waiting flourish', () => {
   // sticky-flag logic alone leaves the motion.div mounted in the
   // DOM during the ~300 ms exit fade, so the assertion races.
   // ~1.5 s real-time per test is fine.
-  it('keeps the flourish for the 1000 ms minimum once shown, even if creatingRoom flips false earlier', async () => {
+  it('keeps the flourish for the 1.6 s minimum once shown, even if creatingRoom flips false earlier', async () => {
     const { rerender } = render(
       <StartScreen
         {...withOnline({ defaultMode: 'create', creatingRoom: true })}
       />,
     );
     expect(screen.getByRole('status')).toBeInTheDocument();
-    // Fast room creation (much shorter than the 1 s minimum).
+    // Fast room creation (much shorter than the 1.6 s minimum).
     rerender(
       <StartScreen
         {...withOnline({ defaultMode: 'create', creatingRoom: false })}
@@ -391,21 +391,21 @@ describe('StartScreen — creatingRoom waiting flourish', () => {
     );
     // Still visible right after flip — minimum hasn't elapsed.
     expect(screen.getByRole('status')).toBeInTheDocument();
-    // Eventually disappears (1 s minimum + ~0.3 s exit fade).
+    // Eventually disappears (1.6 s minimum + ~0.3 s exit fade).
     await waitFor(
       () => expect(screen.queryByRole('status')).toBeNull(),
-      { timeout: 2500 },
+      { timeout: 3000 },
     );
   });
 
-  it('extends the display to match a slow request (> 1000 ms)', async () => {
+  it('extends the display to match a slow request (> 1.6 s)', async () => {
     const { rerender } = render(
       <StartScreen
         {...withOnline({ defaultMode: 'create', creatingRoom: true })}
       />,
     );
-    // Wait past the 1 s minimum while creatingRoom stays true.
-    await new Promise((r) => setTimeout(r, 1100));
+    // Wait past the 1.6 s minimum while creatingRoom stays true.
+    await new Promise((r) => setTimeout(r, 1700));
     expect(screen.getByRole('status')).toBeInTheDocument();
     rerender(
       <StartScreen
