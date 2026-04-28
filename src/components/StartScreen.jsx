@@ -9,36 +9,6 @@ import TapToBeginModal from './TapToBeginModal';
 import WaitingFlourish from './WaitingFlourish';
 import MenuAvatarStage from './MenuAvatarStage';
 
-// Once-shown sticky flag. Returns true the moment `condition`
-// turns true; once true, stays true for at least `minDurationMs`
-// even if `condition` flips back to false earlier. Used to
-// guarantee the WaitingFlourish gets a minimum on-screen beat
-// for the user to read context, regardless of how fast the
-// underlying request actually finishes (issue #45 v3).
-function useStickyFlag(condition, minDurationMs) {
-  const [shown, setShown] = useState(condition);
-  const shownAtRef = useRef(condition ? Date.now() : null);
-
-  useEffect(() => {
-    if (condition) {
-      if (!shown) {
-        setShown(true);
-        shownAtRef.current = Date.now();
-      }
-      return undefined;
-    }
-    if (!shown) return undefined;
-    const elapsed = shownAtRef.current ? Date.now() - shownAtRef.current : 0;
-    const remaining = Math.max(0, minDurationMs - elapsed);
-    const t = setTimeout(() => {
-      setShown(false);
-      shownAtRef.current = null;
-    }, remaining);
-    return () => clearTimeout(t);
-  }, [condition, shown, minDurationMs]);
-
-  return shown;
-}
 
 const CODE_ALPHABET_RE = /[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]/g;
 const CODE_TOKEN_RE = /[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{5}/;
@@ -97,12 +67,6 @@ export default function StartScreen({
     typeof onCreateOnline === 'function' &&
     typeof onJoinOnline === 'function';
 
-  // Always show the WaitingFlourish for at least 2.1 s once
-  // creatingRoom flips true — long enough to read each heading
-  // phrase (the swap fires at 1050 ms, giving ~1 s per phrase)
-  // and notice the avatars, even on fast room-creation paths.
-  // Network-slow cases extend naturally to the actual wait.
-  const showCreateFlourish = useStickyFlag(creatingRoom, 2100);
 
   // Three views drive the screen now: 'menu' (the front door — PLAY +
   // PLAY WITH FRIENDS hero buttons), 'online' (multiplayer drawer, with
@@ -614,7 +578,7 @@ at:          ${onlineErrorDebug.at ?? '(unknown)'}`}
       {!isMenu && (
         <div className="start-button-bar">
           <AnimatePresence mode="wait" initial={false}>
-            {showCreateFlourish ? (
+            {creatingRoom ? (
               <motion.div
                 key="flourish"
                 style={{ width: '100%' }}

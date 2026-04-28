@@ -43,6 +43,12 @@ const ROUTABLE_JOIN_ERRORS = {
   ALREADY_STARTED:  'This game has already started.',
 };
 
+// Minimum time the WaitingFlourish stays on screen during room
+// creation. Has to live here (not inside StartScreen via
+// useStickyFlag) because setOnline() unmounts the StartScreen
+// outright — local sticky state can't outlive the unmount.
+const MIN_CREATING_DURATION_MS = 2100;
+
 export default function App() {
   // { code, displayName, magicItems } when we're in an active online session,
   // null otherwise. Setting this transitions the whole app to OnlineGameController.
@@ -65,10 +71,9 @@ export default function App() {
   // tweak the name and retry without losing context.
   const [pendingDisplayName, setPendingDisplayName] = useState('');
   const [pendingCode, setPendingCode] = useState('');
-  // True while the POST /rooms is in flight (issue #45). Drives the
-  // WaitingFlourish indicator on StartScreen so the user has visible
-  // feedback during the 1-3 s wait. Cleared either when the fetch
-  // resolves (handed off to OnlineGameController) or on error.
+  // True while the POST /rooms is in flight + the minimum-display
+  // window. Drives the WaitingFlourish indicator on StartScreen.
+  // Cleared once we hand off to OnlineGameController.
   const [creatingRoom, setCreatingRoom] = useState(false);
 
   async function handleCreateOnline({ displayName, magicItems }) {
@@ -83,10 +88,22 @@ export default function App() {
     setPendingDisplayName('');
     setPendingCode('');
     setCreatingRoom(true);
+    const startedAt = Date.now();
     try {
       const res = await fetch(`${SERVER_URL}/rooms`, { method: 'POST' });
       if (!res.ok) throw new Error(`Server returned ${res.status}`);
       const body = await res.json();
+      // Hold the lobby transition until the WaitingFlourish has had
+      // its minimum on-screen beat. Without this the StartScreen
+      // unmounts the moment the fetch resolves and the flourish
+      // never gets time to render — even though useStickyFlag
+      // would otherwise keep its local state alive, the whole
+      // component tree is being destroyed by the setOnline below.
+      const elapsed = Date.now() - startedAt;
+      const remaining = MIN_CREATING_DURATION_MS - elapsed;
+      if (remaining > 0) {
+        await new Promise((r) => setTimeout(r, remaining));
+      }
       setColdOpenCode(null);
       setOnline({ code: body.code, displayName, magicItems });
       setCreatingRoom(false);

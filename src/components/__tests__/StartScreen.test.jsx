@@ -5,7 +5,7 @@
 // (online + join + valid code) get a stripped view — the Magic/Classic
 // block, the create/join toggle, and the rules list all hide.
 
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import StartScreen from '../StartScreen.jsx';
@@ -352,14 +352,13 @@ describe('StartScreen — testing ground link', () => {
 
 // ---------- Waiting flourish (issue #45) ----------
 //
-// The flourish is filtered through useStickyFlag — appears
-// immediately when creatingRoom flips true, and stays visible
-// for at least 1000 ms once shown. The user gets a deliberate
-// "Creating your playground" beat regardless of how fast the
-// underlying request actually finishes.
+// StartScreen renders the flourish when its creatingRoom prop is
+// true, no minimum-display logic of its own. The minimum lives
+// in App.jsx (it has to — setOnline unmounts StartScreen, so
+// local sticky state can't outlive that transition).
 
 describe('StartScreen — creatingRoom waiting flourish', () => {
-  it('shows the flourish immediately when creatingRoom is true', () => {
+  it('shows the flourish (with the playground heading) when creatingRoom is true', () => {
     render(
       <StartScreen
         {...withOnline({ defaultMode: 'create', creatingRoom: true })}
@@ -368,55 +367,6 @@ describe('StartScreen — creatingRoom waiting flourish', () => {
     expect(screen.queryByTestId('primary-button')).toBeNull();
     expect(screen.getByRole('status')).toBeInTheDocument();
     expect(screen.getByText(/creating your playground/i)).toBeInTheDocument();
-  });
-
-  // The minimum-display tests use real timers because framer-
-  // motion's exit animation runs on requestAnimationFrame, which
-  // vi.useFakeTimers doesn't mock by default — fake-timing the
-  // sticky-flag logic alone leaves the motion.div mounted in the
-  // DOM during the ~300 ms exit fade, so the assertion races.
-  // ~1.5 s real-time per test is fine.
-  it('keeps the flourish for the 2.1 s minimum once shown, even if creatingRoom flips false earlier', async () => {
-    const { rerender } = render(
-      <StartScreen
-        {...withOnline({ defaultMode: 'create', creatingRoom: true })}
-      />,
-    );
-    expect(screen.getByRole('status')).toBeInTheDocument();
-    // Fast room creation (much shorter than the 2.1 s minimum).
-    rerender(
-      <StartScreen
-        {...withOnline({ defaultMode: 'create', creatingRoom: false })}
-      />,
-    );
-    // Still visible right after flip — minimum hasn't elapsed.
-    expect(screen.getByRole('status')).toBeInTheDocument();
-    // Eventually disappears (2.1 s minimum + ~0.3 s exit fade).
-    await waitFor(
-      () => expect(screen.queryByRole('status')).toBeNull(),
-      { timeout: 3500 },
-    );
-  });
-
-  it('extends the display to match a slow request (> 2.1 s)', async () => {
-    const { rerender } = render(
-      <StartScreen
-        {...withOnline({ defaultMode: 'create', creatingRoom: true })}
-      />,
-    );
-    // Wait past the 2.1 s minimum while creatingRoom stays true.
-    await new Promise((r) => setTimeout(r, 2200));
-    expect(screen.getByRole('status')).toBeInTheDocument();
-    rerender(
-      <StartScreen
-        {...withOnline({ defaultMode: 'create', creatingRoom: false })}
-      />,
-    );
-    // Past the minimum, hides as soon as the exit fade finishes.
-    await waitFor(
-      () => expect(screen.queryByRole('status')).toBeNull(),
-      { timeout: 1000 },
-    );
   });
 
   it('shows the primary button when creatingRoom is false', () => {
