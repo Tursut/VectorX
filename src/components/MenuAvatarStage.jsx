@@ -1,114 +1,157 @@
-// Four floating avatar "bubbles" that hover at the edges of the
-// start menu. All four visible at all times — each drifts on its
-// own slow keyframe loop and rotates continuously, like balloons
-// caught in a gentle current. Background-only: pointer-events
-// none + low z-index so they never compete with the heroes.
+// Four avatar "bubbles" that cross the start screen on slow,
+// random trajectories. Each bubble independently:
+//
+//   1. Spawns just off one edge of the screen.
+//   2. Drifts in a straight line at a random angle to a point
+//      just off the OPPOSITE edge — takes 14-22 s.
+//   3. Stays off-screen 18-50 s.
+//   4. Picks a new trajectory and goes again.
+//
+// Cycles are heavily staggered so usually only one or two are
+// visible at a time (sometimes none). Continuous rotation runs
+// through the whole trip. Background-only: pointer-events none
+// + z-index 0 so they sit behind every UI element.
 //
 // Future possibilities (not in this version):
 //   - Gravity / physics so they bump into each other
 //   - Click to burst
 //   - React to cursor proximity
 //
-// prefers-reduced-motion freezes all motion to the rest pose.
+// prefers-reduced-motion freezes everything (the bubbles never
+// render at all).
 
-import { motion, useReducedMotion } from 'framer-motion';
+import { useEffect, useState } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { PLAYERS } from '../game/constants';
 
-// Per-character drift path. Each one stays inside its own corner
-// zone so all four are always in sight. Paths are mirrored
-// keyframes that loop forever; framer-motion handles the
-// interpolation with `ease: 'easeInOut'`. Rotation values use
-// linear ease so spin is steady.
-//
-// Order matches PLAYERS — Reginald, Gerald, Bluebot, Buzzilda.
-const FLOAT_CONFIGS = [
-  // Reginald 🧙‍♂️ — top-left, slow ethereal sway. Rotates CCW.
-  {
-    anchor: { top: '10%', left: '4%' },
-    drift: {
-      x: [0, 36, 18, -8, -22, 0],
-      y: [0, 18, 38, 22, 8, 0],
-    },
-    driftDuration: 36,
-    rotate: [0, -360],
-    rotateDuration: 32,
-  },
-  // Gerald 🐸 — bottom-left, more vertical bob. Gentle wobble.
-  {
-    anchor: { bottom: '14%', left: '6%' },
-    drift: {
-      x: [0, 14, 28, 8, -10, 0],
-      y: [0, -22, -8, -32, -12, 0],
-    },
-    driftDuration: 30,
-    rotate: [-12, 12, -12],
-    rotateDuration: 7,
-  },
-  // Bluebot 🤖 — bottom-right, linear-feeling rectangular path.
-  // Rotates fully but slowly, like a satellite.
-  {
-    anchor: { bottom: '12%', right: '5%' },
-    drift: {
-      x: [0, -28, -32, -10, 6, 0],
-      y: [0, -10, -28, -36, -12, 0],
-    },
-    driftDuration: 40,
-    rotate: [0, 360],
-    rotateDuration: 44,
-  },
-  // Buzzilda 🐝 — top-right, wider figure-eight. Bee energy.
-  {
-    anchor: { top: '12%', right: '4%' },
-    drift: {
-      x: [0, -28, 6, -32, -8, 0],
-      y: [0, 24, 12, 32, 16, 0],
-    },
-    driftDuration: 26,
-    rotate: [0, -180, 0, 180, 0],
-    rotateDuration: 18,
-  },
-];
+const CROSS_DURATION_MIN_MS = 14_000;
+const CROSS_DURATION_MAX_MS = 22_000;
+const OFFSCREEN_WAIT_MIN_MS = 18_000;
+const OFFSCREEN_WAIT_MAX_MS = 50_000;
+const INITIAL_STAGGER_MAX_MS = 40_000;
+const ROTATE_MIN_MS = 8_000;
+const ROTATE_MAX_MS = 18_000;
+// How far past the screen edge the bubble starts / ends. Has to
+// exceed the bubble's rendered size so it's fully hidden when
+// off-screen.
+const OFFSCREEN_MARGIN_PX = 140;
+
+function rand(min, max) {
+  return min + Math.random() * (max - min);
+}
+
+// Build a random crossing trajectory: enter from one edge, exit
+// from the opposite edge at a random point. Coordinates are
+// pixels relative to the stage's top-left.
+function randomTrip() {
+  const w = (typeof window !== 'undefined' && window.innerWidth) || 800;
+  const h = (typeof window !== 'undefined' && window.innerHeight) || 1200;
+  const m = OFFSCREEN_MARGIN_PX;
+  const edge = Math.floor(Math.random() * 4); // 0=top 1=right 2=bottom 3=left
+  const opposite = (edge + 2) % 4;
+
+  const pointOnEdge = (e) => {
+    switch (e) {
+      case 0: return { x: rand(0, w),     y: -m };
+      case 1: return { x: w + m,          y: rand(0, h) };
+      case 2: return { x: rand(0, w),     y: h + m };
+      case 3: return { x: -m,             y: rand(0, h) };
+      default: return { x: 0, y: 0 };
+    }
+  };
+
+  return {
+    id: Math.random(),
+    from: pointOnEdge(edge),
+    to: pointOnEdge(opposite),
+    durationMs: rand(CROSS_DURATION_MIN_MS, CROSS_DURATION_MAX_MS),
+    rotateMs: rand(ROTATE_MIN_MS, ROTATE_MAX_MS),
+    rotateDir: Math.random() < 0.5 ? 1 : -1,
+  };
+}
+
+function FloatingBubble({ player }) {
+  // null = off-screen / not rendered. Set to a trip object while
+  // crossing. Each new trip gets a fresh `id` so the motion.div
+  // remounts and replays initial → animate cleanly.
+  const [trip, setTrip] = useState(null);
+
+  useEffect(() => {
+    let mounted = true;
+    let timer = null;
+
+    const startTrip = () => {
+      if (!mounted) return;
+      const t = randomTrip();
+      setTrip(t);
+      timer = setTimeout(() => {
+        if (!mounted) return;
+        setTrip(null);
+        timer = setTimeout(startTrip, rand(OFFSCREEN_WAIT_MIN_MS, OFFSCREEN_WAIT_MAX_MS));
+      }, t.durationMs);
+    };
+
+    timer = setTimeout(startTrip, rand(0, INITIAL_STAGGER_MAX_MS));
+
+    return () => {
+      mounted = false;
+      if (timer) clearTimeout(timer);
+    };
+  }, []);
+
+  return (
+    <AnimatePresence>
+      {trip && (
+        <motion.div
+          key={trip.id}
+          className="menu-avatar-bubble-wrapper"
+          // Linear motion across the screen. Opacity fades in then
+          // out at the very ends of the trip so the bubble doesn't
+          // hard-snap into view at the screen edge.
+          initial={{ x: trip.from.x, y: trip.from.y, opacity: 0 }}
+          animate={{
+            x: trip.to.x,
+            y: trip.to.y,
+            opacity: [0, 1, 1, 0],
+          }}
+          exit={{ opacity: 0 }}
+          transition={{
+            x: { duration: trip.durationMs / 1000, ease: 'linear' },
+            y: { duration: trip.durationMs / 1000, ease: 'linear' },
+            opacity: {
+              duration: trip.durationMs / 1000,
+              times: [0, 0.08, 0.92, 1],
+              ease: 'linear',
+            },
+          }}
+        >
+          <motion.div
+            className="menu-avatar-bubble"
+            style={{ backgroundColor: player.darkColor, borderColor: player.color }}
+            animate={{ rotate: trip.rotateDir * 360 }}
+            transition={{
+              duration: trip.rotateMs / 1000,
+              repeat: Infinity,
+              ease: 'linear',
+            }}
+          >
+            <span className="menu-avatar-bubble-icon">{player.icon}</span>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
 
 export default function MenuAvatarStage() {
   const prefersReducedMotion = useReducedMotion();
+  if (prefersReducedMotion) return null;
 
   return (
     <div className="menu-avatar-stage" aria-hidden="true">
-      {PLAYERS.map((p, i) => {
-        const cfg = FLOAT_CONFIGS[i];
-        return (
-          <div
-            key={p.id}
-            className="menu-avatar-anchor"
-            style={cfg.anchor}
-          >
-            <motion.div
-              className="menu-avatar-bubble"
-              style={{ backgroundColor: p.darkColor, borderColor: p.color }}
-              animate={
-                prefersReducedMotion
-                  ? { x: 0, y: 0, rotate: 0 }
-                  : {
-                      x: cfg.drift.x,
-                      y: cfg.drift.y,
-                      rotate: cfg.rotate,
-                    }
-              }
-              transition={
-                prefersReducedMotion
-                  ? { duration: 0 }
-                  : {
-                      x: { duration: cfg.driftDuration, repeat: Infinity, ease: 'easeInOut' },
-                      y: { duration: cfg.driftDuration, repeat: Infinity, ease: 'easeInOut' },
-                      rotate: { duration: cfg.rotateDuration, repeat: Infinity, ease: 'linear' },
-                    }
-              }
-            >
-              <span className="menu-avatar-bubble-icon">{p.icon}</span>
-            </motion.div>
-          </div>
-        );
-      })}
+      {PLAYERS.map((p) => (
+        <FloatingBubble key={p.id} player={p} />
+      ))}
     </div>
   );
 }

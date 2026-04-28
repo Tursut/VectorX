@@ -880,7 +880,10 @@
   text-align: center;
   padding: 30px 20px 10px;
   box-sizing: border-box;
+  /* Sits above MenuAvatarStage's z-index: 0 so the drifting
+     bubbles never overlap the title / heroes / rules card. */
   position: relative;
+  z-index: 2;
 }
 
 /* ── Sticky begin button ── */
@@ -2588,24 +2591,28 @@
   justify-content: center;
 }
 
-/* MenuAvatarStage — four floating avatar bubbles in the menu
-   background (issue #44). Absolutely positioned overlay covering
+/* MenuAvatarStage — four avatar bubbles drifting across the
+   start menu (issue #44). Absolutely positioned overlay covering
    the whole start screen. pointer-events: none so the stage
-   never intercepts clicks on the heroes underneath. */
+   never intercepts clicks. z-index: 0 keeps the stage BEHIND
+   the content (.start-content gets z-index: 2 to sit above). */
 .menu-avatar-stage {
   position: absolute;
   inset: 0;
   pointer-events: none;
   overflow: hidden;
-  z-index: 1;
+  z-index: 0;
 }
-/* Anchors a bubble to one corner of the screen. The motion.div
-   inside drifts inside the anchor's local space without ever
-   leaving its corner zone. */
-.menu-avatar-anchor {
+/* Wrapper a single bubble lives in. Position is updated per-trip
+   by framer-motion's transform — the wrapper itself anchors at
+   (0,0) and motion.div translates it to the trajectory's start /
+   end points. */
+.menu-avatar-bubble-wrapper {
   position: absolute;
-  width: 60px;
-  height: 60px;
+  top: 0;
+  left: 0;
+  width: 90px;
+  height: 90px;
 }
 .menu-avatar-bubble {
   width: 100%;
@@ -2615,22 +2622,19 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  /* Sit slightly faded so the bubbles read as background — the
-     two hero buttons remain the focal point. */
+  /* Sit faded so the bubbles read as background — the two hero
+     buttons remain the focal point. */
   opacity: 0.55;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
 }
 .menu-avatar-bubble-icon {
-  font-size: 30px;
+  font-size: 44px;
   line-height: 1;
   filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.5));
-  /* Keep the emoji upright while the bubble rotates around it
-     would mean a counter-rotation per frame — overkill. Letting
-     it spin with the bubble is part of the charm. */
 }
 @media (max-width: 420px) {
-  .menu-avatar-anchor { width: 48px; height: 48px; }
-  .menu-avatar-bubble-icon { font-size: 24px; }
+  .menu-avatar-bubble-wrapper { width: 72px; height: 72px; }
+  .menu-avatar-bubble-icon { font-size: 36px; }
 }
 
 /* WaitingFlourish — quirky room-creation indicator (issue #45).
