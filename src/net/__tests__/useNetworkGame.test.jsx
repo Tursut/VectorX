@@ -212,6 +212,14 @@ describe('useNetworkGame — imperative senders', () => {
     expect(mockClient.send).toHaveBeenCalledWith({ type: 'START', magicItems: true });
   });
 
+  it('restartRoom() sends RESTART_ROOM', () => {
+    const { result } = renderHook(() => useNetworkGame({ url: 'ws://x/y' }));
+
+    act(() => result.current.restartRoom());
+
+    expect(mockClient.send).toHaveBeenCalledWith({ type: 'RESTART_ROOM' });
+  });
+
   it('join(displayName) sends HELLO with the protocol version stamp', () => {
     const { result } = renderHook(() => useNetworkGame({ url: 'ws://x/y' }));
 

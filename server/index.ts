@@ -13,6 +13,7 @@ import {
   type JoinMsg,
   type LobbyStateMsg,
   type MoveMsg,
+  type RestartRoomMsg,
   type ServerMsg,
   type StartMsg,
 } from './protocol';
@@ -305,6 +306,9 @@ export class RoomDurableObject extends DurableObject<Env> {
         return;
       case 'MOVE':
         await this.handleMove(ws, msg);
+        return;
+      case 'RESTART_ROOM':
+        await this.handleRestartRoom(ws, msg);
         return;
     }
   }
@@ -730,6 +734,10 @@ export class RoomDurableObject extends DurableObject<Env> {
     // half-started room.
     await this.ctx.storage.put({ lobby: updatedLobby, game });
 
+    // Broadcast lobby phase transition first so clients see phase:'playing'
+    // before GAME_STATE arrives — prevents a stale phase:'lobby' reading as
+    // an already-restarted room when the game ends.
+    this.broadcast(this.buildLobbyState(storedCode, updatedLobby));
     this.broadcast(this.buildGameState(storedCode, updatedLobby, game));
     await this.maybeScheduleTurnAlarm(game, updatedLobby);
   }
@@ -766,6 +774,48 @@ export class RoomDurableObject extends DurableObject<Env> {
 
     this.broadcast(this.buildGameState(storedCode, lobby, nextGame));
     await this.maybeScheduleTurnAlarm(nextGame, lobby);
+  }
+
+  private async handleRestartRoom(
+    ws: WebSocket,
+    _msg: RestartRoomMsg,
+  ): Promise<void> {
+    const storedCode = await this.ctx.storage.get<string>('code');
+    const lobby = await this.ctx.storage.get<LobbyStorage>('lobby');
+    const game = await this.ctx.storage.get<GameStorage>('game');
+    if (!storedCode || !lobby) {
+      this.sendError(ws, 'BAD_PAYLOAD');
+      return;
+    }
+
+    const seatId = this.getAttachedSeatId(ws);
+    if (seatId === null || seatId !== lobby.hostId) {
+      this.sendError(ws, 'UNAUTHORIZED');
+      return;
+    }
+
+    // Idempotent restart: if the room is already back in lobby state, just
+    // re-send LOBBY_STATE to the caller instead of surfacing a fatal error.
+    if (lobby.phase === 'lobby') {
+      ws.send(JSON.stringify(this.buildLobbyState(storedCode, lobby)));
+      return;
+    }
+
+    if (!game || lobby.phase !== 'playing' || game.phase !== 'gameover') {
+      this.sendError(ws, 'INVALID_MOVE', 'Room is not ready for restart');
+      return;
+    }
+
+    const updatedLobby: LobbyStorage = {
+      ...lobby,
+      phase: 'lobby',
+    };
+
+    await this.ctx.storage.put('lobby', updatedLobby);
+    await this.ctx.storage.delete('game');
+    await this.ctx.storage.delete('reaperAt');
+    await this.ctx.storage.deleteAlarm();
+    this.broadcast(this.buildLobbyState(storedCode, updatedLobby));
   }
 
   // ----- Helpers -----
@@ -922,6 +972,7 @@ export class RoomDurableObject extends DurableObject<Env> {
       })),
       hostId: lobby.hostId,
       magicItems: lobby.magicItems,
+      phase: lobby.phase,
     };
   }
 

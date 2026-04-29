@@ -11,6 +11,7 @@ import {
   MoveMsg,
   PROTOCOL_VERSION,
   ServerMsg,
+  RestartRoomMsg,
   StartMsg,
   parseClientMsg,
 } from '../protocol';
@@ -82,6 +83,11 @@ describe('valid messages round-trip without mutation', () => {
     expect(MoveMsg.parse(msg)).toEqual(msg);
   });
 
+  it('RESTART_ROOM', () => {
+    const msg = { type: 'RESTART_ROOM' };
+    expect(RestartRoomMsg.parse(msg)).toEqual(msg);
+  });
+
   it('JOIN', () => {
     const msg = { type: 'JOIN', player: validLobbyPlayer };
     expect(JoinMsg.parse(msg)).toEqual(msg);
@@ -94,6 +100,7 @@ describe('valid messages round-trip without mutation', () => {
       players: [validLobbyPlayer],
       magicItems: true,
       hostId: 0,
+      phase: 'lobby',
     };
     expect(LobbyStateMsg.parse(msg)).toEqual(msg);
   });

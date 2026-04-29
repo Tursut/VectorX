@@ -50,6 +50,7 @@ export default function OnlineGameController({
     lastError,
     join,
     start,
+    restartRoom,
     move,
     clearError,
   } = useNetworkGame({ url });
@@ -60,6 +61,7 @@ export default function OnlineGameController({
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [exitConfirm, setExitConfirm] = useState(false);
   const [timeLeft, setTimeLeft] = useState(TURN_TIME);
+  const [showLobbyFromGameOver, setShowLobbyFromGameOver] = useState(false);
 
   // Pre-game 3-2-1-GO countdown (issue #26). Starts the moment we
   // observe the first GAME_STATE with phase==='playing'; runs purely
@@ -199,6 +201,12 @@ export default function OnlineGameController({
     setCountdown(3);
   }, [gameState?.phase, gameState?.turnCount]);
 
+  useEffect(() => {
+    if (gameState?.phase === 'playing') {
+      setShowLobbyFromGameOver(false);
+    }
+  }, [gameState?.phase]);
+
   // Drives the 3 → 2 → 1 → GO → null transition + click/go sounds.
   // Same timing as LocalGameController so the cadence is identical.
   useEffect(() => {
@@ -281,6 +289,32 @@ export default function OnlineGameController({
   // to warn about. Mirrors LocalGameController's pattern.
   const inGameover = gameState?.phase === 'gameover';
   const requestExit = inGameover ? onExit : () => setExitConfirm(true);
+
+  const iAmHost = mySeatId !== null && mySeatId !== undefined && lobby?.hostId === mySeatId;
+  const onlineGameOver = gameState?.phase === 'gameover';
+  const roomRestarted = onlineGameOver && lobby?.phase === 'lobby';
+  // Host auto-transitions to lobby once the server confirms the restart
+  // (lobby.phase flips to 'lobby'). Joiners need an explicit "JOIN ROOM" click.
+  const showLobbyNow = roomRestarted && (iAmHost || showLobbyFromGameOver);
+
+  let restartLabel = 'PLAY AGAIN';
+  let restartDisabled = false;
+  let handleRestart = undefined;
+  if (onlineGameOver) {
+    if (iAmHost) {
+      restartLabel = 'RESTART ROOM';
+      restartDisabled = roomRestarted;
+      handleRestart = () => {
+        sounds.resumeAudio();
+        restartRoom();
+        setShowLobbyFromGameOver(true);
+      };
+    } else {
+      restartLabel = roomRestarted ? 'JOIN ROOM' : 'WAITING FOR HOST';
+      restartDisabled = !roomRestarted;
+      handleRestart = roomRestarted ? () => setShowLobbyFromGameOver(true) : undefined;
+    }
+  }
   const exitConfirmModal = (
     <AnimatePresence>
       {exitConfirm && (
@@ -324,7 +358,11 @@ export default function OnlineGameController({
 
   // ---------- In-game ----------
 
-  if (gameState && (gameState.phase === 'playing' || gameState.phase === 'gameover')) {
+  if (
+    gameState &&
+    gameState.phase === 'playing' &&
+    !showLobbyNow
+  ) {
     const mySeats = mySeatId !== null && mySeatId !== undefined ? [mySeatId] : [];
     return (
       <div className="online-game-layout">
@@ -333,6 +371,9 @@ export default function OnlineGameController({
           mySeats={mySeats}
           onMove={move}
           onExit={requestExit}
+          onRestart={handleRestart}
+          restartLabel={restartLabel}
+          restartDisabled={restartDisabled}
           soundEnabled={soundEnabled}
           onToggleSound={toggleSound}
           timeLeft={timeLeft}
@@ -377,6 +418,39 @@ export default function OnlineGameController({
             </motion.div>
           )}
         </AnimatePresence>
+      </div>
+    );
+  }
+
+  if (gameState && gameState.phase === 'gameover' && !showLobbyNow) {
+    const mySeats = mySeatId !== null && mySeatId !== undefined ? [mySeatId] : [];
+    return (
+      <div className="online-game-layout">
+        <GameScreen
+          gameState={gameState}
+          mySeats={mySeats}
+          onMove={move}
+          onExit={requestExit}
+          onRestart={handleRestart}
+          restartLabel={restartLabel}
+          restartDisabled={restartDisabled}
+          soundEnabled={soundEnabled}
+          onToggleSound={toggleSound}
+          timeLeft={timeLeft}
+          totalTime={TURN_TIME}
+          bombBlast={bombBlast}
+          portalJump={portalJump}
+          swapFlash={swapFlash}
+          flyingFreeze={flyingFreeze}
+          roulettePlayerId={roulettePlayerId}
+          rouletteRevealing={rouletteRevealing}
+          pendingSwap={pendingSwap}
+          rouletteActor={rouletteActor}
+          rouletteActive={rouletteActive}
+          trappedPlayers={trappedPlayers}
+          trapPlaying={trapPlaying}
+        />
+        {exitConfirmModal}
       </div>
     );
   }

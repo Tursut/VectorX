@@ -42,6 +42,8 @@ export default function GameScreen({
   onMove,
   onExit,
   onRestart = null,
+  restartLabel = 'PLAY AGAIN',
+  restartDisabled = false,
   soundEnabled = true,
   onToggleSound,
   // Optional overrides supplied by LocalGameController; online passes defaults.
@@ -166,6 +168,8 @@ export default function GameScreen({
             players={gameState.players}
             onRestart={onRestart}
             onMenu={onExit}
+            restartLabel={restartLabel}
+            restartDisabled={restartDisabled}
           />
         </motion.div>
       ) : (

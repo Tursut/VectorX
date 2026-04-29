@@ -49,7 +49,7 @@ vi.mock('../GameBoard', () => ({
   ),
 }));
 vi.mock('../GameOverScreen', () => ({
-  default: ({ winner, onMenu, onRestart }) => (
+  default: ({ winner, onMenu, onRestart, restartLabel, restartDisabled }) => (
     <div data-testid="gameover">
       <div
         data-testid="winner-name"
@@ -57,7 +57,11 @@ vi.mock('../GameOverScreen', () => ({
         data-short-name={winner?.shortName ?? ''}
       />
       <button data-testid="menu" onClick={onMenu}>menu</button>
-      {onRestart && <button data-testid="restart" onClick={onRestart}>restart</button>}
+      {onRestart && (
+        <button data-testid="restart" disabled={restartDisabled} onClick={onRestart}>
+          {restartLabel ?? 'restart'}
+        </button>
+      )}
     </div>
   ),
 }));
@@ -349,6 +353,23 @@ describe('GameScreen — callbacks', () => {
     );
     fireEvent.click(screen.getByTestId('restart'));
     expect(onRestart).toHaveBeenCalledOnce();
+  });
+
+  it('passes restartLabel and restartDisabled through to GameOverScreen', () => {
+    const onRestart = vi.fn();
+    const state = baseState({ phase: 'gameover', winner: 0 });
+    render(
+      <GameScreen
+        gameState={state}
+        mySeats={[0]}
+        onMove={() => {}}
+        onRestart={onRestart}
+        restartLabel="WAITING FOR HOST"
+        restartDisabled
+      />,
+    );
+    expect(screen.getByTestId('restart')).toHaveTextContent('WAITING FOR HOST');
+    expect(screen.getByTestId('restart')).toBeDisabled();
   });
 });
 

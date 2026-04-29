@@ -5,7 +5,14 @@ import * as sounds from '../game/sounds';
 
 const MEDALS = ['🥇', '🥈', '🥉', '💀'];
 
-export default function GameOverScreen({ winner, players, onRestart, onMenu }) {
+export default function GameOverScreen({
+  winner,
+  players,
+  onRestart,
+  onMenu,
+  restartLabel = 'PLAY AGAIN',
+  restartDisabled = false,
+}) {
   // Win / draw sound — fires once when the leaderboard mounts. Owned
   // here (instead of GameScreen) so the cue lines up with the visible
   // transition into the leaderboard, and so the effect can't re-fire
@@ -133,8 +140,12 @@ export default function GameOverScreen({ winner, players, onRestart, onMenu }) {
           animate={{ opacity: 1 }}
           transition={{ delay: 0.9 }}
         >
-          <button className="gameover-button gameover-button-primary" onClick={onRestart}>
-            PLAY AGAIN
+          <button
+            className="gameover-button gameover-button-primary"
+            onClick={onRestart}
+            disabled={restartDisabled}
+          >
+            {restartLabel}
           </button>
           <button className="gameover-button gameover-button-secondary" onClick={onMenu}>
             Main Menu

@@ -157,6 +157,10 @@ export function useNetworkGame({ url }) {
     clientRef.current?.send({ type: 'START', magicItems });
   }, []);
 
+  const restartRoom = useCallback(() => {
+    clientRef.current?.send({ type: 'RESTART_ROOM' });
+  }, []);
+
   const move = useCallback((row, col) => {
     clientRef.current?.send({ type: 'MOVE', row, col });
   }, []);
@@ -169,6 +173,7 @@ export function useNetworkGame({ url }) {
     lastError,
     join,
     start,
+    restartRoom,
     move,
     clearError,
   };

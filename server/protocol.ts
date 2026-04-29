@@ -11,7 +11,8 @@
 //     Deliberately split so `GAME_STATE.players` matches `src/game/logic.js`
 //     byte-for-byte. The Step 14 `useNetworkGame` contract test relies on this.
 //   - Game sub-shapes (Cell, Grid, Item, LastEvent)
-//   - Messages, each with a literal `type` — client→server (HELLO/START/MOVE)
+//   - Messages, each with a literal `type` — client→server
+//     (HELLO/START/MOVE/RESTART_ROOM)
 //     and server→client (JOIN/LOBBY_STATE/GAME_STATE/ELIMINATED/GAME_OVER/ERROR).
 //   - Discriminated unions ClientMsg and ServerMsg.
 //   - Inferred TypeScript types + one `parseClientMsg` helper used by Step 9's
@@ -140,7 +141,18 @@ export const MoveMsg = z
   })
   .strict();
 
-export const ClientMsg = z.discriminatedUnion('type', [HelloMsg, StartMsg, MoveMsg]);
+export const RestartRoomMsg = z
+  .object({
+    type: z.literal('RESTART_ROOM'),
+  })
+  .strict();
+
+export const ClientMsg = z.discriminatedUnion('type', [
+  HelloMsg,
+  StartMsg,
+  MoveMsg,
+  RestartRoomMsg,
+]);
 
 // ---------- Server → Client ----------
 
@@ -158,6 +170,7 @@ export const LobbyStateMsg = z
     players: z.array(LobbyPlayer).max(4),
     magicItems: z.boolean(),
     hostId: PlayerId.nullable(),
+    phase: z.enum(['lobby', 'playing']),
   })
   .strict();
 
@@ -235,6 +248,7 @@ export type ServerMsg = z.infer<typeof ServerMsg>;
 export type HelloMsg = z.infer<typeof HelloMsg>;
 export type StartMsg = z.infer<typeof StartMsg>;
 export type MoveMsg = z.infer<typeof MoveMsg>;
+export type RestartRoomMsg = z.infer<typeof RestartRoomMsg>;
 export type JoinMsg = z.infer<typeof JoinMsg>;
 export type LobbyStateMsg = z.infer<typeof LobbyStateMsg>;
 export type GameStateMsg = z.infer<typeof GameStateMsg>;
