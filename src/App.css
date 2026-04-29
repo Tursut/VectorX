@@ -704,17 +704,6 @@
   animation: iconThink 0.9s infinite ease-in-out;
 }
 
-.turn-event-line {
-  font-size: 10px;
-  color: #a8d8f0;
-  font-style: italic;
-  margin-top: 1px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-height: 13px; /* always occupies space even when empty, prevents height shift */
-}
-
 /* ── Timer ── */
 .turn-timer {
   display: flex;
@@ -1861,12 +1850,25 @@
   letter-spacing: 1px;
 }
 
-.gameover-button:hover { transform: translateY(-2px); }
+.gameover-button-secondary:hover {
+  transform: translateY(-2px);
+}
 
 .gameover-button-primary {
-  background: linear-gradient(135deg, #27ae60, #2ecc71);
+  background: linear-gradient(135deg, #e74c3c, #f39c12);
   color: #fff;
-  box-shadow: 0 4px 14px rgba(39, 174, 96, 0.4);
+  box-shadow: 0 6px 20px rgba(231, 76, 60, 0.4);
+}
+
+@media (hover: hover) {
+  .gameover-button-primary:hover {
+    transform: translateY(-3px) scale(1.04);
+    box-shadow: 0 10px 30px rgba(231, 76, 60, 0.6);
+  }
+}
+
+.gameover-button-primary:active {
+  transform: translateY(0) scale(0.98);
 }
 
 .gameover-button-secondary {
