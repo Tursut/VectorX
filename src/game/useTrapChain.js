@@ -13,10 +13,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { isBotPlayer } from './rouletteCriteria';
+import { TRAP_SETTLE_MS, TRAP_WINDUP_MS } from './constants';
 import * as sounds from './sounds';
-
-const TRAP_WINDUP_MS = 450;
-const TRAP_SETTLE_MS = 2500;
 
 export function useTrapChain(gameState) {
   // Render layer reads `trappedPlayers`. Each entry in `queue` is a

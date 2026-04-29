@@ -29,7 +29,7 @@ import {
   eliminatePlayer,
 } from '../src/game/logic';
 import { getGremlinMove } from '../src/game/ai';
-import { PLAYERS, TURN_TIME } from '../src/game/constants';
+import { PLAYERS, TRAP_CYCLE_MS, TURN_TIME } from '../src/game/constants';
 
 // Human turn-timer budget. TURN_TIME is seconds in the shared constants; the
 // DO alarm API expects milliseconds.
@@ -57,10 +57,9 @@ const COUNTDOWN_DELAY_MS = 6200;
 // an elimination the client plays a 450 ms wind-up + 2500 ms settle
 // before the next death can start animating. Online would otherwise
 // keep advancing turns under that animation, so we push the next
-// alarm out to cover the full cycle. Stays in lockstep with the
-// client constants in src/game/useTrapChain.js — bump here whenever
-// those move.
-const TRAP_DELAY_MS = 3000;
+// alarm out to cover the full cycle. Uses the shared trap-cycle
+// constant so server alarm timing and client animation stay in lockstep.
+const TRAP_DELAY_MS = TRAP_CYCLE_MS;
 
 interface Env {
   ROOM: DurableObjectNamespace<RoomDurableObject>;
@@ -1135,10 +1134,14 @@ export function computeTurnDelay(
   // (no humans alive) to mirror the client's "no audience, no
   // animation" branch in useTrapChain.
   if (anyHumanAlive) {
-    const justEliminated = game.players.some(
-      (p: { isEliminated: boolean; finishTurn?: number }) =>
-        p.isEliminated && p.finishTurn === game.turnCount - 1,
-    );
+    const justEliminated = game.players.some((p: {
+      isEliminated: boolean;
+      finishTurn?: number | null;
+    }) => (
+      p.isEliminated &&
+      typeof p.finishTurn === 'number' &&
+      p.finishTurn === game.turnCount - 1
+    ));
     if (justEliminated) {
       return baseDelay + TRAP_DELAY_MS;
     }

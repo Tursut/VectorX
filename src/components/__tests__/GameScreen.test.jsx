@@ -124,6 +124,21 @@ describe('GameScreen — rendering', () => {
     expect(screen.queryByTestId('cell')).toBeNull();
   });
 
+  it('keeps the board visible during trap playback even after gameover lands', () => {
+    const state = baseState({ phase: 'gameover', winner: 0 });
+    render(
+      <GameScreen
+        gameState={state}
+        mySeats={[0]}
+        onMove={() => {}}
+        trapPlaying
+        trappedPlayers={[{ id: 1, row: 0, col: 9 }]}
+      />,
+    );
+    expect(screen.queryByTestId('gameover')).toBeNull();
+    expect(screen.getByTestId('cell')).toBeInTheDocument();
+  });
+
   it('passes runtime displayName to GameOver winner identity', () => {
     const state = baseState({
       phase: 'gameover',

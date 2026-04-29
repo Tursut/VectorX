@@ -18,7 +18,8 @@ import {
   runDurableObjectAlarm,
 } from 'cloudflare:test';
 import { afterEach, describe, expect, it } from 'vitest';
-import { initGame } from '../../src/game/logic';
+import { eliminateCurrentPlayer, initGame } from '../../src/game/logic';
+import { TRAP_CYCLE_MS } from '../../src/game/constants';
 import { computeTurnDelay } from '../index';
 
 // ---------- Harness ----------
@@ -516,7 +517,7 @@ describe('computeTurnDelay (bot pacing)', () => {
     const lobby = {
       players: [{ id: 0, displayName: 'Alice', isBot: false, disconnectedAt: null }],
     };
-    expect(computeTurnDelay(game, lobby)).toBe(10_000 + 3000);
+    expect(computeTurnDelay(game, lobby)).toBe(10_000 + TRAP_CYCLE_MS);
   });
 
   it('adds the trap delay before a BOT turn after another bot was eliminated last turn', () => {
@@ -534,9 +535,9 @@ describe('computeTurnDelay (bot pacing)', () => {
     };
     for (let i = 0; i < 50; i++) {
       const d = computeTurnDelay(game, lobby);
-      // Base bot delay (800–1400) + 3000 trap = 3800–4400.
-      expect(d).toBeGreaterThanOrEqual(3800);
-      expect(d).toBeLessThan(4400);
+      // Base bot delay (800–1400) + trap-cycle extension.
+      expect(d).toBeGreaterThanOrEqual(800 + TRAP_CYCLE_MS);
+      expect(d).toBeLessThan(1400 + TRAP_CYCLE_MS);
     }
   });
 
@@ -573,6 +574,35 @@ describe('computeTurnDelay (bot pacing)', () => {
     for (let i = 0; i < 50; i++) {
       const d = computeTurnDelay(game, lobby);
       expect(d).toBeLessThan(200);  // speed-run pace, no bump
+    }
+  });
+
+  it('adds trap delay after a no-move bot elimination before the next bot acts', () => {
+    const preElim = initGame(false, 3) as {
+      players: Array<{ id: number; isEliminated: boolean; finishTurn?: number }>;
+      currentPlayerIndex: number;
+      turnCount: number;
+    };
+    preElim.turnCount = 8;
+    preElim.currentPlayerIndex = 1; // bot to be eliminated on timeout/no-move
+    const postElim = eliminateCurrentPlayer(preElim) as {
+      players: Array<{ id: number; isEliminated: boolean; finishTurn?: number }>;
+      currentPlayerIndex: number;
+      turnCount: number;
+    };
+    const lobby = {
+      players: [{ id: 0, displayName: 'Alice', isBot: false, disconnectedAt: null }],
+    };
+
+    // Next seat after eliminating bot 1 is bot 2 in this setup.
+    expect(postElim.currentPlayerIndex).toBe(2);
+    expect(postElim.players[1].isEliminated).toBe(true);
+    expect(postElim.players[1].finishTurn).toBe(postElim.turnCount - 1);
+    for (let i = 0; i < 50; i++) {
+      const d = computeTurnDelay(postElim, lobby);
+      // Base bot delay (800–1400) + trap-cycle extension.
+      expect(d).toBeGreaterThanOrEqual(800 + TRAP_CYCLE_MS);
+      expect(d).toBeLessThan(1400 + TRAP_CYCLE_MS);
     }
   });
 });
