@@ -358,7 +358,7 @@ describe('StartScreen — testing ground link', () => {
 // local sticky state can't outlive that transition).
 
 describe('StartScreen — creatingRoom waiting flourish', () => {
-  it('shows the flourish (with the playground heading) when creatingRoom is true', () => {
+  it('shows the flourish with creating private room when creatingRoom is true', () => {
     render(
       <StartScreen
         {...withOnline({ defaultMode: 'create', creatingRoom: true })}
@@ -366,7 +366,7 @@ describe('StartScreen — creatingRoom waiting flourish', () => {
     );
     expect(screen.queryByTestId('primary-button')).toBeNull();
     expect(screen.getByRole('status')).toBeInTheDocument();
-    expect(screen.getByText(/creating your playground/i)).toBeInTheDocument();
+    expect(screen.getByText(/creating private room/i)).toBeInTheDocument();
   });
 
   it('shows the primary button when creatingRoom is false', () => {
