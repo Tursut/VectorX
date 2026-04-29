@@ -24,6 +24,7 @@ import { useBackGuard } from './useBackGuard';
 import * as sounds from './game/sounds';
 import Lobby from './components/Lobby';
 import GameScreen from './components/GameScreen';
+import AudioDebugOverlay from './components/AudioDebugOverlay';
 
 // Server-side ERROR codes that mean "user got something wrong on the start
 // screen" — App.jsx routes these back to the join form with the inputs
@@ -40,6 +41,7 @@ export default function OnlineGameController({
   initialMagicItems = false,
   onExit,
   onJoinFailed,
+  audioDebugEnabled = false,
 }) {
   const url = wsUrl(code);
   const {
@@ -305,6 +307,7 @@ export default function OnlineGameController({
       restartLabel = 'RESTART ROOM';
       restartDisabled = roomRestarted;
       handleRestart = () => {
+        sounds.logAudioDebugEvent('gesture-online-restart');
         sounds.resumeAudio();
         restartRoom();
         setShowLobbyFromGameOver(true);
@@ -391,6 +394,7 @@ export default function OnlineGameController({
           trapPlaying={trapPlaying}
         />
         {exitConfirmModal}
+        <AudioDebugOverlay enabled={audioDebugEnabled} />
         {/* Pre-game countdown — same overlay LocalGameController uses,
             same CSS classes, same beats (3 / 2 / 1 / GO message). */}
         <AnimatePresence>
@@ -451,6 +455,7 @@ export default function OnlineGameController({
           trapPlaying={trapPlaying}
         />
         {exitConfirmModal}
+        <AudioDebugOverlay enabled={audioDebugEnabled} />
       </div>
     );
   }
@@ -464,10 +469,15 @@ export default function OnlineGameController({
         players={lobby.players}
         hostId={lobby.hostId}
         mySeatId={mySeatId}
-        onStart={() => { sounds.resumeAudio(); start(magicItems); }}
+        onStart={() => {
+          sounds.logAudioDebugEvent('gesture-online-lobby-start');
+          sounds.resumeAudio();
+          start(magicItems);
+        }}
         onLeave={() => setExitConfirm(true)}
       />
       {exitConfirmModal}
+      <AudioDebugOverlay enabled={audioDebugEnabled} />
     </>
   );
 }

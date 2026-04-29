@@ -1445,6 +1445,7 @@
   opacity: 0.65;
   text-align: center;
   letter-spacing: 0.5px;
+  cursor: pointer;
 }
 
 /* ── Mode selector ── */
@@ -2807,4 +2808,49 @@
   word-break: break-word;
   max-height: 240px;
   overflow-y: auto;
+}
+
+.audio-debug-overlay {
+  position: fixed;
+  right: 8px;
+  bottom: 8px;
+  width: min(92vw, 360px);
+  z-index: 50;
+  border: 1px solid #333366;
+  border-radius: 8px;
+  background: rgba(15, 15, 35, 0.95);
+  color: #aaaacc;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+}
+
+.audio-debug-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  border-bottom: 1px solid #333366;
+  font-family: 'Fredoka One', sans-serif;
+  letter-spacing: 1.5px;
+  font-size: 10px;
+}
+
+.audio-debug-copy {
+  border: 1px solid #454577;
+  background: #1b1b38;
+  color: #c8caff;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.audio-debug-body {
+  margin: 0;
+  padding: 8px 10px 10px;
+  font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+  font-size: 10px;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  max-height: 180px;
+  overflow: auto;
 }

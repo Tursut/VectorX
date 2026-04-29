@@ -62,6 +62,8 @@ export default function StartScreen({
   onlineError = null,
   onlineErrorDebug = null,
   creatingRoom = false,
+  audioDebugEnabled = false,
+  onSetAudioDebugEnabled,
 }) {
   const onlineAvailable =
     typeof onCreateOnline === 'function' &&
@@ -96,6 +98,7 @@ export default function StartScreen({
   const nameInputRef = useRef(null);
   const codeInputRef = useRef(null);
   const rerollAnimRef = useRef({ id: null, target: null });
+  const debugTapRef = useRef({ count: 0, timer: null });
 
   function cancelRerollAnim() {
     if (rerollAnimRef.current.id !== null) {
@@ -104,6 +107,26 @@ export default function StartScreen({
     }
   }
   useEffect(() => () => cancelRerollAnim(), []);
+
+  useEffect(() => () => {
+    if (debugTapRef.current.timer) clearTimeout(debugTapRef.current.timer);
+  }, []);
+
+  function handleBuildStampTap() {
+    debugTapRef.current.count += 1;
+    if (debugTapRef.current.timer) clearTimeout(debugTapRef.current.timer);
+    debugTapRef.current.timer = setTimeout(() => {
+      debugTapRef.current.count = 0;
+      debugTapRef.current.timer = null;
+    }, 1400);
+    if (debugTapRef.current.count < 3) return;
+    debugTapRef.current.count = 0;
+    if (debugTapRef.current.timer) {
+      clearTimeout(debugTapRef.current.timer);
+      debugTapRef.current.timer = null;
+    }
+    onSetAudioDebugEnabled?.(!audioDebugEnabled);
+  }
 
   const humanCount = PLAYERS.length - gremlinCount;
   const gremlinLabel =
@@ -608,7 +631,9 @@ at:          ${onlineErrorDebug.at ?? '(unknown)'}`}
         </div>
       )}
 
-      <p className="start-build-stamp">built {BUILD_TIME}</p>
+      <p className="start-build-stamp" onClick={handleBuildStampTap}>
+        built {BUILD_TIME}{audioDebugEnabled ? ' • AUDIO DEBUG ON' : ''}
+      </p>
     </div>
   );
 }

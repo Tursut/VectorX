@@ -15,6 +15,7 @@ import PlayerPanel from './components/PlayerPanel';
 import GameOverScreen from './components/GameOverScreen';
 import EventToast from './components/EventToast';
 import SandboxPanel from './components/SandboxPanel';
+import AudioDebugOverlay from './components/AudioDebugOverlay';
 
 function gameReducer(state, action) {
   switch (action.type) {
@@ -62,6 +63,8 @@ export default function LocalGameController({
   onlineError,
   onlineErrorDebug,
   creatingRoom = false,
+  audioDebugEnabled = false,
+  onSetAudioDebugEnabled,
 } = {}) {
   const [screen, setScreen] = useState('start');
   const [magicItems, setMagicItems] = useState(true);
@@ -186,6 +189,7 @@ export default function LocalGameController({
   }, [countdown]);
 
   function handleStart() {
+    sounds.logAudioDebugEvent('gesture-local-start');
     sounds.resumeAudio();
     setCountdown(3);
   }
@@ -316,6 +320,8 @@ export default function LocalGameController({
               onlineError={onlineError}
               onlineErrorDebug={onlineErrorDebug}
               creatingRoom={creatingRoom}
+              audioDebugEnabled={audioDebugEnabled}
+              onSetAudioDebugEnabled={onSetAudioDebugEnabled}
             />
           </motion.div>
         )}
@@ -441,6 +447,7 @@ export default function LocalGameController({
         )}
 
       </AnimatePresence>
+      <AudioDebugOverlay enabled={audioDebugEnabled} />
     </div>
   );
 }

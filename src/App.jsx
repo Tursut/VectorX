@@ -48,6 +48,20 @@ const ROUTABLE_JOIN_ERRORS = {
 // useStickyFlag) because setOnline() unmounts the StartScreen
 // outright — local sticky state can't outlive the unmount.
 const MIN_CREATING_DURATION_MS = 2100;
+const AUDIO_DEBUG_FLAG_KEY = 'audioDebugEnabled';
+
+function readAudioDebugEnabled() {
+  if (typeof window === 'undefined') return false;
+  const params = new URLSearchParams(window.location.search);
+  const fromQuery = params.get('audiodebug');
+  if (fromQuery === '1' || fromQuery === 'true') return true;
+  if (fromQuery === '0' || fromQuery === 'false') return false;
+  try {
+    return localStorage.getItem(AUDIO_DEBUG_FLAG_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
 
 export default function App() {
   // { code, displayName, magicItems } when we're in an active online session,
@@ -75,6 +89,16 @@ export default function App() {
   // window. Drives the WaitingFlourish indicator on StartScreen.
   // Cleared once we hand off to OnlineGameController.
   const [creatingRoom, setCreatingRoom] = useState(false);
+  const [audioDebugEnabled, setAudioDebugEnabled] = useState(readAudioDebugEnabled);
+
+  function handleSetAudioDebugEnabled(next) {
+    setAudioDebugEnabled(next);
+    try {
+      localStorage.setItem(AUDIO_DEBUG_FLAG_KEY, next ? '1' : '0');
+    } catch {
+      // Ignore persistence failures.
+    }
+  }
 
   async function handleCreateOnline({ displayName, magicItems }) {
     // Synchronous call inside the click handler chain so iOS Safari counts
@@ -82,6 +106,7 @@ export default function App() {
     // Without it the joiner (and sometimes the host) gets no bg music until
     // their next tap (issue #6). For the host, the lobby's "Start game"
     // button also calls resumeAudio — this is a second belt-and-braces.
+    sounds.logAudioDebugEvent('gesture-create-online');
     sounds.resumeAudio();
     setOnlineError(null);
     setOnlineErrorDebug(null);
@@ -120,6 +145,7 @@ export default function App() {
     // joiner — JOIN ROOM is their last user gesture before the host starts
     // the game; without resumeAudio here their AudioContext never exists
     // and bg music silently fails to start (issue #6).
+    sounds.logAudioDebugEvent('gesture-join-online');
     sounds.resumeAudio();
     setOnlineError(null);
     setColdOpenCode(null);
@@ -173,6 +199,7 @@ export default function App() {
           initialMagicItems={online.magicItems}
           onExit={handleOnlineExit}
           onJoinFailed={handleJoinFailed}
+          audioDebugEnabled={audioDebugEnabled}
         />
       </Suspense>
     );
@@ -194,6 +221,8 @@ export default function App() {
       onlineError={onlineError}
       onlineErrorDebug={onlineErrorDebug}
       creatingRoom={creatingRoom}
+      audioDebugEnabled={audioDebugEnabled}
+      onSetAudioDebugEnabled={handleSetAudioDebugEnabled}
     />
   );
 }

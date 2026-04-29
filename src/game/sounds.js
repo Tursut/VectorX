@@ -2,6 +2,80 @@
 
 let ctx = null;
 let masterGain = null;
+const AUDIO_DEBUG_STORAGE_KEY = 'audioDebugLogV1';
+const AUDIO_DEBUG_LIMIT = 20;
+const audioDebugEvents = [];
+const audioDebugListeners = new Set();
+let contextCreatedAt = null;
+
+function nowIso() {
+  return new Date().toISOString();
+}
+
+function loadPersistedDebugEvents() {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    const raw = localStorage.getItem(AUDIO_DEBUG_STORAGE_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return;
+    parsed.slice(-AUDIO_DEBUG_LIMIT).forEach((entry) => {
+      if (!entry || typeof entry !== 'object') return;
+      audioDebugEvents.push({
+        at: typeof entry.at === 'string' ? entry.at : nowIso(),
+        type: typeof entry.type === 'string' ? entry.type : 'unknown',
+        detail: entry.detail && typeof entry.detail === 'object' ? entry.detail : {},
+      });
+    });
+  } catch {
+    // Ignore malformed persisted debug logs.
+  }
+}
+
+function persistDebugEvents() {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    localStorage.setItem(AUDIO_DEBUG_STORAGE_KEY, JSON.stringify(audioDebugEvents));
+  } catch {
+    // Ignore private-mode/quota errors. Debug logs are best effort.
+  }
+}
+
+function pushAudioDebug(type, detail = {}) {
+  audioDebugEvents.push({ at: nowIso(), type, detail });
+  if (audioDebugEvents.length > AUDIO_DEBUG_LIMIT) {
+    audioDebugEvents.splice(0, audioDebugEvents.length - AUDIO_DEBUG_LIMIT);
+  }
+  persistDebugEvents();
+  audioDebugListeners.forEach((listener) => listener());
+}
+
+loadPersistedDebugEvents();
+
+export function subscribeAudioDebug(listener) {
+  if (typeof listener !== 'function') return () => {};
+  audioDebugListeners.add(listener);
+  return () => audioDebugListeners.delete(listener);
+}
+
+export function getAudioDebugSnapshot() {
+  const nav = typeof navigator !== 'undefined' ? navigator : null;
+  return {
+    contextState: ctx?.state ?? 'missing',
+    currentTime: ctx ? Number(ctx.currentTime.toFixed(3)) : null,
+    contextAgeMs: contextCreatedAt ? Date.now() - contextCreatedAt : null,
+    masterGain: masterGain ? Number(masterGain.gain.value.toFixed(3)) : null,
+    visibility: typeof document !== 'undefined' ? document.visibilityState : null,
+    userAgent: nav?.userAgent ?? null,
+    viewport: typeof window !== 'undefined' ? `${window.innerWidth}x${window.innerHeight}` : null,
+    audioSessionType: nav?.audioSession?.type ?? null,
+    events: audioDebugEvents.slice(-8),
+  };
+}
+
+export function logAudioDebugEvent(type, detail = {}) {
+  pushAudioDebug(type, detail);
+}
 
 function createContext() {
   // Bail silently in environments without WebAudio (jsdom test runner,
@@ -12,9 +86,11 @@ function createContext() {
     && (window.AudioContext || window.webkitAudioContext);
   if (!Ctor) return;
   ctx = new Ctor();
+  contextCreatedAt = Date.now();
   masterGain = ctx.createGain();
   masterGain.gain.value = 1;
   masterGain.connect(ctx.destination);
+  pushAudioDebug('context-created', { state: ctx.state });
   // Any AudioBuffer cached from a previous (now-closed) context is bound to
   // that old context and won't decode + play on the new one. Force a
   // re-decode by dropping the cache. Without this, the bg theme silently
@@ -36,7 +112,17 @@ function createContext() {
 // Returning null lets callers fail silently rather than create a tainted context.
 function getCtx() {
   if (!ctx || ctx.state === 'closed') return null;
-  if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+  if (ctx.state === 'suspended') {
+    pushAudioDebug('ctx-suspended-observed');
+    ctx.resume().then(() => {
+      pushAudioDebug('ctx-resume-ok', { from: 'getCtx', state: ctx?.state ?? 'missing' });
+    }).catch((err) => {
+      pushAudioDebug('ctx-resume-failed', {
+        from: 'getCtx',
+        message: err instanceof Error ? err.message : String(err),
+      });
+    });
+  }
   return ctx;
 }
 
@@ -46,6 +132,7 @@ function out() {
 
 export function setMuted(val) {
   if (masterGain) masterGain.gain.value = val ? 0 : 1;
+  pushAudioDebug('mute-changed', { muted: !!val, gain: masterGain?.gain?.value ?? null });
 }
 
 // Must be called from a user-gesture handler (touchstart / click) or from
@@ -53,6 +140,7 @@ export function setMuted(val) {
 // resumes a suspended one, and rebuilds the bg-source if iOS killed it
 // while the page was backgrounded.
 export function resumeAudio() {
+  pushAudioDebug('resume-called', { state: ctx?.state ?? 'missing' });
   if (!ctx || ctx.state === 'closed') {
     // Snapshot which themes were playing BEFORE we drop the context, so
     // we can restart whichever the user was hearing once the new context
@@ -60,25 +148,46 @@ export function resumeAudio() {
     const bgWas = bgTrack.resetForNewContext();
     const menuWas = menuTrack.resetForNewContext();
     createContext();
-    if (!ctx) return; // No WebAudio support — silent no-op.
+    if (!ctx) {
+      pushAudioDebug('resume-no-context');
+      return; // No WebAudio support — silent no-op.
+    }
     if (bgWas || menuWas) {
       ctx.resume().then(() => {
+        pushAudioDebug('resume-ok-recreated', { bgWas, menuWas });
         if (bgWas) bgTrack.start();
         else if (menuWas) menuTrack.start();
-      }).catch(() => {});
+      }).catch((err) => {
+        pushAudioDebug('resume-failed-recreated', {
+          message: err instanceof Error ? err.message : String(err),
+        });
+      });
     } else {
-      ctx.resume().catch(() => {});
+      ctx.resume().then(() => {
+        pushAudioDebug('resume-ok-empty');
+      }).catch((err) => {
+        pushAudioDebug('resume-failed-empty', {
+          message: err instanceof Error ? err.message : String(err),
+        });
+      });
     }
     return;
   }
   if (ctx.state === 'suspended') {
-    ctx.resume().catch(() => {});
+    ctx.resume().then(() => {
+      pushAudioDebug('resume-ok-suspended');
+    }).catch((err) => {
+      pushAudioDebug('resume-failed-suspended', {
+        message: err instanceof Error ? err.message : String(err),
+      });
+    });
   }
   // ctx is up — but a track's source might have been terminated by iOS
   // during a background period. recoverIfNeeded rebuilds either source
   // if it expected to be playing.
   bgTrack.recoverIfNeeded();
   menuTrack.recoverIfNeeded();
+  pushAudioDebug('resume-recover-checked');
 }
 
 // Global audio-recovery listeners — issue #17.
@@ -92,17 +201,24 @@ export function resumeAudio() {
 // Registered at module load so the listeners persist across mounts of the
 // game controllers and don't depend on React lifecycle.
 if (typeof document !== 'undefined') {
-  const onResumeIntent = () => resumeAudio();
-  const onVisibilityChange = () => {
-    if (document.visibilityState === 'visible') resumeAudio();
+  const onResumeIntent = (source) => {
+    pushAudioDebug('resume-intent', { source });
+    resumeAudio();
   };
-  document.addEventListener('touchstart', onResumeIntent, { passive: true });
-  document.addEventListener('touchend',   onResumeIntent, { passive: true });
-  document.addEventListener('click',      onResumeIntent);
+  const onVisibilityChange = () => {
+    pushAudioDebug('visibilitychange', { state: document.visibilityState });
+    if (document.visibilityState === 'visible') onResumeIntent('visibility-visible');
+  };
+  document.addEventListener('touchstart', () => onResumeIntent('touchstart'), { passive: true });
+  document.addEventListener('touchend', () => onResumeIntent('touchend'), { passive: true });
+  document.addEventListener('click', () => onResumeIntent('click'));
   document.addEventListener('visibilitychange', onVisibilityChange);
   if (typeof window !== 'undefined') {
-    window.addEventListener('focus',   onResumeIntent);
-    window.addEventListener('pageshow', onResumeIntent);
+    window.addEventListener('focus', () => onResumeIntent('focus'));
+    window.addEventListener('pageshow', (event) => {
+      pushAudioDebug('pageshow', { persisted: !!event?.persisted });
+      onResumeIntent('pageshow');
+    });
   }
 }
 
@@ -212,6 +328,10 @@ function makeBgTrack(file, volume) {
     if (c.state === 'suspended') {
       try { await c.resume(); } catch (err) {
         console.warn(`[sounds] ${file} resume failed`, err);
+        pushAudioDebug('track-start-resume-failed', {
+          file,
+          message: err instanceof Error ? err.message : String(err),
+        });
         return;
       }
     }
@@ -224,23 +344,29 @@ function makeBgTrack(file, volume) {
     src.buffer = buf;
     src.loop = true;
     src.connect(gain);
-    src.onended = () => { if (source === src) sourceEnded = true; };
+    src.onended = () => {
+      if (source === src) sourceEnded = true;
+      pushAudioDebug('track-source-ended', { file });
+    };
     sourceEnded = false;
     src.start(c.currentTime + 0.02);
     source = src;
     sourceGain = gain;
+    pushAudioDebug('track-source-started', { file, token });
   }
 
   function start() {
     if (playing) return;
     playing = true;
     loadToken += 1;
+    pushAudioDebug('track-start-requested', { file, token: loadToken });
     startSource(loadToken);
   }
 
   function stop({ fadeMs = TRACK_FADE_OUT_MS } = {}) {
     playing = false;
     loadToken += 1; // invalidate any in-flight decode
+    pushAudioDebug('track-stop-requested', { file, fadeMs });
     const c = getCtx();
     if (fadeMs <= 0 || !source || !sourceGain || !c) {
       stopSourceIfAny();
@@ -272,7 +398,15 @@ function makeBgTrack(file, volume) {
     if (playing && (source === null || sourceEnded)) {
       loadToken += 1;
       sourceEnded = false;
+      pushAudioDebug('track-recovering', { file, token: loadToken });
       startSource(loadToken);
+    } else {
+      pushAudioDebug('track-recover-skip', {
+        file,
+        playing,
+        hasSource: source !== null,
+        sourceEnded,
+      });
     }
   }
 
@@ -284,6 +418,7 @@ function makeBgTrack(file, volume) {
     playing = false;
     source = null;
     sourceEnded = false;
+    pushAudioDebug('track-reset-for-new-context', { file, wasPlaying: was });
     return was;
   }
 
