@@ -1,0 +1,19 @@
+---
+description: Use the correct GitHub account for this repository
+alwaysApply: true
+---
+
+# GitHub Account
+
+- Always use the `Tursut` GitHub account for this repository.
+- Before creating issues, pull requests, releases, or other GitHub resources with `gh`, verify the active account:
+
+```sh
+gh api user --jq '.login'
+```
+
+- If the active account is not `Tursut`, switch accounts before continuing:
+
+```sh
+gh auth switch -h github.com -u Tursut
+```
