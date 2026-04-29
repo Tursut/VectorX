@@ -399,15 +399,6 @@ at:          ${onlineErrorDebug.at ?? '(unknown)'}`}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.2 }}
             >
-              {onlineAvailable && (
-                <button
-                  type="button"
-                  className="exit-game-btn back-to-menu"
-                  onClick={backToMenu}
-                >
-                  ← Back to menu
-                </button>
-              )}
               <div className="mode-drawer">
                 <div className="gremlin-section">
                   <p className="gremlin-question">Who's playing?</p>
@@ -443,6 +434,15 @@ at:          ${onlineErrorDebug.at ?? '(unknown)'}`}
                   <p className="gremlin-sub">{gremlinLabel}</p>
                 </div>
               </div>
+              {onlineAvailable && (
+                <button
+                  type="button"
+                  className="exit-game-btn back-to-menu"
+                  onClick={backToMenu}
+                >
+                  ← Back to menu
+                </button>
+              )}
             </motion.div>
           )}
 
@@ -455,13 +455,6 @@ at:          ${onlineErrorDebug.at ?? '(unknown)'}`}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.2 }}
             >
-              <button
-                type="button"
-                className="exit-game-btn back-to-menu"
-                onClick={backToMenu}
-              >
-                ← Back to menu
-              </button>
               <div className="mode-drawer">
                 <div className="online-section">
                   {!isJoiner && (
@@ -534,6 +527,13 @@ at:          ${onlineErrorDebug.at ?? '(unknown)'}`}
                   {errorBlock}
                 </div>
               </div>
+              <button
+                type="button"
+                className="exit-game-btn back-to-menu"
+                onClick={backToMenu}
+              >
+                ← Back to menu
+              </button>
             </motion.div>
           )}
         </AnimatePresence>
@@ -599,12 +599,12 @@ at:          ${onlineErrorDebug.at ?? '(unknown)'}`}
       </div>
 
       {!isMenu && (
-        <div className="start-button-bar">
-          <AnimatePresence mode="wait" initial={false}>
-            {creatingRoom ? (
+        <>
+          {creatingRoom ? (
+            <div className="waiting-flourish-overlay">
               <motion.div
                 key="flourish"
-                style={{ width: '100%' }}
+                style={{ width: 'min(100% - 40px, 560px)' }}
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }}
@@ -612,23 +612,27 @@ at:          ${onlineErrorDebug.at ?? '(unknown)'}`}
               >
                 <WaitingFlourish />
               </motion.div>
-            ) : (
-              <motion.button
-                key="primary"
-                className="start-button"
-                data-testid="primary-button"
-                onClick={handlePrimaryClick}
-                aria-disabled={!canSubmit}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.25, ease: 'easeOut' }}
-              >
-                {primaryLabel}
-              </motion.button>
-            )}
-          </AnimatePresence>
-        </div>
+            </div>
+          ) : (
+            <div className="start-button-bar">
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.button
+                  key="primary"
+                  className="start-button"
+                  data-testid="primary-button"
+                  onClick={handlePrimaryClick}
+                  aria-disabled={!canSubmit}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.25, ease: 'easeOut' }}
+                >
+                  {primaryLabel}
+                </motion.button>
+              </AnimatePresence>
+            </div>
+          )}
+        </>
       )}
 
       <p className="start-build-stamp" onClick={handleBuildStampTap}>

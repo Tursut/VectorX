@@ -888,6 +888,16 @@
   z-index: 10;
 }
 
+.waiting-flourish-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 10;
+}
+
 .start-title {
   font-size: clamp(36px, 10vw, 64px);
   font-weight: bold;
@@ -2507,7 +2517,7 @@
   }
 }
 
-/* "← Back to menu" link sits at the top of the online + local views,
+/* "← Back to menu" link sits below the drawer in online + local views,
    left-aligned. Matches the .exit-game-btn vocabulary the rest of the
    app uses for "leave this surface". */
 .back-to-menu {
@@ -2640,15 +2650,19 @@
   .menu-avatar-bubble-icon { font-size: 36px; }
 }
 
-/* WaitingFlourish — quirky room-creation indicator (issue #45).
-   Cycling caption + avatar parade, mounted inline below the form
-   while the wait is in flight. */
+/* WaitingFlourish — room-creation indicator. Avatar parade + static copy;
+   3-sided border merges into the bottom bar like the mode drawer tab. */
 .waiting-flourish {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 10px;
-  padding: 8px 0 4px;
+  padding: 18px 18px 14px;
+  background: #0f0f23;
+  border: 2px solid #333366;
+  border-radius: 12px;
+  box-sizing: border-box;
+  width: 100%;
   font-family: 'Segoe UI', sans-serif;
 }
 .waiting-flourish-parade {
@@ -2688,7 +2702,6 @@
   margin: 0;
   text-align: center;
   letter-spacing: 0.2px;
-  min-height: 1.4em;
 }
 @media (prefers-reduced-motion: reduce) {
   .waiting-flourish-avatar { transform: none !important; }
