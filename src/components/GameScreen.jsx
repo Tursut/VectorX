@@ -137,6 +137,15 @@ export default function GameScreen({
     gameState.winner !== null
       ? gameState.players.find((p) => p.id === gameState.winner)
       : null;
+  const winnerConfig = winnerState ? PLAYERS[winnerState.id] : null;
+  const gameOverWinner =
+    winnerState && winnerConfig
+      ? {
+          ...winnerConfig,
+          name: winnerState.displayName ?? winnerConfig.name,
+          shortName: winnerState.displayName ?? winnerConfig.shortName,
+        }
+      : null;
 
   // Highlight any winner (human or bot) during the last-death wind-down.
   const winnerPlayer = trapPlaying && winnerState ? winnerState : null;
@@ -153,7 +162,7 @@ export default function GameScreen({
           transition={{ duration: 0.22 }}
         >
           <GameOverScreen
-            winner={gameState.winner !== null ? PLAYERS[gameState.winner] : null}
+            winner={gameOverWinner}
             players={gameState.players}
             onRestart={onRestart}
             onMenu={onExit}

@@ -49,8 +49,13 @@ vi.mock('../GameBoard', () => ({
   ),
 }));
 vi.mock('../GameOverScreen', () => ({
-  default: ({ onMenu, onRestart }) => (
+  default: ({ winner, onMenu, onRestart }) => (
     <div data-testid="gameover">
+      <div
+        data-testid="winner-name"
+        data-name={winner?.name ?? ''}
+        data-short-name={winner?.shortName ?? ''}
+      />
       <button data-testid="menu" onClick={onMenu}>menu</button>
       {onRestart && <button data-testid="restart" onClick={onRestart}>restart</button>}
     </div>
@@ -113,6 +118,22 @@ describe('GameScreen — rendering', () => {
     render(<GameScreen gameState={state} mySeats={[0]} onMove={() => {}} />);
     expect(screen.getByTestId('gameover')).toBeInTheDocument();
     expect(screen.queryByTestId('cell')).toBeNull();
+  });
+
+  it('passes runtime displayName to GameOver winner identity', () => {
+    const state = baseState({
+      phase: 'gameover',
+      winner: 0,
+      players: [
+        { id: 0, displayName: 'Hugo', isEliminated: false },
+        { id: 1, isEliminated: true, finishTurn: 12 },
+        { id: 2, isEliminated: true, finishTurn: 8 },
+        { id: 3, isEliminated: true, finishTurn: 3 },
+      ],
+    });
+    render(<GameScreen gameState={state} mySeats={[0]} onMove={() => {}} />);
+    expect(screen.getByTestId('winner-name')).toHaveAttribute('data-name', 'Hugo');
+    expect(screen.getByTestId('winner-name')).toHaveAttribute('data-short-name', 'Hugo');
   });
 });
 

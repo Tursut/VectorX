@@ -22,8 +22,12 @@ export default function GameOverScreen({ winner, players, onRestart, onMenu }) {
     .sort((a, b) => (b.finishTurn ?? 0) - (a.finishTurn ?? 0));
 
   const ranked = [
-    ...(winner ? [{ config: winner, isWinner: true }] : []),
-    ...eliminated.map(p => ({ config: PLAYERS[p.id], isWinner: false })),
+    ...(winner ? [{ config: winner, runtimePlayer: null, isWinner: true }] : []),
+    ...eliminated.map((p) => ({
+      config: PLAYERS[p.id],
+      runtimePlayer: p,
+      isWinner: false,
+    })),
   ];
 
   const isDraw = !winner;
@@ -102,7 +106,7 @@ export default function GameOverScreen({ winner, players, onRestart, onMenu }) {
             <div className="gameover-leaderboard-title">
               {isDraw ? 'SURVIVAL ORDER' : 'FINISHING ORDER'}
             </div>
-            {ranked.map(({ config, isWinner }, i) => (
+            {ranked.map(({ config, runtimePlayer, isWinner }, i) => (
               <motion.div
                 key={config.id}
                 className={`gameover-rank-row ${isWinner ? 'gameover-rank-winner' : ''}`}
@@ -116,7 +120,7 @@ export default function GameOverScreen({ winner, players, onRestart, onMenu }) {
                   {config.icon}
                 </div>
                 <span className="gameover-rank-name" style={{ color: config.color }}>
-                  {config.shortName}
+                  {runtimePlayer?.displayName ?? config.shortName}
                 </span>
               </motion.div>
             ))}
