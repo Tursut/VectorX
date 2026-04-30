@@ -1758,38 +1758,12 @@
   /* entrance animated by Framer Motion */
 }
 
-/* Winner hero overlay (issue #60). Big avatar + bouncy WINNER! text for
-   ~1 s after the trap settles. The avatar shares a layoutId with the
-   leaderboard's trophy so framer-motion morphs it across the screen
-   swap into the GameOverScreen — no flash, the leaderboard chrome
-   just appears around the already-placed avatar. */
-.winner-hero-overlay {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-  z-index: 50;
-}
-.winner-hero-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 24px;
-}
-.winner-hero-avatar {
-  font-size: 48px;
-  width: 84px;
-  height: 84px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-/* Same vocabulary as .lobby-title / .start-title — Fredoka One,
-   uppercase, glow shadow + drop shadow — colour comes from the player. */
-.winner-hero-text {
+/* Hero "WINNER!" text (issue #60). Renders inside GameOverScreen
+   directly under the trophy for ~1 s before the leaderboard chrome
+   bleeds in. Same Fredoka One vocabulary as .lobby-title /
+   .start-title — uppercase, letter-spaced, glow shadow + drop shadow.
+   Colour comes from the winning player. */
+.gameover-hero-text {
   font-family: 'Fredoka One', 'Segoe UI', sans-serif;
   font-size: clamp(36px, 11vw, 64px);
   font-weight: bold;

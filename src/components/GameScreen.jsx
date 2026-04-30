@@ -18,7 +18,7 @@
 // bot driving, sandbox panel, connection status, exit-confirm modal) stay in
 // the outer controllers.
 
-import { AnimatePresence, LayoutGroup, motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { PLAYERS, TURN_TAUNTS, TURN_TIME } from '../game/constants';
 import { getCurrentValidMoves } from '../game/logic';
 import { useWinnerHero } from '../game/useWinnerHero';
@@ -26,7 +26,6 @@ import PlayerPanel from './PlayerPanel';
 import TurnIndicator from './TurnIndicator';
 import GameBoard from './GameBoard';
 import GameOverScreen from './GameOverScreen';
-import WinnerHeroOverlay from './WinnerHeroOverlay';
 
 // Bot detection works for both shapes: online wire carries `isBot` per player;
 // local state has `gremlinCount` at the top-level. Sandbox only has 2 players
@@ -135,10 +134,12 @@ export default function GameScreen({
   const tauntName = currentPlayerState.displayName ?? playerConfig.shortName;
   const taunt = TURN_TAUNTS[gameState.turnCount % TURN_TAUNTS.length](tauntName);
 
-  // GameOverScreen mounts AFTER both the trap chain (#36) and the
-  // winner-hero spotlight (#60) have finished. During hero phase the
-  // overlay is the only winner-related visual on screen.
-  const showGameOver = gameState.phase === 'gameover' && !trapPlaying && !heroPlaying;
+  // GameOverScreen mounts as soon as the trap chain (#36) finishes.
+  // The winner-hero spotlight (#60) renders INSIDE GameOverScreen via
+  // its heroPlaying prop, so the trophy is in its real leaderboard
+  // position from the first frame and the rest of the leaderboard
+  // chrome bleeds in around it ~1 s later.
+  const showGameOver = gameState.phase === 'gameover' && !trapPlaying;
 
   const winnerState =
     gameState.winner !== null
@@ -155,14 +156,8 @@ export default function GameScreen({
       : null;
 
   return (
-    <LayoutGroup>
-      <AnimatePresence>
-        {heroPlaying && gameOverWinner && (
-          <WinnerHeroOverlay key="hero" winner={gameOverWinner} />
-        )}
-      </AnimatePresence>
-      <AnimatePresence mode="wait">
-        {showGameOver ? (
+    <AnimatePresence mode="wait">
+      {showGameOver ? (
         <motion.div
           key="gameover"
           style={{ width: '100%' }}
@@ -178,6 +173,7 @@ export default function GameScreen({
             onMenu={onExit}
             restartLabel={restartLabel}
             restartDisabled={restartDisabled}
+            heroPlaying={heroPlaying}
           />
         </motion.div>
       ) : (
@@ -243,7 +239,6 @@ export default function GameScreen({
           </div>
         </motion.div>
       )}
-      </AnimatePresence>
-    </LayoutGroup>
+    </AnimatePresence>
   );
 }
