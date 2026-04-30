@@ -13,13 +13,11 @@ export default function GameOverScreen({
   restartLabel = 'PLAY AGAIN',
   restartDisabled = false,
 }) {
-  // Win / draw sound — fires once when the leaderboard mounts. Owned
-  // here (instead of GameScreen) so the cue lines up with the visible
-  // transition into the leaderboard, and so the effect can't re-fire
-  // mid-mount if upstream gameState references churn (issue #34).
+  // Draw sound fires here (no hero phase for draws — they go straight to
+  // the leaderboard). The win sound moved to useWinnerHero (#60) so it
+  // lines up with the spotlight grow rather than the leaderboard mount.
   useEffect(() => {
-    if (winner) sounds.playWin();
-    else sounds.playDraw();
+    if (!winner) sounds.playDraw();
   // Mount-only: the leaderboard never swaps winner ↔ draw under the user.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -47,11 +45,10 @@ export default function GameOverScreen({
         {winner ? (
           <>
             <motion.div
+              layoutId="winner-hero-avatar"
               className="gameover-winner-icon"
               style={{ backgroundColor: winner.color }}
-              initial={{ scale: 0, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ type: 'spring', stiffness: 200, damping: 16 }}
+              transition={{ type: 'spring', stiffness: 220, damping: 22 }}
             >
               {winner.icon ?? '🏆'}
             </motion.div>

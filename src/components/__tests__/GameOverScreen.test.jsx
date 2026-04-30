@@ -1,10 +1,9 @@
 // Tests for the GameOverScreen leaderboard.
 //
-// The headline-grabbing assertion here is the win/draw sound: it fires once
-// when the leaderboard mounts, regardless of how many times the parent
-// re-renders with the same gameover state. Used to live in GameScreen but
-// fired twice — once during the wind-down on the board, once when the
-// leaderboard appeared — see issue #34.
+// Sound ownership: as of #60, the win sound moved to useWinnerHero (it
+// fires when the hero spotlight starts, NOT when the leaderboard
+// mounts). The draw sound stays here — draws skip the hero phase. The
+// re-render guard on draw is the same shape that #34 added for win.
 
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -34,9 +33,9 @@ afterEach(() => {
 });
 
 describe('GameOverScreen — win/draw sound', () => {
-  it('plays the win sound exactly once on mount when there is a winner', () => {
+  it('does NOT play the win sound on mount — useWinnerHero owns it (#60)', () => {
     render(<GameOverScreen winner={PLAYERS[0]} players={players} onMenu={() => {}} />);
-    expect(sounds.playWin).toHaveBeenCalledOnce();
+    expect(sounds.playWin).not.toHaveBeenCalled();
     expect(sounds.playDraw).not.toHaveBeenCalled();
   });
 
@@ -46,13 +45,13 @@ describe('GameOverScreen — win/draw sound', () => {
     expect(sounds.playWin).not.toHaveBeenCalled();
   });
 
-  it('does NOT fire the win sound a second time when the parent re-renders with the same props', () => {
+  it('does NOT fire the draw sound a second time when the parent re-renders with the same props', () => {
     const { rerender } = render(
-      <GameOverScreen winner={PLAYERS[0]} players={players} onMenu={() => {}} />,
+      <GameOverScreen winner={null} players={players} onMenu={() => {}} />,
     );
-    rerender(<GameOverScreen winner={PLAYERS[0]} players={players} onMenu={() => {}} />);
-    rerender(<GameOverScreen winner={PLAYERS[0]} players={players} onMenu={() => {}} />);
-    expect(sounds.playWin).toHaveBeenCalledOnce();
+    rerender(<GameOverScreen winner={null} players={players} onMenu={() => {}} />);
+    rerender(<GameOverScreen winner={null} players={players} onMenu={() => {}} />);
+    expect(sounds.playDraw).toHaveBeenCalledOnce();
   });
 });
 

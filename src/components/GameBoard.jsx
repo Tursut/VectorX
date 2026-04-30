@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { PLAYERS, ITEM_TYPES } from '../game/constants';
 import Cell from './Cell';
 
-export default function GameBoard({ grid, players, validMoveSet, onCellClick, currentPlayerIndex, items, portalActive, swapActive, freezeSelectActive = false, isGremlinTurn, isOpponentTurn = false, bombBlast, portalJump, swapFlash, trappedPlayers = [], winnerPlayer = null, flyingFreeze = null, roulettePlayerId = null, rouletteRevealing = false, pendingSwap = null, heldItemActor = null, frozenPlayerId = null, frozenTurnsLeft = 0 }) {
+export default function GameBoard({ grid, players, validMoveSet, onCellClick, currentPlayerIndex, items, portalActive, swapActive, freezeSelectActive = false, isGremlinTurn, isOpponentTurn = false, bombBlast, portalJump, swapFlash, trappedPlayers = [], flyingFreeze = null, roulettePlayerId = null, rouletteRevealing = false, pendingSwap = null, heldItemActor = null, frozenPlayerId = null, frozenTurnsLeft = 0 }) {
   // While a swap roulette is rolling (issue #30), the server-applied swap has
   // already exchanged the two players' positions in gameState — but we want
   // them to *appear* still in their pre-swap spots until the spotlight lands.
@@ -245,39 +245,9 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
         </motion.div>
       ))}
 
-      {/* ── Winner celebration layer — joyful bounce while the last bot dies ── */}
-      {winnerPlayer && (
-        <motion.div
-          key="winner-celebration"
-          style={{
-            position: 'absolute',
-            left: `calc(4px + ${winnerPlayer.col} * (var(--cell-size) + var(--board-gap)))`,
-            top:  `calc(4px + ${winnerPlayer.row} * (var(--cell-size) + var(--board-gap)))`,
-            width: 'var(--cell-size)',
-            height: 'var(--cell-size)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            pointerEvents: 'none',
-            zIndex: 4,
-          }}
-          animate={{
-            rotate: [0, -14, 14, -14, 14, -10, 10, -6,  6,  0],
-            scale:  [1,  1.3, 1.3, 1.3, 1.3, 1.35, 1.35, 1.4, 1.4, 1.45],
-            y:      [0,  -6,   0,  -6,   0,   -4,   0,   -4,  0,   0],
-          }}
-          transition={{ duration: 2.5, times: [0, 0.07, 0.16, 0.25, 0.34, 0.43, 0.52, 0.63, 0.80, 1] }}
-        >
-          <span className="player-icon">{PLAYERS[winnerPlayer.id].icon}</span>
-        </motion.div>
-      )}
-
-      {/* ── Player icon layer — one persistent element per player, animated via layout ──
-           When a winner-celebration is on screen, hide that player's static icon —
-           the wobbly celebration motion.div above (z-index 4) is the only avatar
-           we want during the wind-down, otherwise we'd render two stacked icons. */}
+      {/* ── Player icon layer — one persistent element per player, animated via layout ── */}
       <AnimatePresence>
-        {renderPlayers.filter(p => !p.isEliminated && p.id !== winnerPlayer?.id).map(p => (
+        {renderPlayers.filter(p => !p.isEliminated).map(p => (
           <motion.div
             key={`icon-${p.id}`}
             layout
