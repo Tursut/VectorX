@@ -1,19 +1,25 @@
-// Winner hero phase (issue #60). A full-screen takeover that sits
-// between the trap-chain death animation and the GameOverScreen
-// leaderboard: big centered avatar + "WINNER!" text + short stinger
-// (fired by useWinnerHero). Lives ~2 s, then GameScreen swaps to
-// GameOverScreen.
+// Winner hero phase (issue #60). A fixed-position overlay that sits
+// ON TOP of the live board for ~2 s between the trap-chain death
+// animation and the GameOverScreen leaderboard. The board stays
+// visible underneath through a soft scrim — the moment reads as
+// "you won THIS game" rather than a screen change.
 
 import { motion } from 'framer-motion';
 
 export default function WinnerHero({ winner }) {
   if (!winner) return null;
   return (
-    <div className="winner-hero-screen">
+    <motion.div
+      className="winner-hero-screen"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.25 }}
+    >
       <div className="winner-hero-content">
         {/* Outer motion handles the entrance; inner handles a subtle
-            idle "breathing" animation so the screen doesn't feel frozen
-            during the 2 s hold. */}
+            idle "breathing" animation so the screen doesn't feel
+            frozen during the 2 s hold. */}
         <motion.div
           initial={{ scale: 0, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
@@ -50,6 +56,6 @@ export default function WinnerHero({ winner }) {
           </motion.span>
         </motion.div>
       </div>
-    </div>
+    </motion.div>
   );
 }

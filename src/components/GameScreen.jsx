@@ -149,31 +149,21 @@ export default function GameScreen({
         }
       : null;
 
-  // Three sequential post-game screens (#60):
-  //   - WinnerHero takes over for HERO_HOLD_MS the moment the trap
-  //     chain settles on a gameover-with-winner. Big centered avatar
-  //     + WINNER! text + a short stinger.
+  // Post-game flow (#60):
+  //   - Hero overlay sits on TOP of the live board for HERO_HOLD_MS
+  //     the moment the trap chain settles on a gameover-with-winner.
+  //     Board stays visible behind a soft scrim so the moment reads
+  //     as "you won THIS game" rather than a screen change.
   //   - GameOverScreen takes over after the hero phase ends, OR
   //     immediately on a draw (no hero for draws).
-  //   - Otherwise the live board.
   const isGameOver = gameState.phase === 'gameover' && !trapPlaying;
   const showHero = isGameOver && heroPlaying && !!gameOverWinner;
   const showGameOver = isGameOver && !showHero;
 
   return (
-    <AnimatePresence>
-      {showHero ? (
-        <motion.div
-          key="hero"
-          style={{ width: '100%' }}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.25 }}
-        >
-          <WinnerHero winner={gameOverWinner} />
-        </motion.div>
-      ) : showGameOver ? (
+    <>
+      <AnimatePresence>
+      {showGameOver ? (
         <motion.div
           key="gameover"
           style={{ width: '100%' }}
@@ -254,6 +244,12 @@ export default function GameScreen({
           </div>
         </motion.div>
       )}
-    </AnimatePresence>
+      </AnimatePresence>
+      <AnimatePresence>
+        {showHero && (
+          <WinnerHero key="hero" winner={gameOverWinner} />
+        )}
+      </AnimatePresence>
+    </>
   );
 }

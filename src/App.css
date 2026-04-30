@@ -1758,18 +1758,26 @@
   /* entrance animated by Framer Motion */
 }
 
-/* Winner hero phase (issue #60). Full-screen takeover that sits
-   between the trap chain finishing and GameOverScreen mounting.
-   2 s hold with a big centered avatar + WINNER! text. Same Fredoka
-   One vocabulary as .lobby-title / .start-title for the text. */
+/* Winner hero phase (issue #60). Fixed overlay on top of the live
+   board between the trap chain finishing and GameOverScreen mounting.
+   2 s hold with a big centered avatar + WINNER! text. The board stays
+   visible underneath through a soft scrim — the moment is "you won
+   THIS GAME" not "here's a new screen". */
 .winner-hero-screen {
+  position: fixed;
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 100vh;
-  width: 100%;
   padding: 20px;
   box-sizing: border-box;
+  pointer-events: none;
+  z-index: 80;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(15, 15, 35, 0.55) 0%,
+    rgba(15, 15, 35, 0.85) 100%
+  );
 }
 .winner-hero-content {
   display: flex;
