@@ -117,6 +117,37 @@ describe('useWinnerHero — single-fire latch', () => {
   });
 });
 
+describe('useWinnerHero — robustness during the hold', () => {
+  it('still ends the hero phase even if dependent props churn during the 1 s hold', () => {
+    // Regression: the previous implementation kept the hold-end timer
+    // inside the same effect that triggered the hero, with deps that
+    // re-ran on phase / trap churn. Any benign re-render during the hold
+    // — gameState reference changes, parent state updates — would cancel
+    // the timer without rescheduling it, leaving heroPlaying stuck true
+    // and GameOverScreen never mounting.
+    const winState = gs({ phase: 'gameover', winner: 0 });
+    const { result, rerender } = renderHook(
+      ({ s, t }) => useWinnerHero(s, t),
+      { initialProps: { s: gs(), t: false } },
+    );
+    rerender({ s: winState, t: false });
+    expect(result.current.heroPlaying).toBe(true);
+
+    // Simulate a re-render that passes a fresh gameState reference but
+    // logically identical state — the kind of churn React triggers on
+    // any unrelated prop or parent state update.
+    act(() => { vi.advanceTimersByTime(300); });
+    rerender({ s: gs({ phase: 'gameover', winner: 0 }), t: false });
+    rerender({ s: gs({ phase: 'gameover', winner: 0 }), t: false });
+    act(() => { vi.advanceTimersByTime(300); });
+    rerender({ s: gs({ phase: 'gameover', winner: 0 }), t: false });
+
+    // Timer should still fire on schedule.
+    act(() => { vi.advanceTimersByTime(HERO_HOLD_MS); });
+    expect(result.current.heroPlaying).toBe(false);
+  });
+});
+
 describe('useWinnerHero — cleanup', () => {
   it('cancels the hold timer on unmount', () => {
     const { result, rerender, unmount } = renderHook(

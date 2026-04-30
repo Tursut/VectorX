@@ -1760,10 +1760,9 @@
 
 /* Winner hero overlay (issue #60) — between the trap chain finishing
    and GameOverScreen mounting, the winner's avatar renders here in a
-   centered 84 px circle, framed at the same vertical position the
-   trophy will land on the leaderboard. The motion.div inside shares a
-   layoutId with .gameover-winner-icon so the transition into the
-   leaderboard is a continuous element morph (no visible jump). */
+   centered 84 px circle for ~1 s with the win sound. The avatar is
+   fade-and-scale on exit; GameOverScreen's trophy then takes over with
+   its own spring entrance. */
 .winner-hero-overlay {
   position: fixed;
   inset: 0;
@@ -1781,11 +1780,6 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  /* Lifted up so the avatar lands at roughly the same Y as the trophy
-     does on GameOverScreen — the leaderboard pushes the trophy above
-     the vertical center, so we mirror that here for a smaller pixel
-     delta during the layoutId morph. */
-  transform: translateY(-120px);
 }
 
 .gameover-title {

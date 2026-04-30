@@ -45,10 +45,11 @@ export default function GameOverScreen({
         {winner ? (
           <>
             <motion.div
-              layoutId="winner-hero-avatar"
               className="gameover-winner-icon"
               style={{ backgroundColor: winner.color }}
-              transition={{ type: 'spring', stiffness: 220, damping: 22 }}
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: 'spring', stiffness: 200, damping: 16 }}
             >
               {winner.icon ?? '🏆'}
             </motion.div>
