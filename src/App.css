@@ -1771,13 +1771,25 @@
   justify-content: center;
   padding: 20px;
   box-sizing: border-box;
-  pointer-events: none;
   z-index: 80;
+  cursor: pointer;
   background: radial-gradient(
     ellipse at center,
     rgba(15, 15, 35, 0.55) 0%,
     rgba(15, 15, 35, 0.85) 100%
   );
+}
+/* Smaller variant of .tap-to-begin-title — same Fredoka One,
+   letter-spaced, lavender, glow + titlePulse. Sits below the hero
+   avatar + WINNER text as the prompt to advance to the leaderboard. */
+.winner-hero-continue {
+  font-family: 'Fredoka One', 'Segoe UI', sans-serif;
+  font-size: clamp(14px, 3.5vw, 18px);
+  letter-spacing: 2px;
+  color: #c8caff;
+  text-shadow: 0 0 14px rgba(122, 140, 255, 0.55);
+  margin-top: 8px;
+  animation: titlePulse 3s ease-in-out infinite alternate;
 }
 .winner-hero-content {
   display: flex;

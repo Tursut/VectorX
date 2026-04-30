@@ -1,6 +1,7 @@
 // Tests for the winner hero phase (issue #60). Drives the hook through
-// gameState transitions + the trap-chain's `trapPlaying` boolean to
-// confirm the 1 s spotlight fires once per game-over with a winner.
+// gameState transitions + the trap-chain's `trapPlaying` boolean.
+// As of the user-tap-to-continue change, hero stays up indefinitely
+// until dismissHero() is called — no auto-end timer.
 
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -11,8 +12,6 @@ vi.mock('../sounds', () => ({
 
 import { useWinnerHero } from '../useWinnerHero';
 import * as sounds from '../sounds';
-
-const HERO_HOLD_MS = 2000;
 
 function gs(overrides = {}) {
   return {
@@ -28,14 +27,10 @@ function gs(overrides = {}) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.useFakeTimers();
-});
-afterEach(() => {
-  vi.useRealTimers();
 });
 
 describe('useWinnerHero — happy path', () => {
-  it('fires hero + win sound when phase=gameover with a winner and trap is done', () => {
+  it('fires the stinger and stays up when phase=gameover with a winner', () => {
     const playing = gs();
     const { result, rerender } = renderHook(
       ({ s, t }) => useWinnerHero(s, t),
@@ -48,15 +43,26 @@ describe('useWinnerHero — happy path', () => {
     expect(result.current.heroPlaying).toBe(false);
     expect(sounds.playWinStinger).not.toHaveBeenCalled();
 
-    // Trap finishes → hero starts immediately and the win sound fires once.
+    // Trap finishes → hero starts immediately and the stinger fires once.
     rerender({ s: gs({ phase: 'gameover', winner: 0 }), t: false });
     expect(result.current.heroPlaying).toBe(true);
     expect(sounds.playWinStinger).toHaveBeenCalledTimes(1);
 
-    // Hero holds for HERO_HOLD_MS, then flips back off.
-    act(() => { vi.advanceTimersByTime(HERO_HOLD_MS - 1); });
+    // Hero stays up indefinitely — no auto-dismiss.
+    rerender({ s: gs({ phase: 'gameover', winner: 0 }), t: false });
+    rerender({ s: gs({ phase: 'gameover', winner: 0 }), t: false });
     expect(result.current.heroPlaying).toBe(true);
-    act(() => { vi.advanceTimersByTime(1); });
+  });
+
+  it('dismissHero ends the hero phase synchronously', () => {
+    const { result, rerender } = renderHook(
+      ({ s, t }) => useWinnerHero(s, t),
+      { initialProps: { s: gs(), t: false } },
+    );
+    rerender({ s: gs({ phase: 'gameover', winner: 0 }), t: false });
+    expect(result.current.heroPlaying).toBe(true);
+
+    act(() => result.current.dismissHero());
     expect(result.current.heroPlaying).toBe(false);
   });
 });
@@ -84,7 +90,7 @@ describe('useWinnerHero — skip cases', () => {
 });
 
 describe('useWinnerHero — single-fire latch', () => {
-  it('only plays the win sound once even if gameState references churn', () => {
+  it('only plays the stinger once even if gameState references churn', () => {
     const { rerender } = renderHook(
       ({ s, t }) => useWinnerHero(s, t),
       { initialProps: { s: gs(), t: false } },
@@ -105,7 +111,7 @@ describe('useWinnerHero — single-fire latch', () => {
     );
     rerender({ s: gs({ phase: 'gameover', winner: 0 }), t: false });
     expect(sounds.playWinStinger).toHaveBeenCalledTimes(1);
-    act(() => { vi.advanceTimersByTime(HERO_HOLD_MS); });
+    act(() => result.current.dismissHero());
     expect(result.current.heroPlaying).toBe(false);
 
     // Restart: phase moves back to playing → latch resets.
@@ -114,51 +120,5 @@ describe('useWinnerHero — single-fire latch', () => {
     rerender({ s: gs({ phase: 'gameover', winner: 1 }), t: false });
     expect(sounds.playWinStinger).toHaveBeenCalledTimes(2);
     expect(result.current.heroPlaying).toBe(true);
-  });
-});
-
-describe('useWinnerHero — robustness during the hold', () => {
-  it('still ends the hero phase even if dependent props churn during the 1 s hold', () => {
-    // Regression: the previous implementation kept the hold-end timer
-    // inside the same effect that triggered the hero, with deps that
-    // re-ran on phase / trap churn. Any benign re-render during the hold
-    // — gameState reference changes, parent state updates — would cancel
-    // the timer without rescheduling it, leaving heroPlaying stuck true
-    // and GameOverScreen never mounting.
-    const winState = gs({ phase: 'gameover', winner: 0 });
-    const { result, rerender } = renderHook(
-      ({ s, t }) => useWinnerHero(s, t),
-      { initialProps: { s: gs(), t: false } },
-    );
-    rerender({ s: winState, t: false });
-    expect(result.current.heroPlaying).toBe(true);
-
-    // Simulate a re-render that passes a fresh gameState reference but
-    // logically identical state — the kind of churn React triggers on
-    // any unrelated prop or parent state update.
-    act(() => { vi.advanceTimersByTime(300); });
-    rerender({ s: gs({ phase: 'gameover', winner: 0 }), t: false });
-    rerender({ s: gs({ phase: 'gameover', winner: 0 }), t: false });
-    act(() => { vi.advanceTimersByTime(300); });
-    rerender({ s: gs({ phase: 'gameover', winner: 0 }), t: false });
-
-    // Timer should still fire on schedule.
-    act(() => { vi.advanceTimersByTime(HERO_HOLD_MS); });
-    expect(result.current.heroPlaying).toBe(false);
-  });
-});
-
-describe('useWinnerHero — cleanup', () => {
-  it('cancels the hold timer on unmount', () => {
-    const { result, rerender, unmount } = renderHook(
-      ({ s, t }) => useWinnerHero(s, t),
-      { initialProps: { s: gs(), t: false } },
-    );
-    rerender({ s: gs({ phase: 'gameover', winner: 0 }), t: false });
-    expect(result.current.heroPlaying).toBe(true);
-    unmount();
-    // Advancing the clock past HERO_HOLD_MS shouldn't throw or warn —
-    // the cleanup canceled the setTimeout.
-    expect(() => act(() => { vi.advanceTimersByTime(HERO_HOLD_MS * 2); })).not.toThrow();
   });
 });

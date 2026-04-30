@@ -19,6 +19,7 @@ import { TURN_TIME } from './game/constants';
 import { useNetworkGame } from './net/useNetworkGame';
 import { useDerivedAnimations } from './game/useDerivedAnimations';
 import { useTrapChain } from './game/useTrapChain';
+import { useWinnerHero } from './game/useWinnerHero';
 import { useGameplaySounds } from './game/useGameplaySounds';
 import { useBackGuard } from './useBackGuard';
 import * as sounds from './game/sounds';
@@ -102,6 +103,9 @@ export default function OnlineGameController({
   // down.
   const { trappedPlayers, trapPlaying } = useTrapChain(gameState);
 
+  // Winner hero phase (#60). See LocalGameController for rationale.
+  const { heroPlaying, dismissHero } = useWinnerHero(gameState, trapPlaying);
+
   // Turn-timer visualization. The server is authoritative — it schedules the
   // real alarm and forfeits the seat on expiry — we just drive the indicator
   // bar with a client-local tick so the player can see time running down.
@@ -136,7 +140,7 @@ export default function OnlineGameController({
   useGameplaySounds(
     gameState,
     mySeatId !== null && mySeatId !== undefined ? [mySeatId] : [],
-    { enabled: countdown === null, trapPlaying },
+    { enabled: countdown === null, trapPlaying, heroPlaying },
   );
 
   // Send HELLO on every transition INTO 'open'. The ref is reset on any other
@@ -406,6 +410,8 @@ export default function OnlineGameController({
           rouletteActive={rouletteActive}
           trappedPlayers={trappedPlayers}
           trapPlaying={trapPlaying}
+          heroPlaying={heroPlaying}
+          onHeroDismiss={dismissHero}
         />
         {exitConfirmModal}
         <AudioDebugOverlay enabled={audioDebugEnabled} />
@@ -467,6 +473,8 @@ export default function OnlineGameController({
           rouletteActive={rouletteActive}
           trappedPlayers={trappedPlayers}
           trapPlaying={trapPlaying}
+          heroPlaying={heroPlaying}
+          onHeroDismiss={dismissHero}
         />
         {exitConfirmModal}
         <AudioDebugOverlay enabled={audioDebugEnabled} />

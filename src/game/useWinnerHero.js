@@ -1,17 +1,16 @@
-// Winner "hero" phase that runs after the trap chain settles and before
-// GameOverScreen mounts (issue #60). Plays a short stinger and gives
-// the winner a 2 s spotlight before the leaderboard takes over.
+// Winner "hero" phase that runs after the trap chain settles and
+// before GameOverScreen mounts (issue #60). Plays a short stinger
+// and gives the winner a spotlight that holds until the user taps
+// "TAP TO CONTINUE" — no auto-dismiss, since rushing through the
+// climax of the game is exactly what we don't want.
 //
-// heroPlaying is DERIVED from props each render — not stored in state
-// that has to flip on after mount. Otherwise AnimatePresence in
-// GameScreen sees one render with showGameOver=true (heroPlaying=false
-// initial) before the effect would flip it, and mode="wait" gets
-// confused by the rapid key swap. Deriving means the very first render
-// where trap settles already has showHero=true, so the user sees the
-// hero from frame one.
+// heroPlaying is DERIVED from props each render — not stored in
+// state that has to flip on after mount. Otherwise GameScreen sees
+// one render with showGameOver=true (heroPlaying=false initial)
+// before any effect could flip it, and the leaderboard mounts
+// briefly before the hero takes over.
 
-import { useEffect, useRef, useState } from 'react';
-import { HERO_HOLD_MS } from './constants';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import * as sounds from './sounds';
 
 export function useWinnerHero(gameState, trapPlaying) {
@@ -43,14 +42,9 @@ export function useWinnerHero(gameState, trapPlaying) {
     sounds.playWinStinger();
   }, [heroPlaying, phase]);
 
-  // End the hero phase after HERO_HOLD_MS. The timeout is keyed only on
-  // heroPlaying, so unrelated dep churn can't cancel it without
-  // rescheduling.
-  useEffect(() => {
-    if (!heroPlaying) return;
-    const t = setTimeout(() => setHeroEnded(true), HERO_HOLD_MS);
-    return () => clearTimeout(t);
-  }, [heroPlaying]);
+  const dismissHero = useCallback(() => {
+    setHeroEnded(true);
+  }, []);
 
-  return { heroPlaying };
+  return { heroPlaying, dismissHero };
 }

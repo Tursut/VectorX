@@ -79,7 +79,6 @@ export const TURN_TIME = 10;
 export const TRAP_WINDUP_MS = 450;
 export const TRAP_SETTLE_MS = 2500;
 export const TRAP_CYCLE_MS = TRAP_WINDUP_MS + TRAP_SETTLE_MS;
-export const HERO_HOLD_MS = 2000;
 
 export const ITEM_TYPES = {
   bomb:   { type: 'bomb',   icon: '💣', name: 'Bomb',   color: '#e74c3c', desc: 'Clears nearby territory!' },

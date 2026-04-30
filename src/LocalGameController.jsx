@@ -5,6 +5,7 @@ import { getGremlinMove } from './game/ai';
 import { PLAYERS, TURN_TIME } from './game/constants';
 import { useDerivedAnimations } from './game/useDerivedAnimations';
 import { useTrapChain } from './game/useTrapChain';
+import { useWinnerHero } from './game/useWinnerHero';
 import { useGameplaySounds } from './game/useGameplaySounds';
 import { useBackGuard } from './useBackGuard';
 import * as sounds from './game/sounds';
@@ -86,6 +87,12 @@ export default function LocalGameController({
   // sound + the queue that drains one death per ~3 s window so
   // back-to-back trappings each get their full beat.
   const { trappedPlayers, trapPlaying } = useTrapChain(gameState);
+
+  // Winner hero phase (#60) — overlays the live board after the trap
+  // settles, plays a stinger, holds until the user taps "TAP TO
+  // CONTINUE". Lives here (not in GameScreen) so useGameplaySounds
+  // can keep bg-spring playing through the hero phase.
+  const { heroPlaying, dismissHero } = useWinnerHero(gameState, trapPlaying);
 
   // Hide the App-level MenuAvatarStage while the active game board is
   // showing — gameplay needs focus. Sandbox during play likewise hides it
@@ -258,7 +265,7 @@ export default function LocalGameController({
   // Gameplay sound effects — called at controller level so sandbox mode (which
   // doesn't mount GameScreen) gets bg theme, move/claim, your-turn chime, and
   // freeze/swap event sounds.
-  useGameplaySounds(gameState, mySeats, { enabled: countdown === null, trapPlaying });
+  useGameplaySounds(gameState, mySeats, { enabled: countdown === null, trapPlaying, heroPlaying });
 
   // Sandbox uses its own layout (SandboxPanel sidebar), not GameScreen.
   const sandboxIsGremlinTurn = gameState?.sandboxMode
@@ -361,6 +368,8 @@ export default function LocalGameController({
               rouletteActive={rouletteActive}
               trappedPlayers={trappedPlayers}
               trapPlaying={trapPlaying}
+              heroPlaying={heroPlaying}
+              onHeroDismiss={dismissHero}
             />
             <AnimatePresence>
               {exitConfirm && (

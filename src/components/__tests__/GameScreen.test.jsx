@@ -4,16 +4,13 @@
 // GameOverScreen) so we can assert the routing + prop plumbing + mySeats
 // click-gating without pulling their full implementations into the test.
 
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-// Mirror src/game/constants.js. The hero phase (#60) holds for 2 s on
-// any gameover-with-winner before GameOverScreen mounts; tests that
-// assert on GameOverScreen need to skip past that.
-const HERO_HOLD_MS = 2000;
-function skipHero() {
-  act(() => { vi.advanceTimersByTime(HERO_HOLD_MS + 100); });
-}
+// As of #60, GameScreen receives heroPlaying as a prop from the
+// controller. These tests don't pass it (defaults to false), so the
+// hero overlay is skipped and GameOverScreen renders immediately on
+// phase=gameover. The hook tests cover the hero phase in isolation.
 
 // getCurrentValidMoves walks the grid; tests don't care about its output
 // (cell rendering is mocked), so stub it with an empty array.
@@ -134,7 +131,6 @@ describe('GameScreen — rendering', () => {
     // Hero phase fires for HERO_HOLD_MS, then GameOverScreen takes
     // over. We just assert the end-state here — the hook tests cover
     // the hero phase timing in isolation.
-    skipHero();
     expect(screen.getByTestId('gameover')).toBeInTheDocument();
   });
 
@@ -165,7 +161,6 @@ describe('GameScreen — rendering', () => {
       ],
     });
     render(<GameScreen gameState={state} mySeats={[0]} onMove={() => {}} />);
-    skipHero();
     expect(screen.getByTestId('winner-name')).toHaveAttribute('data-name', 'Hugo');
     expect(screen.getByTestId('winner-name')).toHaveAttribute('data-short-name', 'Hugo');
   });
@@ -360,7 +355,6 @@ describe('GameScreen — callbacks', () => {
     const onExit = vi.fn();
     const state = baseState({ phase: 'gameover', winner: 0 });
     render(<GameScreen gameState={state} mySeats={[0]} onMove={() => {}} onExit={onExit} />);
-    skipHero();
     fireEvent.click(screen.getByTestId('menu'));
     expect(onExit).toHaveBeenCalledOnce();
   });
@@ -368,7 +362,6 @@ describe('GameScreen — callbacks', () => {
   it('onRestart is omitted when not provided (online has no rematch yet)', () => {
     const state = baseState({ phase: 'gameover', winner: 0 });
     render(<GameScreen gameState={state} mySeats={[0]} onMove={() => {}} />);
-    skipHero();
     expect(screen.queryByTestId('restart')).toBeNull();
   });
 
@@ -383,7 +376,6 @@ describe('GameScreen — callbacks', () => {
         onRestart={onRestart}
       />,
     );
-    skipHero();
     fireEvent.click(screen.getByTestId('restart'));
     expect(onRestart).toHaveBeenCalledOnce();
   });
@@ -401,7 +393,6 @@ describe('GameScreen — callbacks', () => {
         restartDisabled
       />,
     );
-    skipHero();
     expect(screen.getByTestId('restart')).toHaveTextContent('WAITING FOR HOST');
     expect(screen.getByTestId('restart')).toBeDisabled();
   });

@@ -15,7 +15,7 @@ import * as sounds from './sounds';
 // drawing time is handled separately via the `trapPlaying` flag.
 const MENU_RESUME_AFTER_GAMEOVER_MS = 3500;
 
-export function useGameplaySounds(gameState, mySeats = [], { enabled = true, trapPlaying = false } = {}) {
+export function useGameplaySounds(gameState, mySeats = [], { enabled = true, trapPlaying = false, heroPlaying = false } = {}) {
   const prevTurnRef = useRef(null);
 
   // (iOS audio-recovery listeners now live at module load in sounds.js so
@@ -36,29 +36,32 @@ export function useGameplaySounds(gameState, mySeats = [], { enabled = true, tra
       sounds.stopMenuTheme();
       return undefined;
     }
-    if (gameState?.phase === 'playing') {
+    // bg-spring keeps playing all the way through the in-game flow:
+    //   - phase=='playing'                 (live game)
+    //   - phase=='gameover' && trapPlaying (death animation)
+    //   - phase=='gameover' && heroPlaying (winner spotlight, #60)
+    // Stops only when the leaderboard takes over, so the player
+    // doesn't experience a silent "limbo" between the second-to-last
+    // death and the leaderboard's fanfare.
+    const inGameAudio =
+      gameState?.phase === 'playing' ||
+      (gameState?.phase === 'gameover' && (trapPlaying || heroPlaying));
+    if (inGameAudio) {
       sounds.stopMenuTheme();
       sounds.startBgTheme();
       return undefined;
     }
     sounds.stopBgTheme();
-    if (trapPlaying) {
-      // Trap chain still drawing — let the elimination sound own the
-      // audio space.
-      sounds.stopMenuTheme();
-      return undefined;
-    }
     if (gameState?.phase === 'gameover') {
-      // Trap is done; the win/draw sound is now playing on
-      // GameOverScreen mount. Defer the menu loop so the fanfare
-      // gets its full beat first.
+      // Hero is done; the win fanfare is now playing on GameOverScreen
+      // mount. Defer the menu loop so the fanfare gets its full beat.
       const t = setTimeout(() => sounds.startMenuTheme(), MENU_RESUME_AFTER_GAMEOVER_MS);
       return () => clearTimeout(t);
     }
     // Start screen / lobby / null → menu immediately.
     sounds.startMenuTheme();
     return undefined;
-  }, [gameState?.phase, enabled, trapPlaying]);
+  }, [gameState?.phase, enabled, trapPlaying, heroPlaying]);
 
   // Hard stop on unmount — covers exiting to the start screen, an
   // online disconnect, or the page tearing down. Single mount-only

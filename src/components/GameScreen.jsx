@@ -21,7 +21,6 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { PLAYERS, TURN_TAUNTS, TURN_TIME } from '../game/constants';
 import { getCurrentValidMoves } from '../game/logic';
-import { useWinnerHero } from '../game/useWinnerHero';
 import PlayerPanel from './PlayerPanel';
 import TurnIndicator from './TurnIndicator';
 import GameBoard from './GameBoard';
@@ -66,14 +65,14 @@ export default function GameScreen({
   // Trap / death chain — driven by useTrapChain in the controller.
   trappedPlayers = [],
   trapPlaying = false,
+  // Winner hero phase (#60) — driven by useWinnerHero in the
+  // controller so it can also gate the bg music. heroPlaying is
+  // true while the hero overlay is up; onHeroDismiss flips it false
+  // when the user taps "TAP TO CONTINUE".
+  heroPlaying = false,
+  onHeroDismiss = null,
 }) {
-  // Trap / death chain + elimination sound is owned by the parent
-  // controller's useTrapChain hook (#36) and reaches us via props.
-  // The "winner hero" phase (#60) sits between trap-end and the
-  // GameOverScreen mount: 2 s full-screen spotlight on the winner,
-  // a short stinger plays at the start, then GameOverScreen takes
-  // over with the longer fanfare.
-  const { heroPlaying } = useWinnerHero(gameState, trapPlaying);
+  // (useWinnerHero now lives in the controllers; see prop list above.)
 
   if (!gameState) return null;
 
@@ -150,10 +149,11 @@ export default function GameScreen({
       : null;
 
   // Post-game flow (#60):
-  //   - Hero overlay sits on TOP of the live board for HERO_HOLD_MS
-  //     the moment the trap chain settles on a gameover-with-winner.
-  //     Board stays visible behind a soft scrim so the moment reads
-  //     as "you won THIS game" rather than a screen change.
+  //   - Hero overlay sits on TOP of the live board the moment the
+  //     trap chain settles on a gameover-with-winner. Board stays
+  //     visible behind a soft scrim so the moment reads as "you won
+  //     THIS game" rather than a screen change. Holds until the user
+  //     taps "TAP TO CONTINUE".
   //   - GameOverScreen takes over after the hero phase ends, OR
   //     immediately on a draw (no hero for draws).
   const isGameOver = gameState.phase === 'gameover' && !trapPlaying;
@@ -164,11 +164,18 @@ export default function GameScreen({
     <>
       <AnimatePresence>
       {showGameOver ? (
+        // No entrance fade — leaderboard appears instantly underneath
+        // the hero overlay's exit fade, so the user sees the hero
+        // simply fade away to reveal the leaderboard already in
+        // place. Without this, both fade in at the same time and you
+        // get a moment where neither is fully opaque (the "blink").
+        // GameOverScreen's internal title / quote / leaderboard rows
+        // still have their staggered entrance — only the wrapper is
+        // instant.
         <motion.div
           key="gameover"
           style={{ width: '100%' }}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
+          initial={false}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.22 }}
         >
@@ -247,7 +254,7 @@ export default function GameScreen({
       </AnimatePresence>
       <AnimatePresence>
         {showHero && (
-          <WinnerHero key="hero" winner={gameOverWinner} />
+          <WinnerHero key="hero" winner={gameOverWinner} onContinue={onHeroDismiss} />
         )}
       </AnimatePresence>
     </>
