@@ -16,10 +16,10 @@ function displayShareLink(href) {
   return href.replace(/^https?:\/\//, '');
 }
 
-// Two-overlapping-rectangles "copy" glyph (same visual vocabulary as
-// flaticon #126498 / Lucide / Heroicons). Inline SVG so it inherits
+// iOS-style share glyph (box with up-arrow) — the universally
+// recognised "share" affordance on mobile. Inline SVG so it inherits
 // currentColor and avoids an asset round-trip.
-function CopyIcon() {
+function ShareIcon() {
   return (
     <svg
       width="16"
@@ -32,8 +32,9 @@ function CopyIcon() {
       strokeLinejoin="round"
       aria-hidden="true"
     >
-      <rect x="9" y="9" width="11" height="11" rx="2" />
-      <path d="M5 15V6a2 2 0 0 1 2-2h9" />
+      <path d="M12 3v13" />
+      <path d="M7 8l5-5 5 5" />
+      <path d="M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" />
     </svg>
   );
 }
@@ -59,6 +60,36 @@ export default function Lobby({
     }).catch(() => {});
   }
 
+  async function shareOrCopy() {
+    playClick();
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Mind the Grid',
+          text: 'Join my game!',
+          url: shareLink,
+        });
+        return;
+      } catch {
+        // User cancelled the share sheet, or the platform refused — fall
+        // through to clipboard so the action still has SOME effect.
+      }
+    }
+    navigator.clipboard.writeText(shareLink).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {});
+  }
+
+  // Plain tap on the URL copies — power-user shortcut so people don't have
+  // to aim for the small icon button. Modifier-clicks (cmd/ctrl/middle/shift)
+  // keep the native "open in new tab" behaviour.
+  function handleUrlClick(e) {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
+    e.preventDefault();
+    copyLink();
+  }
+
   return (
     <div className="lobby-wrap">
       <section className="lobby" aria-label="Waiting room">
@@ -76,14 +107,20 @@ export default function Lobby({
             {code}
           </p>
           <div className="lobby-invite-row">
-            <a className="lobby-invite-url" href={shareLink}>{displayShareLink(shareLink)}</a>
+            <a
+              className="lobby-invite-url"
+              href={shareLink}
+              onClick={handleUrlClick}
+            >
+              {displayShareLink(shareLink)}
+            </a>
             <button
               type="button"
               className={`lobby-copy-btn${copied ? ' lobby-copy-btn-done' : ''}`}
-              onClick={copyLink}
-              aria-label={copied ? 'Invite link copied' : 'Copy invite link'}
+              onClick={shareOrCopy}
+              aria-label={copied ? 'Invite link copied' : 'Share invite link'}
             >
-              {copied ? '✓' : <CopyIcon />}
+              {copied ? '✓' : <ShareIcon />}
             </button>
           </div>
           <p
