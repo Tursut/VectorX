@@ -52,7 +52,11 @@ export default function Lobby({
   const shareLink = buildShareLink(code);
   const [copied, setCopied] = useState(false);
 
-  function copyLink() {
+  // Tapping the URL is the ONLY interaction that shows the "Link copied!"
+  // confirmation. The share button intentionally stays silent so that
+  // returning from a successful share-sheet flow doesn't surprise the user
+  // with a "copied" message they didn't ask for.
+  function copyLinkWithFeedback() {
     playClick();
     navigator.clipboard.writeText(shareLink).then(() => {
       setCopied(true);
@@ -69,16 +73,17 @@ export default function Lobby({
           text: 'Join my game!',
           url: shareLink,
         });
-        return;
       } catch {
-        // User cancelled the share sheet, or the platform refused — fall
-        // through to clipboard so the action still has SOME effect.
+        // User cancelled the share sheet — no fallback. They already had a
+        // way to send the link and chose not to.
       }
+      return;
     }
-    navigator.clipboard.writeText(shareLink).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }).catch(() => {});
+    // Web Share genuinely unavailable (most desktops) — copy silently. The
+    // URL is visible right next to the button, so it's not invisible
+    // feedback, and the user can tap the URL itself for the explicit
+    // "✓ Link copied!" affordance.
+    navigator.clipboard.writeText(shareLink).catch(() => {});
   }
 
   // Plain tap on the URL copies — power-user shortcut so people don't have
@@ -87,7 +92,7 @@ export default function Lobby({
   function handleUrlClick(e) {
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
     e.preventDefault();
-    copyLink();
+    copyLinkWithFeedback();
   }
 
   return (
@@ -116,11 +121,11 @@ export default function Lobby({
             </a>
             <button
               type="button"
-              className={`lobby-copy-btn${copied ? ' lobby-copy-btn-done' : ''}`}
+              className="lobby-copy-btn"
               onClick={shareOrCopy}
-              aria-label={copied ? 'Invite link copied' : 'Share invite link'}
+              aria-label="Share invite link"
             >
-              {copied ? '✓' : <ShareIcon />}
+              <ShareIcon />
             </button>
           </div>
           <p

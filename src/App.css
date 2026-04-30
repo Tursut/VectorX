@@ -2358,11 +2358,6 @@
   color: #e8e8f4;
   border-color: #7a8cff;
 }
-.lobby-copy-btn-done {
-  background: transparent;
-  border-color: #2ecc71;
-  color: #2ecc71;
-}
 /* Inline confirmation under the URL row. Reserves a fixed line height so the
    row above doesn't jump when it appears, and fades in/out via opacity. */
 .lobby-copy-feedback {
