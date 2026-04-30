@@ -18,7 +18,7 @@
 // bot driving, sandbox panel, connection status, exit-confirm modal) stay in
 // the outer controllers.
 
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, LayoutGroup, motion } from 'framer-motion';
 import { PLAYERS, TURN_TAUNTS, TURN_TIME } from '../game/constants';
 import { getCurrentValidMoves } from '../game/logic';
 import { useWinnerHero } from '../game/useWinnerHero';
@@ -155,7 +155,7 @@ export default function GameScreen({
       : null;
 
   return (
-    <>
+    <LayoutGroup>
       <AnimatePresence>
         {heroPlaying && gameOverWinner && (
           <WinnerHeroOverlay key="hero" winner={gameOverWinner} />
@@ -166,9 +166,9 @@ export default function GameScreen({
         <motion.div
           key="gameover"
           style={{ width: '100%' }}
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -16 }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
           transition={{ duration: 0.22 }}
         >
           <GameOverScreen
@@ -244,6 +244,6 @@ export default function GameScreen({
         </motion.div>
       )}
       </AnimatePresence>
-    </>
+    </LayoutGroup>
   );
 }

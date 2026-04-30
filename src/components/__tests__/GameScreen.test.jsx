@@ -4,7 +4,7 @@
 // GameOverScreen) so we can assert the routing + prop plumbing + mySeats
 // click-gating without pulling their full implementations into the test.
 
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // getCurrentValidMoves walks the grid; tests don't care about its output
@@ -120,6 +120,9 @@ describe('GameScreen — rendering', () => {
   it('renders GameOverScreen for phase="gameover" (no trap in progress)', () => {
     const state = baseState({ phase: 'gameover', winner: 0 });
     render(<GameScreen gameState={state} mySeats={[0]} onMove={() => {}} />);
+    // Hero phase (#60) holds the live board for HERO_HOLD_MS so the
+    // winner gets a 1 s spotlight before the leaderboard takes over.
+    act(() => { vi.advanceTimersByTime(2000); });
     expect(screen.getByTestId('gameover')).toBeInTheDocument();
     expect(screen.queryByTestId('cell')).toBeNull();
   });
