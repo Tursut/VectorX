@@ -26,6 +26,7 @@ import PlayerPanel from './PlayerPanel';
 import TurnIndicator from './TurnIndicator';
 import GameBoard from './GameBoard';
 import GameOverScreen from './GameOverScreen';
+import WinnerHero from './WinnerHero';
 
 // Bot detection works for both shapes: online wire carries `isBot` per player;
 // local state has `gremlinCount` at the top-level. Sandbox only has 2 players
@@ -69,9 +70,9 @@ export default function GameScreen({
   // Trap / death chain + elimination sound is owned by the parent
   // controller's useTrapChain hook (#36) and reaches us via props.
   // The "winner hero" phase (#60) sits between trap-end and the
-  // GameOverScreen mount: 1 s spotlight on the winner with the win
-  // sound, then GameOverScreen takes over. Driven here so the gating
-  // in showGameOver below stays a single source of truth.
+  // GameOverScreen mount: 2 s full-screen spotlight on the winner,
+  // a short stinger plays at the start, then GameOverScreen takes
+  // over with the longer fanfare.
   const { heroPlaying } = useWinnerHero(gameState, trapPlaying);
 
   if (!gameState) return null;
@@ -134,13 +135,6 @@ export default function GameScreen({
   const tauntName = currentPlayerState.displayName ?? playerConfig.shortName;
   const taunt = TURN_TAUNTS[gameState.turnCount % TURN_TAUNTS.length](tauntName);
 
-  // GameOverScreen mounts as soon as the trap chain (#36) finishes.
-  // The winner-hero spotlight (#60) renders INSIDE GameOverScreen via
-  // its heroPlaying prop, so the trophy is in its real leaderboard
-  // position from the first frame and the rest of the leaderboard
-  // chrome bleeds in around it ~1 s later.
-  const showGameOver = gameState.phase === 'gameover' && !trapPlaying;
-
   const winnerState =
     gameState.winner !== null
       ? gameState.players.find((p) => p.id === gameState.winner)
@@ -155,9 +149,31 @@ export default function GameScreen({
         }
       : null;
 
+  // Three sequential post-game screens (#60):
+  //   - WinnerHero takes over for HERO_HOLD_MS the moment the trap
+  //     chain settles on a gameover-with-winner. Big centered avatar
+  //     + WINNER! text + a short stinger.
+  //   - GameOverScreen takes over after the hero phase ends, OR
+  //     immediately on a draw (no hero for draws).
+  //   - Otherwise the live board.
+  const isGameOver = gameState.phase === 'gameover' && !trapPlaying;
+  const showHero = isGameOver && heroPlaying && !!gameOverWinner;
+  const showGameOver = isGameOver && !showHero;
+
   return (
-    <AnimatePresence>
-      {showGameOver ? (
+    <AnimatePresence mode="wait">
+      {showHero ? (
+        <motion.div
+          key="hero"
+          style={{ width: '100%' }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.25 }}
+        >
+          <WinnerHero winner={gameOverWinner} />
+        </motion.div>
+      ) : showGameOver ? (
         <motion.div
           key="gameover"
           style={{ width: '100%' }}
@@ -173,7 +189,6 @@ export default function GameScreen({
             onMenu={onExit}
             restartLabel={restartLabel}
             restartDisabled={restartDisabled}
-            heroPlaying={heroPlaying}
           />
         </motion.div>
       ) : (

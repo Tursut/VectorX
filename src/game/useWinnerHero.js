@@ -12,7 +12,7 @@
 //      timeout that's only gated on heroPlaying — so unrelated dep
 //      churn (gameState references, etc.) can't cancel it.
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { HERO_HOLD_MS } from './constants';
 import * as sounds from './sounds';
 
@@ -28,7 +28,11 @@ export function useWinnerHero(gameState, trapPlaying) {
     if (phase !== 'gameover') firedRef.current = false;
   }, [phase]);
 
-  useEffect(() => {
+  // useLayoutEffect (not useEffect) so heroPlaying flips true
+  // synchronously between render and paint — otherwise GameScreen's
+  // first frame after gameover shows the leaderboard for a tick before
+  // the hero takes over, which the user reads as "no hero shown at all".
+  useLayoutEffect(() => {
     if (phase !== 'gameover') return;
     if (!hasWinner) return;
     if (trapPlaying) return;

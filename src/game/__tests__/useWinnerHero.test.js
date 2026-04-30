@@ -12,7 +12,7 @@ vi.mock('../sounds', () => ({
 import { useWinnerHero } from '../useWinnerHero';
 import * as sounds from '../sounds';
 
-const HERO_HOLD_MS = 1100;
+const HERO_HOLD_MS = 2000;
 
 function gs(overrides = {}) {
   return {

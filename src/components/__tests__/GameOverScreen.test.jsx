@@ -1,10 +1,10 @@
 // Tests for the GameOverScreen leaderboard.
 //
-// Sound ownership: as of #60 the hero phase fires a SHORT stinger from
-// useWinnerHero when it opens, and the longer win fanfare fires from
-// here when the leaderboard chrome bleeds in (heroPlaying flips false
-// on a winner). The draw sound still fires on mount — draws skip the
-// hero phase entirely.
+// As of #60 the win sequence is three sequential screens (death →
+// hero → leaderboard). The hero screen owns the short stinger;
+// GameOverScreen owns the full fanfare and fires it once on mount.
+// Draws skip the hero entirely so the draw sound also fires on mount
+// here.
 
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -34,53 +34,10 @@ afterEach(() => {
 });
 
 describe('GameOverScreen — win/draw sound', () => {
-  it('does NOT play the win fanfare during the hero phase (heroPlaying=true)', () => {
-    render(
-      <GameOverScreen
-        winner={PLAYERS[0]}
-        players={players}
-        onMenu={() => {}}
-        heroPlaying
-      />,
-    );
-    expect(sounds.playWin).not.toHaveBeenCalled();
-    expect(sounds.playDraw).not.toHaveBeenCalled();
-  });
-
-  it('plays the win fanfare when the chrome appears (heroPlaying=false on a winner)', () => {
+  it('plays the win fanfare exactly once on mount when there is a winner', () => {
     render(<GameOverScreen winner={PLAYERS[0]} players={players} onMenu={() => {}} />);
     expect(sounds.playWin).toHaveBeenCalledOnce();
     expect(sounds.playDraw).not.toHaveBeenCalled();
-  });
-
-  it('plays the win fanfare exactly once when heroPlaying flips false', () => {
-    const { rerender } = render(
-      <GameOverScreen
-        winner={PLAYERS[0]}
-        players={players}
-        onMenu={() => {}}
-        heroPlaying
-      />,
-    );
-    expect(sounds.playWin).not.toHaveBeenCalled();
-    rerender(
-      <GameOverScreen
-        winner={PLAYERS[0]}
-        players={players}
-        onMenu={() => {}}
-        heroPlaying={false}
-      />,
-    );
-    expect(sounds.playWin).toHaveBeenCalledOnce();
-    rerender(
-      <GameOverScreen
-        winner={PLAYERS[0]}
-        players={players}
-        onMenu={() => {}}
-        heroPlaying={false}
-      />,
-    );
-    expect(sounds.playWin).toHaveBeenCalledOnce();
   });
 
   it('plays the draw sound exactly once on mount when there is no winner', () => {
@@ -89,13 +46,13 @@ describe('GameOverScreen — win/draw sound', () => {
     expect(sounds.playWin).not.toHaveBeenCalled();
   });
 
-  it('does NOT fire the draw sound a second time when the parent re-renders with the same props', () => {
+  it('does NOT fire the win sound a second time when the parent re-renders with the same props', () => {
     const { rerender } = render(
-      <GameOverScreen winner={null} players={players} onMenu={() => {}} />,
+      <GameOverScreen winner={PLAYERS[0]} players={players} onMenu={() => {}} />,
     );
-    rerender(<GameOverScreen winner={null} players={players} onMenu={() => {}} />);
-    rerender(<GameOverScreen winner={null} players={players} onMenu={() => {}} />);
-    expect(sounds.playDraw).toHaveBeenCalledOnce();
+    rerender(<GameOverScreen winner={PLAYERS[0]} players={players} onMenu={() => {}} />);
+    rerender(<GameOverScreen winner={PLAYERS[0]} players={players} onMenu={() => {}} />);
+    expect(sounds.playWin).toHaveBeenCalledOnce();
   });
 });
 
