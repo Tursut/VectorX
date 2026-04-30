@@ -1,50 +1,54 @@
 // Winner "hero" phase that runs after the trap chain settles and before
-// GameOverScreen mounts (issue #60). Plays the win sound and gives the
-// winner a 1 s spotlight so the climactic moment isn't a positive +
-// negative animation cross-fade.
+// GameOverScreen mounts (issue #60). Plays a short stinger and gives
+// the winner a 2 s spotlight before the leaderboard takes over.
 //
-// Three small effects, each with one job:
-//   1. Reset the single-fire latch when phase moves away from gameover
-//      (so a restart triggers the hero again).
-//   2. Trigger the hero phase: flip heroPlaying true + fire the win
-//      sound the moment trap finishes on a gameover-with-winner.
-//   3. Auto-end the hero phase after HERO_HOLD_MS, with a clean
-//      timeout that's only gated on heroPlaying — so unrelated dep
-//      churn (gameState references, etc.) can't cancel it.
+// heroPlaying is DERIVED from props each render — not stored in state
+// that has to flip on after mount. Otherwise AnimatePresence in
+// GameScreen sees one render with showGameOver=true (heroPlaying=false
+// initial) before the effect would flip it, and mode="wait" gets
+// confused by the rapid key swap. Deriving means the very first render
+// where trap settles already has showHero=true, so the user sees the
+// hero from frame one.
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { HERO_HOLD_MS } from './constants';
 import * as sounds from './sounds';
 
 export function useWinnerHero(gameState, trapPlaying) {
-  const [heroPlaying, setHeroPlaying] = useState(false);
-  const firedRef = useRef(false);
+  const [heroEnded, setHeroEnded] = useState(false);
 
   const phase = gameState?.phase;
   const winner = gameState?.winner;
   const hasWinner = winner !== null && winner !== undefined;
 
+  const heroPlaying =
+    phase === 'gameover' && hasWinner && !trapPlaying && !heroEnded;
+
+  // Reset the latch on game restart (phase moves away from gameover).
   useEffect(() => {
-    if (phase !== 'gameover') firedRef.current = false;
+    if (phase !== 'gameover') setHeroEnded(false);
   }, [phase]);
 
-  // useLayoutEffect (not useEffect) so heroPlaying flips true
-  // synchronously between render and paint — otherwise GameScreen's
-  // first frame after gameover shows the leaderboard for a tick before
-  // the hero takes over, which the user reads as "no hero shown at all".
-  useLayoutEffect(() => {
-    if (phase !== 'gameover') return;
-    if (!hasWinner) return;
-    if (trapPlaying) return;
-    if (firedRef.current) return;
-    firedRef.current = true;
-    setHeroPlaying(true);
+  // Fire the stinger once per game-over, the moment heroPlaying flips
+  // true. The ref latch survives re-renders that don't change phase.
+  const stingerFiredRef = useRef(false);
+  useEffect(() => {
+    if (phase !== 'gameover') {
+      stingerFiredRef.current = false;
+      return;
+    }
+    if (!heroPlaying) return;
+    if (stingerFiredRef.current) return;
+    stingerFiredRef.current = true;
     sounds.playWinStinger();
-  }, [phase, hasWinner, trapPlaying]);
+  }, [heroPlaying, phase]);
 
+  // End the hero phase after HERO_HOLD_MS. The timeout is keyed only on
+  // heroPlaying, so unrelated dep churn can't cancel it without
+  // rescheduling.
   useEffect(() => {
     if (!heroPlaying) return;
-    const t = setTimeout(() => setHeroPlaying(false), HERO_HOLD_MS);
+    const t = setTimeout(() => setHeroEnded(true), HERO_HOLD_MS);
     return () => clearTimeout(t);
   }, [heroPlaying]);
 

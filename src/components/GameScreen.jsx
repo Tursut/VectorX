@@ -161,7 +161,7 @@ export default function GameScreen({
   const showGameOver = isGameOver && !showHero;
 
   return (
-    <AnimatePresence mode="wait">
+    <AnimatePresence>
       {showHero ? (
         <motion.div
           key="hero"
