@@ -35,7 +35,7 @@ export function useWinnerHero(gameState, trapPlaying) {
     if (firedRef.current) return;
     firedRef.current = true;
     setHeroPlaying(true);
-    sounds.playWin();
+    sounds.playWinStinger();
   }, [phase, hasWinner, trapPlaying]);
 
   useEffect(() => {

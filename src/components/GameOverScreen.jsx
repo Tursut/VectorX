@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { PLAYERS } from '../game/constants';
 import * as sounds from '../game/sounds';
@@ -14,14 +14,27 @@ export default function GameOverScreen({
   restartDisabled = false,
   heroPlaying = false,
 }) {
-  // Draw sound fires here (no hero phase for draws — they go straight to
-  // the leaderboard). The win sound moved to useWinnerHero (#60) so it
-  // lines up with the spotlight grow rather than the leaderboard mount.
+  // Draw sound fires once on mount — draws skip the hero phase entirely.
   useEffect(() => {
     if (!winner) sounds.playDraw();
   // Mount-only: the leaderboard never swaps winner ↔ draw under the user.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Win fanfare fires the moment the leaderboard chrome appears (#60) —
+  // useWinnerHero plays a short stinger when the hero phase opens, and
+  // this longer fanfare comes in when the hero ends and the rest of the
+  // leaderboard bleeds in around the trophy. fanfareFiredRef latches so
+  // a re-render of GameOverScreen with heroPlaying still false (the
+  // common case after the hero ends) doesn't re-trigger.
+  const fanfareFiredRef = useRef(false);
+  useEffect(() => {
+    if (!winner) return;
+    if (heroPlaying) return;
+    if (fanfareFiredRef.current) return;
+    fanfareFiredRef.current = true;
+    sounds.playWin();
+  }, [winner, heroPlaying]);
   // Build ranked list: winner first, then eliminated sorted by finishTurn DESC
   // (last eliminated = runner-up, first eliminated = last place)
   const eliminated = [...players.filter(p => p.isEliminated)]

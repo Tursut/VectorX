@@ -806,6 +806,37 @@ async function loadWinBuffer() {
   return winBuffer;
 }
 
+// Short triumphant arpeggio — the "you won!" beat that fires the moment
+// the trap chain settles, so the user hears something victorious while
+// they're still looking at the board (#60). The full win-fanfare
+// follows when GameOverScreen's leaderboard chrome bleeds in. C5 → E5
+// → G5 → C6 major triad, ascending, ~360 ms total.
+export function playWinStinger() {
+  const c = getCtx();
+  if (!c) return;
+  const t0 = c.currentTime;
+  const notes = [
+    { freq: 523.25, time: 0,    dur: 0.16 }, // C5
+    { freq: 659.25, time: 0.07, dur: 0.16 }, // E5
+    { freq: 783.99, time: 0.14, dur: 0.20 }, // G5
+    { freq: 1046.5, time: 0.22, dur: 0.40 }, // C6 sustained
+  ];
+  notes.forEach(({ freq, time, dur }) => {
+    const t = t0 + time;
+    const osc = c.createOscillator();
+    osc.type = 'triangle';
+    osc.frequency.value = freq;
+    const g = c.createGain();
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.10, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    osc.connect(g);
+    g.connect(out());
+    osc.start(t);
+    osc.stop(t + dur + 0.05);
+  });
+}
+
 export async function playWin() {
   let buf;
   try { buf = await loadWinBuffer(); } catch { return; }

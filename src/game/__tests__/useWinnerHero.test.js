@@ -6,7 +6,7 @@ import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../sounds', () => ({
-  playWin: vi.fn(),
+  playWinStinger: vi.fn(),
 }));
 
 import { useWinnerHero } from '../useWinnerHero';
@@ -46,12 +46,12 @@ describe('useWinnerHero — happy path', () => {
     // Trap is still running on the gameover transition — hero waits.
     rerender({ s: gs({ phase: 'gameover', winner: 0 }), t: true });
     expect(result.current.heroPlaying).toBe(false);
-    expect(sounds.playWin).not.toHaveBeenCalled();
+    expect(sounds.playWinStinger).not.toHaveBeenCalled();
 
     // Trap finishes → hero starts immediately and the win sound fires once.
     rerender({ s: gs({ phase: 'gameover', winner: 0 }), t: false });
     expect(result.current.heroPlaying).toBe(true);
-    expect(sounds.playWin).toHaveBeenCalledTimes(1);
+    expect(sounds.playWinStinger).toHaveBeenCalledTimes(1);
 
     // Hero holds for HERO_HOLD_MS, then flips back off.
     act(() => { vi.advanceTimersByTime(HERO_HOLD_MS - 1); });
@@ -69,7 +69,7 @@ describe('useWinnerHero — skip cases', () => {
     );
     rerender({ s: gs({ phase: 'gameover', winner: null }), t: false });
     expect(result.current.heroPlaying).toBe(false);
-    expect(sounds.playWin).not.toHaveBeenCalled();
+    expect(sounds.playWinStinger).not.toHaveBeenCalled();
   });
 
   it('does not fire while trap is still playing', () => {
@@ -79,7 +79,7 @@ describe('useWinnerHero — skip cases', () => {
     );
     rerender({ s: gs({ phase: 'gameover', winner: 0 }), t: true });
     expect(result.current.heroPlaying).toBe(false);
-    expect(sounds.playWin).not.toHaveBeenCalled();
+    expect(sounds.playWinStinger).not.toHaveBeenCalled();
   });
 });
 
@@ -90,12 +90,12 @@ describe('useWinnerHero — single-fire latch', () => {
       { initialProps: { s: gs(), t: false } },
     );
     rerender({ s: gs({ phase: 'gameover', winner: 0 }), t: false });
-    expect(sounds.playWin).toHaveBeenCalledTimes(1);
+    expect(sounds.playWinStinger).toHaveBeenCalledTimes(1);
 
     // Same logical state, fresh object reference — should not re-fire.
     rerender({ s: gs({ phase: 'gameover', winner: 0 }), t: false });
     rerender({ s: gs({ phase: 'gameover', winner: 0 }), t: false });
-    expect(sounds.playWin).toHaveBeenCalledTimes(1);
+    expect(sounds.playWinStinger).toHaveBeenCalledTimes(1);
   });
 
   it('resets when phase moves away from gameover (restart)', () => {
@@ -104,7 +104,7 @@ describe('useWinnerHero — single-fire latch', () => {
       { initialProps: { s: gs(), t: false } },
     );
     rerender({ s: gs({ phase: 'gameover', winner: 0 }), t: false });
-    expect(sounds.playWin).toHaveBeenCalledTimes(1);
+    expect(sounds.playWinStinger).toHaveBeenCalledTimes(1);
     act(() => { vi.advanceTimersByTime(HERO_HOLD_MS); });
     expect(result.current.heroPlaying).toBe(false);
 
@@ -112,7 +112,7 @@ describe('useWinnerHero — single-fire latch', () => {
     rerender({ s: gs({ phase: 'playing', winner: null }), t: false });
     // Next gameover should fire again.
     rerender({ s: gs({ phase: 'gameover', winner: 1 }), t: false });
-    expect(sounds.playWin).toHaveBeenCalledTimes(2);
+    expect(sounds.playWinStinger).toHaveBeenCalledTimes(2);
     expect(result.current.heroPlaying).toBe(true);
   });
 });

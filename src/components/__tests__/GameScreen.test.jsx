@@ -24,6 +24,9 @@ vi.mock('../../game/sounds', () => ({
   playYourTurn: vi.fn(),
   playFreeze: vi.fn(),
   playSwap: vi.fn(),
+  playWin: vi.fn(),
+  playWinStinger: vi.fn(),
+  playDraw: vi.fn(),
   playElimination: vi.fn(),
   playWin: vi.fn(),
   playDraw: vi.fn(),
@@ -120,11 +123,13 @@ describe('GameScreen — rendering', () => {
   it('renders GameOverScreen for phase="gameover" (no trap in progress)', () => {
     const state = baseState({ phase: 'gameover', winner: 0 });
     render(<GameScreen gameState={state} mySeats={[0]} onMove={() => {}} />);
-    // Hero phase (#60) holds the live board for HERO_HOLD_MS so the
-    // winner gets a 1 s spotlight before the leaderboard takes over.
-    act(() => { vi.advanceTimersByTime(2000); });
+    // GameOverScreen mounts immediately on phase=gameover. The hero
+    // phase (#60) renders inside it; the leaderboard chrome bleeds in
+    // around the trophy after HERO_HOLD_MS.
     expect(screen.getByTestId('gameover')).toBeInTheDocument();
-    expect(screen.queryByTestId('cell')).toBeNull();
+    // AnimatePresence with no mode runs the live-board exit and the
+    // gameover entrance in parallel, so a cell may still be in the
+    // DOM mid-exit. We're just asserting that gameover IS visible.
   });
 
   it('keeps the board visible during trap playback even after gameover lands', () => {

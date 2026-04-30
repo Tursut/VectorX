@@ -156,7 +156,7 @@ export default function GameScreen({
       : null;
 
   return (
-    <AnimatePresence mode="wait">
+    <AnimatePresence>
       {showGameOver ? (
         <motion.div
           key="gameover"
