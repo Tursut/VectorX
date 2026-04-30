@@ -4,9 +4,33 @@ let ctx = null;
 let masterGain = null;
 const AUDIO_DEBUG_STORAGE_KEY = 'audioDebugLogV1';
 const AUDIO_DEBUG_LIMIT = 20;
+const MUTED_STORAGE_KEY = 'mindTheGridMutedV1';
 const audioDebugEvents = [];
 const audioDebugListeners = new Set();
 let contextCreatedAt = null;
+let mutedPref = loadMutedPreferenceFromStorage();
+
+function loadMutedPreferenceFromStorage() {
+  if (typeof localStorage === 'undefined') return false;
+  try {
+    return localStorage.getItem(MUTED_STORAGE_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function persistMutedPreference(val) {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    localStorage.setItem(MUTED_STORAGE_KEY, val ? '1' : '0');
+  } catch {
+    // private-mode / quota errors are non-fatal
+  }
+}
+
+export function loadMutedPreference() {
+  return mutedPref;
+}
 
 function nowIso() {
   return new Date().toISOString();
@@ -88,7 +112,7 @@ function createContext() {
   ctx = new Ctor();
   contextCreatedAt = Date.now();
   masterGain = ctx.createGain();
-  masterGain.gain.value = 1;
+  masterGain.gain.value = mutedPref ? 0 : 1;
   masterGain.connect(ctx.destination);
   pushAudioDebug('context-created', { state: ctx.state });
   // Any AudioBuffer cached from a previous (now-closed) context is bound to
@@ -131,6 +155,8 @@ function out() {
 }
 
 export function setMuted(val) {
+  mutedPref = !!val;
+  persistMutedPreference(mutedPref);
   if (masterGain) masterGain.gain.value = val ? 0 : 1;
   pushAudioDebug('mute-changed', { muted: !!val, gain: masterGain?.gain?.value ?? null });
 }

@@ -74,7 +74,7 @@ export default function LocalGameController({
   const [timeLeft, setTimeLeft] = useState(TURN_TIME);
   const [eventToast, setEventToast] = useState(null);
   const [countdown, setCountdown] = useState(null);
-  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [soundEnabled, setSoundEnabled] = useState(() => !sounds.loadMutedPreference());
   const [exitConfirm, setExitConfirm] = useState(false);
 
   // Animation overlays derived from gameState diffs (also fires item-pickup

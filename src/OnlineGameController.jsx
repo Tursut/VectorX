@@ -60,7 +60,7 @@ export default function OnlineGameController({
   // setter isn't wired up yet — the host's magic-toggle UI in the lobby would
   // own it; for now we just lock the value from the prop at mount.
   const [magicItems] = useState(initialMagicItems);
-  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [soundEnabled, setSoundEnabled] = useState(() => !sounds.loadMutedPreference());
   const [exitConfirm, setExitConfirm] = useState(false);
   const [timeLeft, setTimeLeft] = useState(TURN_TIME);
   const [showLobbyFromGameOver, setShowLobbyFromGameOver] = useState(false);
