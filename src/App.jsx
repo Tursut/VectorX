@@ -2,6 +2,7 @@ import { lazy, Suspense, useState } from 'react';
 import { ENABLE_ONLINE, SERVER_URL } from './config';
 import * as sounds from './game/sounds';
 import LocalGameController from './LocalGameController';
+import MenuAvatarStage from './components/MenuAvatarStage';
 import './App.css';
 
 // Online subtree is lazy-loaded so its zod + hook + component deps only ship
@@ -190,39 +191,44 @@ export default function App() {
     clearRoomHash();
   }
 
-  if (ENABLE_ONLINE && online && OnlineGameController) {
-    return (
-      <Suspense fallback={null}>
-        <OnlineGameController
-          code={online.code}
-          displayName={online.displayName}
-          initialMagicItems={online.magicItems}
-          onExit={handleOnlineExit}
-          onJoinFailed={handleJoinFailed}
-          audioDebugEnabled={audioDebugEnabled}
-        />
-      </Suspense>
-    );
-  }
-
   // Effective default-mode + defaults. A pending failed-join takes priority
   // over a cold-open hash code; both fall back to the hotseat default.
   const effectiveDefaultCode = pendingCode || coldOpenCode || '';
   const effectiveDefaultMode =
     pendingCode || (ENABLE_ONLINE && coldOpenCode) ? 'join' : 'this-device';
 
+  // MenuAvatarStage lives here (above the controller swap) so the bubble
+  // drift is one continuous animation across start/lobby/gameover instead of
+  // remounting whenever the active controller changes. Visibility is driven
+  // by body[data-bg-hidden] which the controllers toggle via useBgHidden.
   return (
-    <LocalGameController
-      onCreateOnline={ENABLE_ONLINE ? handleCreateOnline : null}
-      onJoinOnline={ENABLE_ONLINE ? handleJoinOnline : null}
-      defaultMode={effectiveDefaultMode}
-      defaultCode={effectiveDefaultCode}
-      defaultDisplayName={pendingDisplayName}
-      onlineError={onlineError}
-      onlineErrorDebug={onlineErrorDebug}
-      creatingRoom={creatingRoom}
-      audioDebugEnabled={audioDebugEnabled}
-      onSetAudioDebugEnabled={handleSetAudioDebugEnabled}
-    />
+    <>
+      <MenuAvatarStage />
+      {ENABLE_ONLINE && online && OnlineGameController ? (
+        <Suspense fallback={null}>
+          <OnlineGameController
+            code={online.code}
+            displayName={online.displayName}
+            initialMagicItems={online.magicItems}
+            onExit={handleOnlineExit}
+            onJoinFailed={handleJoinFailed}
+            audioDebugEnabled={audioDebugEnabled}
+          />
+        </Suspense>
+      ) : (
+        <LocalGameController
+          onCreateOnline={ENABLE_ONLINE ? handleCreateOnline : null}
+          onJoinOnline={ENABLE_ONLINE ? handleJoinOnline : null}
+          defaultMode={effectiveDefaultMode}
+          defaultCode={effectiveDefaultCode}
+          defaultDisplayName={pendingDisplayName}
+          onlineError={onlineError}
+          onlineErrorDebug={onlineErrorDebug}
+          creatingRoom={creatingRoom}
+          audioDebugEnabled={audioDebugEnabled}
+          onSetAudioDebugEnabled={handleSetAudioDebugEnabled}
+        />
+      )}
+    </>
   );
 }

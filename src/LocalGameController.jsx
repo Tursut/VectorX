@@ -8,6 +8,7 @@ import { useTrapChain } from './game/useTrapChain';
 import { useGameplaySounds } from './game/useGameplaySounds';
 import { useBackGuard } from './useBackGuard';
 import * as sounds from './game/sounds';
+import { useBgHidden } from './game/useBgHidden';
 import StartScreen from './components/StartScreen';
 import GameScreen from './components/GameScreen';
 import GameBoard from './components/GameBoard';
@@ -85,6 +86,16 @@ export default function LocalGameController({
   // sound + the queue that drains one death per ~3 s window so
   // back-to-back trappings each get their full beat.
   const { trappedPlayers, trapPlaying } = useTrapChain(gameState);
+
+  // Hide the App-level MenuAvatarStage while the active game board is
+  // showing — gameplay needs focus. Sandbox during play likewise hides it
+  // so the dev tooling isn't competing with bubbles. Both surfaces flip
+  // back to "show" once GameScreen swaps to the GameOverScreen on
+  // `phase === 'gameover' && !trapPlaying`, so the win moment gets the
+  // background animation back.
+  const inActiveGame = screen === 'game' && (gameState?.phase === 'playing' || trapPlaying);
+  const inActiveSandbox = screen === 'sandbox' && gameState?.phase === 'playing';
+  useBgHidden(inActiveGame || inActiveSandbox);
 
   // Dismiss toast after its display duration.
   useEffect(() => {

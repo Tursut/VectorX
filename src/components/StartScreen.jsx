@@ -7,7 +7,6 @@ import { BUILD_TIME } from '../config';
 import SoundToggle from './SoundToggle';
 import TapToBeginModal from './TapToBeginModal';
 import WaitingFlourish from './WaitingFlourish';
-import MenuAvatarStage from './MenuAvatarStage';
 
 
 const CODE_ALPHABET_RE = /[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]/g;
@@ -337,7 +336,6 @@ at:          ${onlineErrorDebug.at ?? '(unknown)'}`}
   return (
     <div className="start-screen">
       <TapToBeginModal />
-      {isMenu && <MenuAvatarStage />}
       <div className="start-content">
         <div className="start-sound-corner">
           <SoundToggle enabled={soundEnabled} onToggle={onToggleSound} />

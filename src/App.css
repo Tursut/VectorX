@@ -854,8 +854,7 @@
   overflow-y: auto;
   padding-bottom: 90px; /* room for sticky button */
   box-sizing: border-box;
-  /* Anchor for absolutely-positioned overlays (MenuAvatarStage —
-     issue #44). */
+  /* Anchor for the start-sound-corner toggle (top-right of card). */
   position: relative;
 }
 
@@ -2625,17 +2624,23 @@
   justify-content: center;
 }
 
-/* MenuAvatarStage — four avatar bubbles drifting across the
-   start menu (issue #44). Absolutely positioned overlay covering
-   the whole start screen. pointer-events: none so the stage
-   never intercepts clicks. z-index: 0 keeps the stage BEHIND
-   the content (.start-content gets z-index: 2 to sit above). */
+/* MenuAvatarStage — four avatar bubbles drifting across the page.
+   Mounted once at the App level (issue #57) so the drift is continuous
+   across screen routes. Fixed to the viewport with z-index: -1 so it
+   sits above the body bg paint but behind every in-flow UI element.
+   Hidden via opacity (not display) on game / fatal-error screens so
+   the bubbles' staggered animation timers keep running underneath
+   and reappear continuously when bg comes back. */
 .menu-avatar-stage {
-  position: absolute;
+  position: fixed;
   inset: 0;
   pointer-events: none;
   overflow: hidden;
-  z-index: 0;
+  z-index: -1;
+  transition: opacity 0.3s ease;
+}
+body[data-bg-hidden='true'] .menu-avatar-stage {
+  opacity: 0;
 }
 /* Wrapper a single bubble lives in. Position is updated per-trip
    by framer-motion's transform — the wrapper itself anchors at

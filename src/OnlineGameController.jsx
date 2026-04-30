@@ -22,6 +22,7 @@ import { useTrapChain } from './game/useTrapChain';
 import { useGameplaySounds } from './game/useGameplaySounds';
 import { useBackGuard } from './useBackGuard';
 import * as sounds from './game/sounds';
+import { useBgHidden } from './game/useBgHidden';
 import Lobby from './components/Lobby';
 import GameScreen from './components/GameScreen';
 import AudioDebugOverlay from './components/AudioDebugOverlay';
@@ -244,6 +245,19 @@ export default function OnlineGameController({
     lobby !== null &&
     (!gameState || gameState.phase === 'playing');
   useBackGuard(guardActive, () => setExitConfirm(true));
+
+  // Hide the App-level MenuAvatarStage on screens that need full focus:
+  //   - active game board (the bubbles would compete with the grid)
+  //   - fatal error (we want the user to read the message)
+  // Connecting / joining / reconnecting StatusScreens and the lobby keep the
+  // bg visible — they're "waiting" surfaces and the drift signals "still
+  // alive". Gameover keeps the bg too — GameScreen swaps to GameOverScreen
+  // once `phase === 'gameover' && !trapPlaying`.
+  const isFatalError =
+    !!lastError &&
+    !(ROUTABLE_JOIN_ERROR_CODES.has(lastError.code) && typeof onJoinFailed === 'function');
+  const inActiveOnlineGame = !!lobby && !!gameState && (gameState.phase === 'playing' || trapPlaying);
+  useBgHidden(isFatalError || inActiveOnlineGame);
 
   // ---------- Status screens ----------
   // Priority: initial connect → reconnecting → fatal error → joining.
