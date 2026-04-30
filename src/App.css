@@ -22,7 +22,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #1a1a2e;
+  /* No background here — body already has #1a1a2e, and the App-level
+     MenuAvatarStage sits at z-index: -1 (between body bg and content).
+     Painting an opaque bg on .app would obscure the bubbles. */
   font-family: 'Fredoka One', 'Segoe UI', sans-serif;
 }
 
