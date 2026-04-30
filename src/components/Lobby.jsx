@@ -95,6 +95,14 @@ export default function Lobby({
           </p>
         </div>
 
+        <div className="lobby-explainer">
+          <h2 className="lobby-explainer-title">GATHER YOUR CREW</h2>
+          <p className="lobby-explainer-body">
+            Share the link or code with friends. When everyone&apos;s in,
+            hit start — any empty seats get filled with bots.
+          </p>
+        </div>
+
         <ul className="lobby-players" aria-label="Players">
           {players.map((p) => (
             <li key={p.id} className="lobby-player">

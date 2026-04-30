@@ -2379,6 +2379,32 @@
   opacity: 1;
 }
 
+/* Bridges the invite card and the player roster — explains how to fill the
+   room without making the lobby feel like a form. Heading uses the project's
+   11px uppercase letter-spaced section-label vocabulary; body is Segoe UI in
+   the same secondary lavender as .lobby-wait-note for visual continuity. */
+.lobby-explainer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: center;
+}
+.lobby-explainer-title {
+  font-size: 11px;
+  font-weight: bold;
+  color: #c8caff;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin: 0;
+}
+.lobby-explainer-body {
+  margin: 0;
+  font-family: 'Segoe UI', sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #aaaacc;
+}
+
 .lobby-players {
   list-style: none;
   padding: 0;
