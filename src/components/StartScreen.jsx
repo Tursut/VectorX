@@ -385,7 +385,7 @@ at:          ${onlineErrorDebug.at ?? '(unknown)'}`}
                 data-testid="hero-pass-and-play"
                 onClick={openLocal}
               >
-                pass-and-play on this device →
+                play on this device →
               </button>
             </motion.div>
           )}
@@ -461,7 +461,7 @@ at:          ${onlineErrorDebug.at ?? '(unknown)'}`}
                     <p className="online-intro">
                       {joinMode
                         ? 'Pop in the code your friend sent.'
-                        : 'Create a room and share the link — friends drop in from anywhere.'}
+                        : 'Create a room - share the link - play together.'}
                     </p>
                   )}
                   {nameInput}

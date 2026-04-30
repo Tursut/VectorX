@@ -148,7 +148,7 @@ export default function GameOverScreen({
             {restartLabel}
           </button>
           <button className="gameover-button gameover-button-secondary" onClick={onMenu}>
-            Main Menu
+            MAIN MENU
           </button>
         </motion.div>
       </div>
