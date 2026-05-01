@@ -361,7 +361,7 @@ at:          ${onlineErrorDebug.at ?? '(unknown)'}`}
                 data-testid="hero-play"
                 onClick={handlePlaySolo}
               >
-                <span className="hero-button-label">PLAY</span>
+                <span className="hero-button-label">QUICK PLAY</span>
                 <span className="hero-button-sub">you vs three bots</span>
               </button>
 
