@@ -202,7 +202,7 @@ export default function OnlineGameController({
 
   // Tell App-level creating-room overlay when it's safe to reveal the next
   // surface. Fires once: either on first successful lobby arrival or when a
-  // fatal (non-routable) error lands so the user can actually see it.
+  // genuinely fatal error lands so the user can actually see it.
   const readyFired = useRef(false);
   useEffect(() => {
     if (readyFired.current) return;
@@ -217,14 +217,18 @@ export default function OnlineGameController({
       helloSent.current &&
       !!lobby &&
       !lastError;
+    const isRecoverableLobbyUnauthorized =
+      lastError?.code === 'UNAUTHORIZED' &&
+      !gameState;
     const hasFatalError =
       !!lastError &&
+      !isRecoverableLobbyUnauthorized &&
       !(ROUTABLE_JOIN_ERROR_CODES.has(lastError.code) && typeof onJoinFailed === 'function');
     if (!hasLobbyReady && !hasFatalError) return;
 
     readyFired.current = true;
     onReady();
-  }, [connectionState, lobby, lastError, onJoinFailed, onReady]);
+  }, [connectionState, gameState, lobby, lastError, onJoinFailed, onReady]);
 
   // Lobby-phase UNAUTHORIZED is recoverable: the user tapped START during a
   // reconnect race and the server rejected because their socket arrived
