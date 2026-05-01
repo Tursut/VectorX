@@ -208,15 +208,23 @@ export default function OnlineGameController({
     if (readyFired.current) return;
     if (typeof onReady !== 'function') return;
 
-    const hasLobby = !!lobby && !lastError;
+    // Only dismiss the App-level creation overlay once we are fully
+    // past the interim status surfaces. A lobby snapshot can arrive
+    // before connectionState flips to 'open', which caused a brief
+    // "Connecting to room..." flash in production (issue #74).
+    const hasLobbyReady =
+      connectionState === 'open' &&
+      helloSent.current &&
+      !!lobby &&
+      !lastError;
     const hasFatalError =
       !!lastError &&
       !(ROUTABLE_JOIN_ERROR_CODES.has(lastError.code) && typeof onJoinFailed === 'function');
-    if (!hasLobby && !hasFatalError) return;
+    if (!hasLobbyReady && !hasFatalError) return;
 
     readyFired.current = true;
     onReady();
-  }, [lobby, lastError, onJoinFailed, onReady]);
+  }, [connectionState, lobby, lastError, onJoinFailed, onReady]);
 
   // Lobby-phase UNAUTHORIZED is recoverable: the user tapped START during a
   // reconnect race and the server rejected because their socket arrived
