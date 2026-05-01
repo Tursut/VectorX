@@ -46,6 +46,7 @@ function scrambleString(target) {
 
 export default function StartScreen({
   onStart,
+  onQuickPlay,
   onSandbox,
   magicItems,
   onToggleMagicItems,
@@ -249,7 +250,8 @@ export default function StartScreen({
   // + 3 bots, magic on per LocalGameController).
   function handlePlaySolo() {
     playClick();
-    onStart?.();
+    if (onQuickPlay) onQuickPlay();
+    else onStart?.();
   }
 
   function openOnline() {

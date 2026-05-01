@@ -14,6 +14,7 @@ afterEach(cleanup);
 
 const baseProps = {
   onStart: () => {},
+  onQuickPlay: () => {},
   onSandbox: () => {},
   magicItems: true,
   onToggleMagicItems: () => {},
@@ -42,12 +43,12 @@ describe('StartScreen — menu view (online available)', () => {
     expect(screen.getByTestId('hero-pass-and-play')).toBeInTheDocument();
   });
 
-  it('clicking PLAY calls onStart immediately (no name input, no toggles)', async () => {
+  it('clicking PLAY calls onQuickPlay immediately (no name input, no toggles)', async () => {
     const user = userEvent.setup();
-    const onStart = vi.fn();
-    render(<StartScreen {...withOnline({ onStart })} />);
+    const onQuickPlay = vi.fn();
+    render(<StartScreen {...withOnline({ onQuickPlay })} />);
     await user.click(screen.getByTestId('hero-play'));
-    expect(onStart).toHaveBeenCalledOnce();
+    expect(onQuickPlay).toHaveBeenCalledOnce();
   });
 
   it('clicking PLAY WITH FRIENDS opens the online view in create mode', async () => {

@@ -76,6 +76,7 @@ export default function LocalGameController({
   const [timeLeft, setTimeLeft] = useState(TURN_TIME);
   const [eventToast, setEventToast] = useState(null);
   const [countdown, setCountdown] = useState(null);
+  const [queuedStartGremlinCount, setQueuedStartGremlinCount] = useState(null);
   const [soundEnabled, setSoundEnabled] = useState(() => !sounds.loadMutedPreference());
   const [exitConfirm, setExitConfirm] = useState(false);
 
@@ -192,7 +193,12 @@ export default function LocalGameController({
     if (countdown === null) return;
     if (countdown < 0) {
       setCountdown(null);
-      dispatch({ type: 'START', magicItems, gremlinCount });
+      dispatch({
+        type: 'START',
+        magicItems,
+        gremlinCount: queuedStartGremlinCount ?? gremlinCount,
+      });
+      setQueuedStartGremlinCount(null);
       setScreen('game');
       return;
     }
@@ -209,6 +215,15 @@ export default function LocalGameController({
   function handleStart() {
     sounds.logAudioDebugEvent('gesture-local-start');
     sounds.resumeAudio();
+    setQueuedStartGremlinCount(null);
+    setCountdown(3);
+  }
+
+  function handleQuickPlay() {
+    sounds.logAudioDebugEvent('gesture-local-start');
+    sounds.resumeAudio();
+    setGremlinCount(3);
+    setQueuedStartGremlinCount(3);
     setCountdown(3);
   }
 
@@ -323,6 +338,7 @@ export default function LocalGameController({
           <motion.div key="start" style={{ width: '100%' }} {...fadeSlide}>
             <StartScreen
               onStart={handleStart}
+              onQuickPlay={handleQuickPlay}
               onSandbox={handleSandboxStart}
               magicItems={magicItems}
               onToggleMagicItems={() => setMagicItems((v) => !v)}
