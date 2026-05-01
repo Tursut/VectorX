@@ -9,6 +9,7 @@ const audioDebugEvents = [];
 const audioDebugListeners = new Set();
 let contextCreatedAt = null;
 let mutedPref = loadMutedPreferenceFromStorage();
+let awaitingUserGestureAfterRestore = false;
 
 function loadMutedPreferenceFromStorage() {
   if (typeof localStorage === 'undefined') return false;
@@ -227,22 +228,40 @@ export function resumeAudio() {
 // Registered at module load so the listeners persist across mounts of the
 // game controllers and don't depend on React lifecycle.
 if (typeof document !== 'undefined') {
-  const onResumeIntent = (source) => {
+  const onResumeIntent = (source, { isGesture = false } = {}) => {
+    if (isGesture && awaitingUserGestureAfterRestore) {
+      pushAudioDebug('first-user-gesture-after-restore', { source });
+      awaitingUserGestureAfterRestore = false;
+    }
     pushAudioDebug('resume-intent', { source });
     resumeAudio();
   };
   const onVisibilityChange = () => {
     pushAudioDebug('visibilitychange', { state: document.visibilityState });
-    if (document.visibilityState === 'visible') onResumeIntent('visibility-visible');
+    if (document.visibilityState === 'visible') {
+      awaitingUserGestureAfterRestore = true;
+      pushAudioDebug('visibility-visible');
+      onResumeIntent('visibility-visible');
+      return;
+    }
+    if (document.visibilityState === 'hidden') {
+      pushAudioDebug('visibility-hidden');
+    }
   };
-  document.addEventListener('touchstart', () => onResumeIntent('touchstart'), { passive: true });
-  document.addEventListener('touchend', () => onResumeIntent('touchend'), { passive: true });
-  document.addEventListener('click', () => onResumeIntent('click'));
+  document.addEventListener('touchstart', () => onResumeIntent('touchstart', { isGesture: true }), { passive: true });
+  document.addEventListener('touchend', () => onResumeIntent('touchend', { isGesture: true }), { passive: true });
+  document.addEventListener('click', () => onResumeIntent('click', { isGesture: true }));
   document.addEventListener('visibilitychange', onVisibilityChange);
   if (typeof window !== 'undefined') {
-    window.addEventListener('focus', () => onResumeIntent('focus'));
+    window.addEventListener('focus', () => {
+      awaitingUserGestureAfterRestore = true;
+      pushAudioDebug('focus');
+      onResumeIntent('focus');
+    });
     window.addEventListener('pageshow', (event) => {
-      pushAudioDebug('pageshow', { persisted: !!event?.persisted });
+      const persisted = !!event?.persisted;
+      awaitingUserGestureAfterRestore = true;
+      pushAudioDebug(persisted ? 'pageshow-persisted' : 'pageshow-fresh');
       onResumeIntent('pageshow');
     });
   }

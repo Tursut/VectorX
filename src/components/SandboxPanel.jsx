@@ -22,6 +22,7 @@ const SOUND_BUTTONS = [
 export default function SandboxPanel({
   currentPlayer, isThinking, portalActive, swapActive,
   onPlaceItem, onReset, onExit, soundEnabled, onToggleSound,
+  audioDebugEnabled = false, onSetAudioDebugEnabled,
 }) {
   let statusText = `${currentPlayer.name}'s turn`;
   if (isThinking)   statusText = 'Bot is thinking…';
@@ -29,6 +30,16 @@ export default function SandboxPanel({
   if (swapActive)   statusText = '🎭 Swap active — click a player to swap with';
 
   const buttonsEnabled = !isThinking && !portalActive && !swapActive;
+  const audioDebugLabel = audioDebugEnabled ? 'AUDIO DEBUG: ON' : 'AUDIO DEBUG: OFF';
+
+  function handleToggleAudioDebug() {
+    const next = !audioDebugEnabled;
+    if (next) {
+      sounds.logAudioDebugEvent('gesture-sandbox-enable-audio-debug');
+      sounds.resumeAudio();
+    }
+    onSetAudioDebugEnabled?.(next);
+  }
 
   return (
     <div className="sandbox-panel" style={{ borderColor: currentPlayer.color }}>
@@ -60,6 +71,13 @@ export default function SandboxPanel({
 
         <button className="sandbox-ctrl-btn sandbox-reset-btn" onClick={onReset} title="Reset board">
           ↺ Reset
+        </button>
+        <button
+          className={`sandbox-ctrl-btn sandbox-debug-btn${audioDebugEnabled ? ' is-active' : ''}`}
+          onClick={handleToggleAudioDebug}
+          title="Toggle audio debug overlay"
+        >
+          {audioDebugLabel}
         </button>
         <button className="sandbox-ctrl-btn sandbox-exit-btn" onClick={onExit} title="Back to menu">
           ✕ Exit

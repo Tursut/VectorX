@@ -419,6 +419,8 @@ export default function LocalGameController({
               onExit={() => { setScreen('start'); dispatch({ type: 'RESET' }); }}
               soundEnabled={soundEnabled}
               onToggleSound={toggleSound}
+              audioDebugEnabled={audioDebugEnabled}
+              onSetAudioDebugEnabled={onSetAudioDebugEnabled}
             />
             <div className="game-center">
               <PlayerPanel
