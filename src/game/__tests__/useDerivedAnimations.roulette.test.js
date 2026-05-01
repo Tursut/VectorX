@@ -203,10 +203,24 @@ describe('roulette — engaged path', () => {
     expect(result.current.pendingSwap).toEqual({ byId: 1, targetId: 0 });
     expect(sounds.playSwap).not.toHaveBeenCalled();
 
+    // During the reveal blink we still keep pendingSwap active so the board
+    // can continue masking pre-swap visuals until the handoff moment.
+    const totalHopsMs = HOP_DURATIONS.reduce((a, b) => a + b, 0);
+    act(() => { vi.advanceTimersByTime(totalHopsMs + HOP_HOLD_MS + REVEAL_MS / 2); });
+    expect(result.current.rouletteRevealing).toBe(true);
+    expect(result.current.pendingSwap).toEqual({ byId: 1, targetId: 0 });
+
     // Past the schedule: roulette clears, swapFlash fires, pendingSwap
     // clears (icons can now slide to their swapped positions), and the
     // apply sound finally plays alongside the visual.
-    act(() => { vi.advanceTimersByTime(ROULETTE_TOTAL_MS); });
+    const elapsedBeforeResolve =
+      HOP_DURATIONS[0] +
+      HOP_DURATIONS[1] +
+      HOP_DURATIONS[2] +
+      totalHopsMs +
+      HOP_HOLD_MS +
+      REVEAL_MS / 2;
+    act(() => { vi.advanceTimersByTime(ROULETTE_TOTAL_MS - elapsedBeforeResolve); });
     expect(result.current.roulettePlayerId).toBeNull();
     expect(result.current.pendingSwap).toBeNull();
     expect(sounds.playSwap).toHaveBeenCalledOnce();

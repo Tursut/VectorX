@@ -10,8 +10,9 @@ function badgeColor(turnsLeft) {
 
 const spring = { type: 'spring', stiffness: 380, damping: 28 };
 
-export default function Cell({ row, col, cell, isValidMove, isCurrentPlayer, isOpponentTurn, isRoulette, isRouletteReveal, isRouletteActor, playerHere, deathHere, itemHere, portalActive, swapActive, playerColor, onCellClick, isBombOrigin, isBombCleared, isPortalOrigin, isPortalDest, isSwapFlash, isTrapped, isFreezeTarget }) {
-  const owner = cell.owner !== null ? PLAYERS[cell.owner] : null;
+export default function Cell({ row, col, cell, ownerOverride, isValidMove, isCurrentPlayer, isOpponentTurn, isRoulette, isRouletteReveal, isRouletteActor, playerHere, deathHere, itemHere, portalActive, swapActive, playerColor, onCellClick, isBombOrigin, isBombCleared, isPortalOrigin, isPortalDest, isSwapFlash, isTrapped, isFreezeTarget }) {
+  const ownerId = ownerOverride ?? cell.owner;
+  const owner = ownerId !== null ? PLAYERS[ownerId] : null;
 
   let className = 'cell';
   if (isValidMove) {
@@ -50,7 +51,7 @@ export default function Cell({ row, col, cell, isValidMove, isCurrentPlayer, isO
       <AnimatePresence>
         {owner && (
           <motion.div
-            key={`fill-${row}-${col}-${cell.owner}`}
+            key={`fill-${row}-${col}-${ownerId}`}
             className="cell-fill"
             data-testid="cell-fill"
             style={{ backgroundColor: owner.color }}

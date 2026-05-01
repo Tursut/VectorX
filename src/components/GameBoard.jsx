@@ -23,6 +23,20 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
       })
     : players;
 
+  // Mirror the same "pre-swap mask" for territory ownership colors while the
+  // roulette is rolling. The authoritative state has already swapped owners
+  // on the two involved cells; we temporarily show the pre-swap owners so the
+  // target is not revealed before the reveal animation completes.
+  const pendingOwnerOverrideByKey = {};
+  if (pendingSwap) {
+    const byPlayer = players.find((p) => p.id === pendingSwap.byId);
+    const targetPlayer = players.find((p) => p.id === pendingSwap.targetId);
+    if (byPlayer && targetPlayer) {
+      pendingOwnerOverrideByKey[`${byPlayer.row},${byPlayer.col}`] = pendingSwap.targetId;
+      pendingOwnerOverrideByKey[`${targetPlayer.row},${targetPlayer.col}`] = pendingSwap.byId;
+    }
+  }
+
   const playerPositions = {};
   const deathCells = {};
   const itemMap = {};
@@ -91,6 +105,7 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
               row={ri}
               col={ci}
               cell={cell}
+              ownerOverride={Object.prototype.hasOwnProperty.call(pendingOwnerOverrideByKey, key) ? pendingOwnerOverrideByKey[key] : undefined}
               isValidMove={validMoveSet.has(key)}
               isCurrentPlayer={currentPlayer && currentPlayer.row === ri && currentPlayer.col === ci}
               isOpponentTurn={isOpponentTurn && currentPlayer && currentPlayer.row === ri && currentPlayer.col === ci}
