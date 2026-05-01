@@ -159,6 +159,9 @@ export default function GameScreen({
   const isGameOver = gameState.phase === 'gameover' && !trapPlaying;
   const showHero = isGameOver && heroPlaying && !!gameOverWinner;
   const showGameOver = isGameOver && !showHero;
+  const heroSoundKey = showHero
+    ? `winner:${gameState.winner}|turn:${gameState.turnCount}|order:${gameState.players.map((p) => `${p.id}:${p.finishTurn ?? 'n'}`).join(',')}`
+    : null;
 
   return (
     <>
@@ -254,7 +257,12 @@ export default function GameScreen({
       </AnimatePresence>
       <AnimatePresence>
         {showHero && (
-          <WinnerHero key="hero" winner={gameOverWinner} onContinue={onHeroDismiss} />
+          <WinnerHero
+            key="hero"
+            winner={gameOverWinner}
+            onContinue={onHeroDismiss}
+            soundKey={heroSoundKey}
+          />
         )}
       </AnimatePresence>
     </>

@@ -13,14 +13,10 @@ export default function GameOverScreen({
   restartLabel = 'PLAY AGAIN',
   restartDisabled = false,
 }) {
-  // Fanfare / draw sound fires once on mount. The hero phase (#60)
-  // sits in front of GameOverScreen with its own short stinger, so by
-  // the time we mount the user has already heard the "you won!" beat
-  // and is ready for the fuller fanfare to land alongside the
-  // leaderboard.
+  // Draw sound fires once on mount. Winner fanfare now plays on the
+  // winner-hero screen so the climax lands on the big avatar moment.
   useEffect(() => {
-    if (winner) sounds.playWin();
-    else sounds.playDraw();
+    if (!winner) sounds.playDraw();
   // Mount-only: the leaderboard never swaps winner ↔ draw under the user.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

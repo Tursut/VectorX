@@ -5,9 +5,22 @@
 // want, so no auto-dismiss.
 
 import { motion } from 'framer-motion';
+import { useEffect } from 'react';
+import * as sounds from '../game/sounds';
 
-export default function WinnerHero({ winner, onContinue }) {
+export default function WinnerHero({ winner, onContinue, soundKey = null }) {
+  // Hooks must come before any conditional return (rules of hooks).
+  // StrictMode mounts effects twice (mount → cleanup → remount). Using a
+  // macrotask (setTimeout) means StrictMode's synchronous cleanup cancels
+  // the fake-mount timer before it fires — only the real mount ever plays.
+  useEffect(() => {
+    if (!soundKey) return undefined;
+    const t = setTimeout(() => sounds.playWin(), 0);
+    return () => clearTimeout(t);
+  }, [soundKey]);
+
   if (!winner) return null;
+
   return (
     <motion.div
       className="winner-hero-screen"

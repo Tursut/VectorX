@@ -34,9 +34,9 @@ afterEach(() => {
 });
 
 describe('GameOverScreen — win/draw sound', () => {
-  it('plays the win fanfare exactly once on mount when there is a winner', () => {
+  it('does not play the win fanfare on mount when there is a winner', () => {
     render(<GameOverScreen winner={PLAYERS[0]} players={players} onMenu={() => {}} />);
-    expect(sounds.playWin).toHaveBeenCalledOnce();
+    expect(sounds.playWin).not.toHaveBeenCalled();
     expect(sounds.playDraw).not.toHaveBeenCalled();
   });
 
@@ -46,13 +46,13 @@ describe('GameOverScreen — win/draw sound', () => {
     expect(sounds.playWin).not.toHaveBeenCalled();
   });
 
-  it('does NOT fire the win sound a second time when the parent re-renders with the same props', () => {
+  it('does NOT fire the win sound when the parent re-renders with the same props', () => {
     const { rerender } = render(
       <GameOverScreen winner={PLAYERS[0]} players={players} onMenu={() => {}} />,
     );
     rerender(<GameOverScreen winner={PLAYERS[0]} players={players} onMenu={() => {}} />);
     rerender(<GameOverScreen winner={PLAYERS[0]} players={players} onMenu={() => {}} />);
-    expect(sounds.playWin).toHaveBeenCalledOnce();
+    expect(sounds.playWin).not.toHaveBeenCalled();
   });
 });
 
