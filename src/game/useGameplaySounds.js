@@ -9,12 +9,6 @@ import { useEffect, useRef } from 'react';
 import { isBotPlayer, shouldRouletteFreezeSwap } from './rouletteCriteria';
 import * as sounds from './sounds';
 
-// After phase becomes 'gameover', wait this long before kicking the
-// menu loop back in. Covers the win-fanfare sample's natural playback
-// (~3 s) so the menu music doesn't trample the cue. Trap-chain
-// drawing time is handled separately via the `trapPlaying` flag.
-const MENU_RESUME_AFTER_GAMEOVER_MS = 3500;
-
 export function useGameplaySounds(gameState, mySeats = [], { enabled = true, trapPlaying = false, heroPlaying = false } = {}) {
   const prevTurnRef = useRef(null);
 
@@ -26,10 +20,8 @@ export function useGameplaySounds(gameState, mySeats = [], { enabled = true, tra
   //   - in-game (bg-spring) plays while phase === 'playing'
   //   - menu (bg-menu) plays in the start screen / lobby / leaderboard
   // The `enabled` flag (#35) keeps both silent during the pre-game
-  // 3-2-1-GO countdown. The `trapPlaying` flag + a post-gameover delay
-  // hold the menu music until the trap chain (#36) and the win sound
-  // have finished their wind-down — otherwise the menu would kick
-  // in over the elimination + fanfare.
+  // 3-2-1-GO countdown. The `trapPlaying` + `heroPlaying` flags hold
+  // the menu music until trap chain (#36) and winner hero are done.
   useEffect(() => {
     if (!enabled) {
       sounds.stopBgTheme();
@@ -42,7 +34,7 @@ export function useGameplaySounds(gameState, mySeats = [], { enabled = true, tra
     //   - phase=='gameover' && heroPlaying (winner spotlight, #60)
     // Stops only when the leaderboard takes over, so the player
     // doesn't experience a silent "limbo" between the second-to-last
-    // death and the leaderboard's fanfare.
+    // death and the leaderboard.
     const inGameAudio =
       gameState?.phase === 'playing' ||
       (gameState?.phase === 'gameover' && (trapPlaying || heroPlaying));
@@ -52,25 +44,10 @@ export function useGameplaySounds(gameState, mySeats = [], { enabled = true, tra
       return undefined;
     }
     sounds.stopBgTheme();
-    if (gameState?.phase === 'gameover') {
-      // Hero is done; the win fanfare is now playing on GameOverScreen
-      // mount. Defer the menu loop so the fanfare gets its full beat.
-      const t = setTimeout(() => sounds.startMenuTheme(), MENU_RESUME_AFTER_GAMEOVER_MS);
-      return () => clearTimeout(t);
-    }
-    // Start screen / lobby / null → menu immediately.
+    // Start screen / lobby / post-hero leaderboard → menu immediately.
     sounds.startMenuTheme();
     return undefined;
   }, [gameState?.phase, enabled, trapPlaying, heroPlaying]);
-
-  // Hard stop on unmount — covers exiting to the start screen, an
-  // online disconnect, or the page tearing down. Single mount-only
-  // effect so the per-phase effect above can return phase-specific
-  // cleanups without losing the unmount guarantee.
-  useEffect(() => () => {
-    sounds.stopBgTheme();
-    sounds.stopMenuTheme();
-  }, []);
 
   // Freeze / swap apply sounds moved to useDerivedAnimations#fireImmediate
   // so they line up with the deferred visual after the bot-pick roulette

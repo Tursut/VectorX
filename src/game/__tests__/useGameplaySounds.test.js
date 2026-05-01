@@ -94,6 +94,20 @@ describe('useGameplaySounds — menu vs in-game theme', () => {
     expect(sounds.startBgTheme).not.toHaveBeenCalled();
   });
 
+  it('does not stop menu theme on remount between menu/lobby controllers', () => {
+    const { unmount } = renderHook(({ s, seats }) => useGameplaySounds(s, seats), {
+      initialProps: { s: null, seats: [] },
+    });
+    expect(sounds.startMenuTheme).toHaveBeenCalledOnce();
+    unmount();
+    expect(sounds.stopMenuTheme).not.toHaveBeenCalled();
+
+    renderHook(({ s, seats }) => useGameplaySounds(s, seats), {
+      initialProps: { s: baseState({ phase: 'lobby' }), seats: [0] },
+    });
+    expect(sounds.stopMenuTheme).not.toHaveBeenCalled();
+  });
+
   it('starts the menu theme during the lobby (phase !== "playing")', () => {
     renderHook(({ s, seats }) => useGameplaySounds(s, seats), {
       initialProps: { s: baseState({ phase: 'lobby' }), seats: [0] },
@@ -113,7 +127,7 @@ describe('useGameplaySounds — menu vs in-game theme', () => {
     expect(sounds.startBgTheme).toHaveBeenCalledOnce();
   });
 
-  it('defers the menu loop past the win sound when the game ends (issue: menu used to kick over the fanfare)', () => {
+  it('starts the menu loop immediately once hero/trap are done and leaderboard takes over', () => {
     const { rerender } = renderHook(
       ({ s, seats }) => useGameplaySounds(s, seats),
       { initialProps: { s: baseState({ phase: 'playing' }), seats: [0] } },
@@ -121,10 +135,6 @@ describe('useGameplaySounds — menu vs in-game theme', () => {
     expect(sounds.startBgTheme).toHaveBeenCalledOnce();
     rerender({ s: baseState({ phase: 'gameover', winner: 0 }), seats: [0] });
     expect(sounds.stopBgTheme).toHaveBeenCalled();
-    // Win sound just started — menu loop must NOT have kicked in yet.
-    expect(sounds.startMenuTheme).not.toHaveBeenCalled();
-    // After the deferred-resume timer (3.5 s), menu loop fires.
-    act(() => { vi.advanceTimersByTime(3500); });
     expect(sounds.startMenuTheme).toHaveBeenCalledOnce();
   });
 
@@ -144,19 +154,16 @@ describe('useGameplaySounds — menu vs in-game theme', () => {
       seats: [0],
       opts: { trapPlaying: true },
     });
-    // Trap is still drawing — menu must NOT start, even with the
-    // post-gameover delay timer.
+    // Trap is still drawing — menu must NOT start.
     act(() => { vi.advanceTimersByTime(10_000); });
     expect(sounds.startMenuTheme).not.toHaveBeenCalled();
 
-    // Trap drains. NOW the gameover delay timer should be set up.
+    // Trap drains. Menu starts right away.
     rerender({
       s: baseState({ phase: 'gameover', winner: 0 }),
       seats: [0],
       opts: { trapPlaying: false },
     });
-    expect(sounds.startMenuTheme).not.toHaveBeenCalled();
-    act(() => { vi.advanceTimersByTime(3500); });
     expect(sounds.startMenuTheme).toHaveBeenCalledOnce();
   });
 
