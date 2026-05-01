@@ -205,3 +205,44 @@ describe('OnlineGameController browser back guard', () => {
     expect(vi.mocked(useBackGuard).mock.calls.every(([active]) => active === false)).toBe(true);
   });
 });
+
+describe('OnlineGameController status suppression', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockNetwork = {
+      ...createDefaultNetworkMock(),
+      gameState: null,
+      lobby: null,
+      connectionState: 'connecting',
+    };
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  it('hides connecting status while suppressStatusScreens is true', () => {
+    render(
+      <OnlineGameController
+        code="ABCDE"
+        displayName="Andreas"
+        onExit={() => {}}
+        suppressStatusScreens
+      />,
+    );
+
+    expect(screen.queryByText(/connecting to room/i)).toBeNull();
+  });
+
+  it('shows connecting status while suppressStatusScreens is false', () => {
+    render(
+      <OnlineGameController
+        code="ABCDE"
+        displayName="Andreas"
+        onExit={() => {}}
+      />,
+    );
+
+    expect(screen.getByText(/connecting to room/i)).toBeInTheDocument();
+  });
+});

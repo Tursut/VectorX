@@ -261,6 +261,7 @@ export default function App() {
             onExit={handleOnlineExit}
             onJoinFailed={handleJoinFailed}
             onReady={handleOnlineReady}
+            suppressStatusScreens={creatingRoom}
             audioDebugEnabled={audioDebugEnabled}
           />
         </Suspense>

@@ -45,6 +45,7 @@ export default function OnlineGameController({
   onExit,
   onJoinFailed,
   onReady,
+  suppressStatusScreens = false,
   audioDebugEnabled = false,
 }) {
   const url = wsUrl(code);
@@ -334,10 +335,12 @@ export default function OnlineGameController({
   // during a reconnect doesn't hide the "Reconnecting…" status.
 
   if (connectionState === 'connecting' || !helloSent.current) {
+    if (suppressStatusScreens) return null;
     return <StatusScreen label={`Connecting to room ${code}…`} onBack={onExit} />;
   }
 
   if (connectionState === 'closed' || connectionState === 'destroyed') {
+    if (suppressStatusScreens) return null;
     return <StatusScreen label="Connection lost. Reconnecting…" onBack={onExit} />;
   }
 
@@ -367,6 +370,7 @@ export default function OnlineGameController({
   }
 
   if (!lobby) {
+    if (suppressStatusScreens) return null;
     return <StatusScreen label={`Joining room ${code}…`} onBack={onExit} />;
   }
 
