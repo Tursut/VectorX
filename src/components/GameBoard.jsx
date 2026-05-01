@@ -79,6 +79,12 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
   const heldItemActorIcon = heldItemActor
     ? ITEM_TYPES[heldItemActor.itemKind]?.icon
     : null;
+  const swapLabelTargets = swapActive
+    ? renderPlayers.filter((p) => !p.isEliminated && validMoveSet.has(`${p.row},${p.col}`))
+    : [];
+  const freezeLabelTargets = !isGremlinTurn && freezeSelectActive
+    ? renderPlayers.filter((p) => !p.isEliminated && p.id !== currentPlayer.id)
+    : [];
 
   return (
     <div
@@ -287,6 +293,33 @@ export default function GameBoard({ grid, players, validMoveSet, onCellClick, cu
           </motion.div>
         ))}
       </AnimatePresence>
+
+      {/* Overlay labels for swap/freeze targets — rendered in board space so
+          they can sit above avatars without lifting the whole target cell. */}
+      {swapLabelTargets.map((p) => (
+        <div
+          key={`swap-label-${p.id}`}
+          className="board-target-label board-target-label-swap"
+          style={{
+            left: `calc(4px + ${p.col} * (var(--cell-size) + var(--board-gap)))`,
+            top: `calc(4px + ${p.row} * (var(--cell-size) + var(--board-gap)) + var(--cell-size) - 11px)`,
+          }}
+        >
+          SWAP
+        </div>
+      ))}
+      {freezeLabelTargets.map((p) => (
+        <div
+          key={`freeze-label-${p.id}`}
+          className="board-target-label board-target-label-freeze"
+          style={{
+            left: `calc(4px + ${p.col} * (var(--cell-size) + var(--board-gap)))`,
+            top: `calc(4px + ${p.row} * (var(--cell-size) + var(--board-gap)) + var(--cell-size) - 11px)`,
+          }}
+        >
+          FREEZE
+        </div>
+      ))}
     </div>
   );
 }

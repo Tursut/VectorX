@@ -114,16 +114,6 @@ export default function Cell({ row, col, cell, ownerOverride, isValidMove, isCur
         {isValidMove && !playerHere && !itemHere && <span className="valid-move-dot" />}
       </div>
 
-      {/* Swap-target label */}
-      {swapActive && isValidMove && playerHere && (
-        <div className="cell-swap-label">SWAP</div>
-      )}
-
-      {/* Freeze-target label */}
-      {isFreezeTarget && playerHere && (
-        <div className="cell-freeze-label">FREEZE</div>
-      )}
-
       {/* Portal origin — ring collapses inward */}
       {isPortalOrigin && (
         <motion.div
