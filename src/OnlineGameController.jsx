@@ -117,6 +117,7 @@ export default function OnlineGameController({
   useEffect(() => {
     if (!gameState || gameState.phase !== 'playing') return;
     if (countdown !== null) return;
+    if (rouletteActive) return;
     if (trapPlaying) return;
     setTimeLeft(TURN_TIME);
     const isMyTurn = mySeatId !== null && mySeatId !== undefined
@@ -132,7 +133,7 @@ export default function OnlineGameController({
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [gameState?.currentPlayerIndex, gameState?.phase, mySeatId, countdown, trapPlaying]);
+  }, [gameState?.currentPlayerIndex, gameState?.phase, mySeatId, countdown, rouletteActive, trapPlaying]);
 
   // Gameplay sound effects (bg theme, move/claim/your-turn chime, freeze/swap).
   // `enabled` is gated on the countdown so the bg theme + your-turn
