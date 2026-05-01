@@ -4,6 +4,14 @@
   --board-gap: 2px;
 }
 
+@media (min-width: 621px) {
+  :root {
+    /* Keep desktop board stacks inside short-height windows. */
+    --cell-size: min(52px, calc((100vh - 220px) / 10 - var(--board-gap)));
+    --cell-size: min(52px, calc((100dvh - 220px) / 10 - var(--board-gap)));
+  }
+}
+
 @media (max-width: 620px) {
   :root {
     /* fallback for browsers without dvh support */
@@ -26,6 +34,11 @@
      MenuAvatarStage sits at z-index: -1 (between body bg and content).
      Painting an opaque bg on .app would obscure the bubbles. */
   font-family: 'Fredoka One', 'Segoe UI', sans-serif;
+}
+
+html.winner-hero-scroll-lock,
+body.winner-hero-scroll-lock {
+  overflow: hidden;
 }
 
 .game-layout {
@@ -1758,9 +1771,11 @@
   align-items: center;
   justify-content: center;
   min-height: 100vh;
+  min-height: 100dvh;
   width: 100%;
   padding: 20px;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 .gameover-content {
@@ -1770,6 +1785,9 @@
   gap: 18px;
   max-width: 480px;
   width: 100%;
+  max-height: calc(100vh - 40px);
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
   text-align: center;
 }
 

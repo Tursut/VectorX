@@ -149,6 +149,28 @@ describe('GameScreen — rendering', () => {
     expect(screen.getByTestId('cell')).toBeInTheDocument();
   });
 
+  it('locks page scrolling only while the winner hero is visible', () => {
+    const state = baseState({ phase: 'gameover', winner: 0 });
+    const { rerender, unmount } = render(
+      <GameScreen gameState={state} mySeats={[0]} onMove={() => {}} heroPlaying />,
+    );
+
+    expect(document.documentElement.classList.contains('winner-hero-scroll-lock')).toBe(true);
+    expect(document.body.classList.contains('winner-hero-scroll-lock')).toBe(true);
+
+    rerender(
+      <GameScreen gameState={state} mySeats={[0]} onMove={() => {}} heroPlaying={false} />,
+    );
+    expect(document.documentElement.classList.contains('winner-hero-scroll-lock')).toBe(false);
+    expect(document.body.classList.contains('winner-hero-scroll-lock')).toBe(false);
+
+    rerender(<GameScreen gameState={state} mySeats={[0]} onMove={() => {}} heroPlaying />);
+    expect(document.documentElement.classList.contains('winner-hero-scroll-lock')).toBe(true);
+    unmount();
+    expect(document.documentElement.classList.contains('winner-hero-scroll-lock')).toBe(false);
+    expect(document.body.classList.contains('winner-hero-scroll-lock')).toBe(false);
+  });
+
   it('passes runtime displayName to GameOver winner identity', () => {
     const state = baseState({
       phase: 'gameover',

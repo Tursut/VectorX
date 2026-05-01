@@ -19,6 +19,7 @@
 // the outer controllers.
 
 import { AnimatePresence, motion } from 'framer-motion';
+import { useEffect } from 'react';
 import { PLAYERS, TURN_TAUNTS, TURN_TIME } from '../game/constants';
 import { getCurrentValidMoves } from '../game/logic';
 import PlayerPanel from './PlayerPanel';
@@ -165,9 +166,19 @@ export default function GameScreen({
     ? `winner:${gameState.winner}|turn:${gameState.turnCount}|order:${gameState.players.map((p) => `${p.id}:${p.finishTurn ?? 'n'}`).join(',')}`
     : null;
 
+  useEffect(() => {
+    if (!showHero) return undefined;
+    document.documentElement.classList.add('winner-hero-scroll-lock');
+    document.body.classList.add('winner-hero-scroll-lock');
+    return () => {
+      document.documentElement.classList.remove('winner-hero-scroll-lock');
+      document.body.classList.remove('winner-hero-scroll-lock');
+    };
+  }, [showHero]);
+
   return (
     <>
-      <AnimatePresence>
+      <AnimatePresence mode="wait">
       {showGameOver ? (
         // No entrance fade — leaderboard appears instantly underneath
         // the hero overlay's exit fade, so the user sees the hero
