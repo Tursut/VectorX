@@ -6,7 +6,6 @@ import { playClick } from '../game/sounds';
 import { BUILD_TIME } from '../config';
 import SoundToggle from './SoundToggle';
 import TapToBeginModal from './TapToBeginModal';
-import WaitingFlourish from './WaitingFlourish';
 
 
 const CODE_ALPHABET_RE = /[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]/g;
@@ -61,7 +60,6 @@ export default function StartScreen({
   defaultDisplayName = '',
   onlineError = null,
   onlineErrorDebug = null,
-  creatingRoom = false,
   audioDebugEnabled = false,
   onSetAudioDebugEnabled,
 }) {
@@ -512,17 +510,15 @@ at:          ${onlineErrorDebug.at ?? '(unknown)'}`}
                     <p className="field-error" role="alert">Enter a 5-character room code.</p>
                   )}
                   {errorBlock}
-                  {!creatingRoom && (
-                    <button
-                      type="button"
-                      className={`start-button online-inline-primary${!canSubmit ? ' start-button-muted' : ''}`}
-                      data-testid="primary-button"
-                      onClick={handlePrimaryClick}
-                      aria-disabled={!canSubmit}
-                    >
-                      {primaryLabel}
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    className={`start-button online-inline-primary${!canSubmit ? ' start-button-muted' : ''}`}
+                    data-testid="primary-button"
+                    onClick={handlePrimaryClick}
+                    aria-disabled={!canSubmit}
+                  >
+                    {primaryLabel}
+                  </button>
                 </div>
               </div>
               {!isJoiner && (
@@ -613,20 +609,7 @@ at:          ${onlineErrorDebug.at ?? '(unknown)'}`}
 
       {!isMenu && (
         <>
-          {creatingRoom ? (
-            <div className="waiting-flourish-overlay">
-              <motion.div
-                key="flourish"
-                style={{ width: 'min(100% - 40px, 560px)' }}
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
-                transition={{ duration: 0.3, ease: 'easeOut' }}
-              >
-                <WaitingFlourish />
-              </motion.div>
-            </div>
-          ) : isLocal ? (
+          {isLocal ? (
             <div className="start-button-bar">
               <AnimatePresence mode="wait" initial={false}>
                 <motion.button

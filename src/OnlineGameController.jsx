@@ -44,6 +44,7 @@ export default function OnlineGameController({
   initialMagicItems = false,
   onExit,
   onJoinFailed,
+  onReady,
   audioDebugEnabled = false,
 }) {
   const url = wsUrl(code);
@@ -198,6 +199,24 @@ export default function OnlineGameController({
     joinFailedFired.current = true;
     onJoinFailed(lastError);
   }, [lastError, onJoinFailed]);
+
+  // Tell App-level creating-room overlay when it's safe to reveal the next
+  // surface. Fires once: either on first successful lobby arrival or when a
+  // fatal (non-routable) error lands so the user can actually see it.
+  const readyFired = useRef(false);
+  useEffect(() => {
+    if (readyFired.current) return;
+    if (typeof onReady !== 'function') return;
+
+    const hasLobby = !!lobby && !lastError;
+    const hasFatalError =
+      !!lastError &&
+      !(ROUTABLE_JOIN_ERROR_CODES.has(lastError.code) && typeof onJoinFailed === 'function');
+    if (!hasLobby && !hasFatalError) return;
+
+    readyFired.current = true;
+    onReady();
+  }, [lobby, lastError, onJoinFailed, onReady]);
 
   // Lobby-phase UNAUTHORIZED is recoverable: the user tapped START during a
   // reconnect race and the server rejected because their socket arrived

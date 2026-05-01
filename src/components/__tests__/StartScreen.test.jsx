@@ -356,32 +356,6 @@ describe('StartScreen — testing ground link', () => {
   });
 });
 
-// ---------- Waiting flourish (issue #45) ----------
-//
-// StartScreen renders the flourish when its creatingRoom prop is
-// true, no minimum-display logic of its own. The minimum lives
-// in App.jsx (it has to — setOnline unmounts StartScreen, so
-// local sticky state can't outlive that transition).
-
-describe('StartScreen — creatingRoom waiting flourish', () => {
-  it('shows the flourish with creating private room when creatingRoom is true', () => {
-    render(
-      <StartScreen
-        {...withOnline({ defaultMode: 'create', creatingRoom: true })}
-      />,
-    );
-    expect(screen.queryByTestId('primary-button')).toBeNull();
-    expect(screen.getByRole('status')).toBeInTheDocument();
-    expect(screen.getByText(/creating private room/i)).toBeInTheDocument();
-  });
-
-  it('shows the primary button when creatingRoom is false', () => {
-    render(<StartScreen {...withOnline({ defaultMode: 'create' })} />);
-    expect(screen.getByTestId('primary-button')).toBeInTheDocument();
-    expect(screen.queryByRole('status')).toBeNull();
-  });
-});
-
 // ---------- Online error surfacing ----------
 
 describe('StartScreen — onlineError', () => {

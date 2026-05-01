@@ -64,7 +64,6 @@ export default function LocalGameController({
   defaultDisplayName,
   onlineError,
   onlineErrorDebug,
-  creatingRoom = false,
   audioDebugEnabled = false,
   onSetAudioDebugEnabled,
 } = {}) {
@@ -379,7 +378,6 @@ export default function LocalGameController({
               defaultDisplayName={defaultDisplayName}
               onlineError={onlineError}
               onlineErrorDebug={onlineErrorDebug}
-              creatingRoom={creatingRoom}
               audioDebugEnabled={audioDebugEnabled}
               onSetAudioDebugEnabled={onSetAudioDebugEnabled}
             />

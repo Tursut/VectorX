@@ -1,8 +1,10 @@
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense, useCallback, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { ENABLE_ONLINE, SERVER_URL } from './config';
 import * as sounds from './game/sounds';
 import LocalGameController from './LocalGameController';
 import MenuAvatarStage from './components/MenuAvatarStage';
+import WaitingFlourish from './components/WaitingFlourish';
 import './App.css';
 
 // Online subtree is lazy-loaded so its zod + hook + component deps only ship
@@ -45,9 +47,10 @@ const ROUTABLE_JOIN_ERRORS = {
 };
 
 // Minimum time the WaitingFlourish stays on screen during room
-// creation. Has to live here (not inside StartScreen via
-// useStickyFlag) because setOnline() unmounts the StartScreen
-// outright — local sticky state can't outlive the unmount.
+// creation. The overlay is rendered at the App level (not inside
+// StartScreen) so it can outlive the StartScreen → OnlineGameController
+// transition and stay up until the WS+HELLO+LOBBY_STATE round-trip
+// reports back via onReady — see issue #74.
 const MIN_CREATING_DURATION_MS = 2100;
 const AUDIO_DEBUG_FLAG_KEY = 'audioDebugEnabled';
 
@@ -86,10 +89,22 @@ export default function App() {
   // tweak the name and retry without losing context.
   const [pendingDisplayName, setPendingDisplayName] = useState('');
   const [pendingCode, setPendingCode] = useState('');
-  // True while the POST /rooms is in flight + the minimum-display
-  // window. Drives the WaitingFlourish indicator on StartScreen.
-  // Cleared once we hand off to OnlineGameController.
+  // True while the POST /rooms is in flight + the WS handshake +
+  // the minimum-display window. Drives the App-level WaitingFlourish
+  // overlay. Cleared by handleOnlineReady once the controller reports
+  // its lobby is live (issue #74).
   const [creatingRoom, setCreatingRoom] = useState(false);
+  // Wall-clock at which the current creating-room overlay started, so
+  // handleOnlineReady can enforce MIN_CREATING_DURATION_MS regardless
+  // of how fast POST + WS resolved.
+  const creatingStartedAtRef = useRef(0);
+  // Guard against a re-fire of handleOnlineReady (a reconnect mid-game
+  // would re-deliver a LOBBY_STATE; we only want the first one to
+  // dismiss the overlay).
+  const onlineReadyHandledRef = useRef(false);
+  // Pending dismiss timer so we can cancel it if the user exits during
+  // the min-duration tail.
+  const dismissTimerRef = useRef(null);
   const [audioDebugEnabled, setAudioDebugEnabled] = useState(readAudioDebugEnabled);
 
   function handleSetAudioDebugEnabled(next) {
@@ -98,6 +113,13 @@ export default function App() {
       localStorage.setItem(AUDIO_DEBUG_FLAG_KEY, next ? '1' : '0');
     } catch {
       // Ignore persistence failures.
+    }
+  }
+
+  function clearDismissTimer() {
+    if (dismissTimerRef.current !== null) {
+      clearTimeout(dismissTimerRef.current);
+      dismissTimerRef.current = null;
     }
   }
 
@@ -113,32 +135,53 @@ export default function App() {
     setOnlineErrorDebug(null);
     setPendingDisplayName('');
     setPendingCode('');
+    clearDismissTimer();
+    onlineReadyHandledRef.current = false;
+    creatingStartedAtRef.current = Date.now();
     setCreatingRoom(true);
-    const startedAt = Date.now();
     try {
       const res = await fetch(`${SERVER_URL}/rooms`, { method: 'POST' });
       if (!res.ok) throw new Error(`Server returned ${res.status}`);
       const body = await res.json();
-      // Hold the lobby transition until the WaitingFlourish has had
-      // its minimum on-screen beat. Without this the StartScreen
-      // unmounts the moment the fetch resolves and the flourish
-      // never gets time to render — even though useStickyFlag
-      // would otherwise keep its local state alive, the whole
-      // component tree is being destroyed by the setOnline below.
-      const elapsed = Date.now() - startedAt;
-      const remaining = MIN_CREATING_DURATION_MS - elapsed;
-      if (remaining > 0) {
-        await new Promise((r) => setTimeout(r, remaining));
-      }
+      // Mount OnlineGameController immediately so the WS handshake
+      // runs in parallel with the overlay's minimum-display window.
+      // The overlay stays up (creatingRoom === true) until either the
+      // controller's lobby is live or a fatal error is surfaced —
+      // handleOnlineReady drives the dismiss (issue #74).
       setColdOpenCode(null);
       setOnline({ code: body.code, displayName, magicItems });
-      setCreatingRoom(false);
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err);
       setOnlineError(`Couldn't reach the server: ${reason}`);
       setCreatingRoom(false);
+      onlineReadyHandledRef.current = false;
     }
   }
+
+  // Called by OnlineGameController exactly once when its lobby first
+  // becomes available (or a fatal error appears, so the overlay
+  // doesn't trap the user behind a flourish on top of an error
+  // status). Holds the overlay for the remainder of
+  // MIN_CREATING_DURATION_MS so the parade always gets its full beat.
+  const handleOnlineReady = useCallback(() => {
+    if (onlineReadyHandledRef.current) return;
+    onlineReadyHandledRef.current = true;
+    if (!creatingStartedAtRef.current) {
+      setCreatingRoom(false);
+      return;
+    }
+    const elapsed = Date.now() - creatingStartedAtRef.current;
+    const remaining = MIN_CREATING_DURATION_MS - elapsed;
+    if (remaining <= 0) {
+      setCreatingRoom(false);
+      return;
+    }
+    clearDismissTimer();
+    dismissTimerRef.current = setTimeout(() => {
+      dismissTimerRef.current = null;
+      setCreatingRoom(false);
+    }, remaining);
+  }, []);
 
   function handleJoinOnline({ displayName, code }) {
     setOnlineErrorDebug(null);
@@ -178,6 +221,9 @@ export default function App() {
     setOnline(null);
     setOnlineError(ROUTABLE_JOIN_ERRORS[code] ?? `Error: ${code}`);
     setOnlineErrorDebug(debug);
+    clearDismissTimer();
+    setCreatingRoom(false);
+    onlineReadyHandledRef.current = false;
     clearRoomHash();
   }
 
@@ -187,7 +233,9 @@ export default function App() {
     setOnlineErrorDebug(null);
     setPendingDisplayName('');
     setPendingCode('');
+    clearDismissTimer();
     setCreatingRoom(false);
+    onlineReadyHandledRef.current = false;
     clearRoomHash();
   }
 
@@ -212,6 +260,7 @@ export default function App() {
             initialMagicItems={online.magicItems}
             onExit={handleOnlineExit}
             onJoinFailed={handleJoinFailed}
+            onReady={handleOnlineReady}
             audioDebugEnabled={audioDebugEnabled}
           />
         </Suspense>
@@ -224,11 +273,33 @@ export default function App() {
           defaultDisplayName={pendingDisplayName}
           onlineError={onlineError}
           onlineErrorDebug={onlineErrorDebug}
-          creatingRoom={creatingRoom}
           audioDebugEnabled={audioDebugEnabled}
           onSetAudioDebugEnabled={handleSetAudioDebugEnabled}
         />
       )}
+      <AnimatePresence>
+        {creatingRoom && (
+          <motion.div
+            key="creating-room-overlay"
+            className="waiting-flourish-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.22, ease: 'easeOut' }}
+          >
+            <motion.div
+              key="flourish"
+              style={{ width: 'min(100% - 40px, 560px)' }}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.3, ease: 'easeOut' }}
+            >
+              <WaitingFlourish />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }
