@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ITEM_TYPES } from '../game/constants';
 import { playClick } from '../game/sounds';
+import SoundToggle from './SoundToggle';
 
 const MAX_PLAYERS = 4;
 
@@ -49,6 +50,8 @@ export default function Lobby({
   onMagicItemsChange,
   onStart,
   onLeave,
+  soundEnabled = true,
+  onToggleSound,
 }) {
   const isHost = mySeatId !== null && mySeatId !== undefined && mySeatId === hostId;
   const emptySeats = Math.max(0, MAX_PLAYERS - players.length);
@@ -100,8 +103,12 @@ export default function Lobby({
 
   return (
     <div className="lobby-wrap">
+      {typeof onToggleSound === 'function' && (
+        <div className="start-sound-corner">
+          <SoundToggle enabled={soundEnabled} onToggle={onToggleSound} />
+        </div>
+      )}
       <section className="lobby" aria-label="Waiting room">
-
         <div className="lobby-hero">
           <h1 className="lobby-title">LOBBY</h1>
         </div>

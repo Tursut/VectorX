@@ -55,6 +55,37 @@ describe('Lobby — rendering', () => {
     const bots = screen.getAllByText(/Bot will fill this slot/);
     expect(bots).toHaveLength(2);
   });
+
+  it('renders sound toggle when sound props are provided', () => {
+    render(
+      <Lobby
+        code="Q7K4N"
+        players={fourPlayers}
+        hostId={0}
+        mySeatId={0}
+        soundEnabled
+        onToggleSound={() => {}}
+      />,
+    );
+    expect(screen.getByRole('button', { name: /mute/i })).toBeInTheDocument();
+  });
+
+  it('clicking sound toggle fires onToggleSound', async () => {
+    const user = userEvent.setup();
+    const onToggleSound = vi.fn();
+    render(
+      <Lobby
+        code="Q7K4N"
+        players={fourPlayers}
+        hostId={0}
+        mySeatId={0}
+        soundEnabled
+        onToggleSound={onToggleSound}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: /mute/i }));
+    expect(onToggleSound).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('Lobby — host-only controls', () => {

@@ -522,6 +522,8 @@ export default function OnlineGameController({
         players={lobby.players}
         hostId={lobby.hostId}
         mySeatId={mySeatId}
+        soundEnabled={soundEnabled}
+        onToggleSound={toggleSound}
         magicItems={magicItems}
         onMagicItemsChange={setMagicItems}
         onStart={() => {

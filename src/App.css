@@ -2334,6 +2334,7 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
+  position: relative;
 }
 
 .lobby {
@@ -2370,6 +2371,14 @@
   text-shadow: 0 0 16px rgba(255, 255, 255, 0.25), 0 3px 0 #000;
   margin: 0;
   animation: titlePulse 3s infinite ease-in-out;
+}
+
+/* Match start-screen corner toggle placement, but outside lobby border */
+.lobby-wrap > .start-sound-corner {
+  /* StartScreen anchor is top: 8px. Lobby wrap starts at margin-top: 48px,
+     so offset by 8 - 48 = -40 to land at the exact same Y position. */
+  top: -40px;
+  right: 6px;
 }
 /* Invite card. The room code is the visual hero — it's the human-friendly
    value the host actually says out loud. The URL + copy button collapse to
