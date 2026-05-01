@@ -1,4 +1,4 @@
-import { useReducer, useState, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { initGame, initSandboxGame, applyMove, getCurrentValidMoves, eliminateCurrentPlayer, placeSandboxItem } from './game/logic';
 import { getGremlinMove } from './game/ai';
@@ -79,6 +79,8 @@ export default function LocalGameController({
   const [queuedStartGremlinCount, setQueuedStartGremlinCount] = useState(null);
   const [soundEnabled, setSoundEnabled] = useState(() => !sounds.loadMutedPreference());
   const [exitConfirm, setExitConfirm] = useState(false);
+  const [heroMusicCutRequested, setHeroMusicCutRequested] = useState(false);
+  const [heroMenuWarmupActive, setHeroMenuWarmupActive] = useState(false);
 
   // Animation overlays derived from gameState diffs (also fires item-pickup
   // sounds). Passed down to GameScreen / sandbox GameBoard.
@@ -94,6 +96,24 @@ export default function LocalGameController({
   // CONTINUE". Lives here (not in GameScreen) so useGameplaySounds
   // can keep bg-spring playing through the hero phase.
   const { heroPlaying, dismissHero } = useWinnerHero(gameState, trapPlaying);
+
+  const handleHeroBeforeFanfare = useCallback(() => {
+    setHeroMusicCutRequested(true);
+    sounds.stopBgThemeFast();
+  }, []);
+
+  const handleHeroAfterFanfareStart = useCallback(() => {
+    // Start menu music while hero is visible (not waiting for leaderboard).
+    setHeroMenuWarmupActive(true);
+  }, []);
+
+  useEffect(() => {
+    const winner = gameState?.winner;
+    const hasWinner = winner !== null && winner !== undefined;
+    if (gameState?.phase === 'gameover' && hasWinner) return;
+    setHeroMusicCutRequested(false);
+    setHeroMenuWarmupActive(false);
+  }, [gameState?.phase, gameState?.winner]);
 
   // Hide the App-level MenuAvatarStage while the active game board is
   // showing — gameplay needs focus. Sandbox during play likewise hides it
@@ -280,7 +300,13 @@ export default function LocalGameController({
   // Gameplay sound effects — called at controller level so sandbox mode (which
   // doesn't mount GameScreen) gets bg theme, move/claim, your-turn chime, and
   // freeze/swap event sounds.
-  useGameplaySounds(gameState, mySeats, { enabled: countdown === null, trapPlaying, heroPlaying });
+  useGameplaySounds(gameState, mySeats, {
+    enabled: countdown === null,
+    trapPlaying,
+    heroPlaying,
+    heroMusicCutRequested,
+    heroMenuWarmupActive,
+  });
 
   // Sandbox uses its own layout (SandboxPanel sidebar), not GameScreen.
   const sandboxIsGremlinTurn = gameState?.sandboxMode
@@ -386,6 +412,8 @@ export default function LocalGameController({
               trapPlaying={trapPlaying}
               heroPlaying={heroPlaying}
               onHeroDismiss={dismissHero}
+              onHeroBeforeFanfare={handleHeroBeforeFanfare}
+              onHeroAfterFanfareStart={handleHeroAfterFanfareStart}
             />
             <AnimatePresence>
               {exitConfirm && (

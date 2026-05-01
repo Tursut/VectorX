@@ -71,6 +71,8 @@ export default function GameScreen({
   // when the user taps "TAP TO CONTINUE".
   heroPlaying = false,
   onHeroDismiss = null,
+  onHeroBeforeFanfare = null,
+  onHeroAfterFanfareStart = null,
 }) {
   // (useWinnerHero now lives in the controllers; see prop list above.)
 
@@ -262,6 +264,8 @@ export default function GameScreen({
             winner={gameOverWinner}
             onContinue={onHeroDismiss}
             soundKey={heroSoundKey}
+            onBeforeFanfare={onHeroBeforeFanfare}
+            onAfterFanfareStart={onHeroAfterFanfareStart}
           />
         )}
       </AnimatePresence>

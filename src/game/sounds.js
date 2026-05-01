@@ -306,6 +306,7 @@ const MENU_FILE = `${import.meta.env.BASE_URL}bg-menu.mp3`;
 // Default fade-out length when stopping a track (issue: menu used to cut
 // abruptly the moment the countdown started). Used by both tracks.
 const TRACK_FADE_OUT_MS = 500;
+const FAST_TRACK_FADE_OUT_MS = 90;
 
 function makeBgTrack(file, volume) {
   let playing = false;
@@ -484,6 +485,9 @@ const menuTrack = makeBgTrack(MENU_FILE, MENU_VOLUME);
 
 export const startBgTheme = bgTrack.start;
 export const stopBgTheme = bgTrack.stop;
+export function stopBgThemeFast() {
+  stopBgTheme({ fadeMs: FAST_TRACK_FADE_OUT_MS });
+}
 export const startMenuTheme = menuTrack.start;
 export const stopMenuTheme = menuTrack.stop;
 

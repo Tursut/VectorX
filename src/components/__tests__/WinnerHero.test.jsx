@@ -50,4 +50,22 @@ describe('WinnerHero', () => {
     expect(sounds.playWin).not.toHaveBeenCalled();
   });
 
+  it('fires handoff callbacks around fanfare start', () => {
+    const onBeforeFanfare = vi.fn();
+    const onAfterFanfareStart = vi.fn();
+    render(
+      <WinnerHero
+        winner={winner}
+        onContinue={() => {}}
+        soundKey="g4"
+        onBeforeFanfare={onBeforeFanfare}
+        onAfterFanfareStart={onAfterFanfareStart}
+      />,
+    );
+    act(() => vi.advanceTimersByTime(0));
+    expect(onBeforeFanfare).toHaveBeenCalledOnce();
+    expect(sounds.playWin).toHaveBeenCalledOnce();
+    expect(onAfterFanfareStart).toHaveBeenCalledOnce();
+  });
+
 });

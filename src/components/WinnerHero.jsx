@@ -5,19 +5,43 @@
 // want, so no auto-dismiss.
 
 import { motion } from 'framer-motion';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import * as sounds from '../game/sounds';
 
-export default function WinnerHero({ winner, onContinue, soundKey = null }) {
+export default function WinnerHero({
+  winner,
+  onContinue,
+  soundKey = null,
+  onBeforeFanfare = null,
+  onAfterFanfareStart = null,
+}) {
+  const playedSoundKeyRef = useRef(null);
+  const beforeFanfareRef = useRef(onBeforeFanfare);
+  const afterFanfareRef = useRef(onAfterFanfareStart);
+
+  useEffect(() => {
+    beforeFanfareRef.current = onBeforeFanfare;
+  }, [onBeforeFanfare]);
+  useEffect(() => {
+    afterFanfareRef.current = onAfterFanfareStart;
+  }, [onAfterFanfareStart]);
+
   // Hooks must come before any conditional return (rules of hooks).
   // StrictMode mounts effects twice (mount → cleanup → remount). Using a
   // macrotask (setTimeout) means StrictMode's synchronous cleanup cancels
   // the fake-mount timer before it fires — only the real mount ever plays.
   useEffect(() => {
-    if (!soundKey) return undefined;
-    const t = setTimeout(() => sounds.playWin(), 0);
+    if (!winner || !soundKey) return undefined;
+    if (playedSoundKeyRef.current === soundKey) return undefined;
+    const t = setTimeout(() => {
+      if (playedSoundKeyRef.current === soundKey) return;
+      playedSoundKeyRef.current = soundKey;
+      if (typeof beforeFanfareRef.current === 'function') beforeFanfareRef.current();
+      sounds.playWin();
+      if (typeof afterFanfareRef.current === 'function') afterFanfareRef.current();
+    }, 0);
     return () => clearTimeout(t);
-  }, [soundKey]);
+  }, [winner, soundKey]);
 
   if (!winner) return null;
 

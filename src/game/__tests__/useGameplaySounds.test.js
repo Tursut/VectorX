@@ -10,6 +10,7 @@ vi.mock('../sounds', () => ({
   resumeAudio: vi.fn(),
   startBgTheme: vi.fn(),
   stopBgTheme: vi.fn(),
+  stopBgThemeFast: vi.fn(),
   startMenuTheme: vi.fn(),
   stopMenuTheme: vi.fn(),
   playMove: vi.fn(),
@@ -135,6 +136,38 @@ describe('useGameplaySounds — menu vs in-game theme', () => {
     expect(sounds.startBgTheme).toHaveBeenCalledOnce();
     rerender({ s: baseState({ phase: 'gameover', winner: 0 }), seats: [0] });
     expect(sounds.stopBgTheme).toHaveBeenCalled();
+    expect(sounds.startMenuTheme).toHaveBeenCalledOnce();
+  });
+
+  it('holds both themes silent during winner handoff, then starts menu on warmup', () => {
+    const { rerender } = renderHook(
+      ({ s, seats, opts }) => useGameplaySounds(s, seats, opts),
+      { initialProps: { s: baseState({ phase: 'playing' }), seats: [0], opts: {} } },
+    );
+    expect(sounds.startBgTheme).toHaveBeenCalledOnce();
+
+    rerender({
+      s: baseState({ phase: 'gameover', winner: 0 }),
+      seats: [0],
+      opts: {
+        heroPlaying: true,
+        heroMusicCutRequested: true,
+        heroMenuWarmupActive: false,
+      },
+    });
+    expect(sounds.stopBgTheme).toHaveBeenCalled();
+    expect(sounds.stopMenuTheme).toHaveBeenCalled();
+    expect(sounds.startMenuTheme).not.toHaveBeenCalled();
+
+    rerender({
+      s: baseState({ phase: 'gameover', winner: 0 }),
+      seats: [0],
+      opts: {
+        heroPlaying: false,
+        heroMusicCutRequested: true,
+        heroMenuWarmupActive: true,
+      },
+    });
     expect(sounds.startMenuTheme).toHaveBeenCalledOnce();
   });
 

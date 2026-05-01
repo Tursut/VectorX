@@ -13,7 +13,7 @@
 // All in-game rendering + sound/animation lives in <GameScreen>, shared with
 // LocalGameController. This component only owns the socket + lobby shell.
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { wsUrl } from './config';
 import { TURN_TIME } from './game/constants';
@@ -65,6 +65,8 @@ export default function OnlineGameController({
   const [exitConfirm, setExitConfirm] = useState(false);
   const [timeLeft, setTimeLeft] = useState(TURN_TIME);
   const [showLobbyFromGameOver, setShowLobbyFromGameOver] = useState(false);
+  const [heroMusicCutRequested, setHeroMusicCutRequested] = useState(false);
+  const [heroMenuWarmupActive, setHeroMenuWarmupActive] = useState(false);
 
   // Pre-game 3-2-1-GO countdown (issue #26). Starts the moment we
   // observe the first GAME_STATE with phase==='playing'; runs purely
@@ -105,6 +107,24 @@ export default function OnlineGameController({
   // Winner hero phase (#60). See LocalGameController for rationale.
   const { heroPlaying, dismissHero } = useWinnerHero(gameState, trapPlaying);
 
+  const handleHeroBeforeFanfare = useCallback(() => {
+    setHeroMusicCutRequested(true);
+    sounds.stopBgThemeFast();
+  }, []);
+
+  const handleHeroAfterFanfareStart = useCallback(() => {
+    // Start menu music while hero is visible (not waiting for leaderboard).
+    setHeroMenuWarmupActive(true);
+  }, []);
+
+  useEffect(() => {
+    const winner = gameState?.winner;
+    const hasWinner = winner !== null && winner !== undefined;
+    if (gameState?.phase === 'gameover' && hasWinner) return;
+    setHeroMusicCutRequested(false);
+    setHeroMenuWarmupActive(false);
+  }, [gameState?.phase, gameState?.winner]);
+
   // Turn-timer visualization. The server is authoritative — it schedules the
   // real alarm and forfeits the seat on expiry — we just drive the indicator
   // bar with a client-local tick so the player can see time running down.
@@ -140,7 +160,13 @@ export default function OnlineGameController({
   useGameplaySounds(
     gameState,
     mySeatId !== null && mySeatId !== undefined ? [mySeatId] : [],
-    { enabled: countdown === null, trapPlaying, heroPlaying },
+    {
+      enabled: countdown === null,
+      trapPlaying,
+      heroPlaying,
+      heroMusicCutRequested,
+      heroMenuWarmupActive,
+    },
   );
 
   // Send HELLO on every transition INTO 'open'. The ref is reset on any other
@@ -413,6 +439,8 @@ export default function OnlineGameController({
           trapPlaying={trapPlaying}
           heroPlaying={heroPlaying}
           onHeroDismiss={dismissHero}
+          onHeroBeforeFanfare={handleHeroBeforeFanfare}
+          onHeroAfterFanfareStart={handleHeroAfterFanfareStart}
         />
         {exitConfirmModal}
         <AudioDebugOverlay enabled={audioDebugEnabled} />
@@ -476,6 +504,8 @@ export default function OnlineGameController({
           trapPlaying={trapPlaying}
           heroPlaying={heroPlaying}
           onHeroDismiss={dismissHero}
+          onHeroBeforeFanfare={handleHeroBeforeFanfare}
+          onHeroAfterFanfareStart={handleHeroAfterFanfareStart}
         />
         {exitConfirmModal}
         <AudioDebugOverlay enabled={audioDebugEnabled} />

@@ -406,13 +406,15 @@ The online branch is gated by `ENABLE_ONLINE && mode === 'online'`. With `VITE_E
 
 Post-unification, the split is:
 
-**`GameScreen.jsx`** — iOS audio-context resume, background theme, move + claim + your-turn chime on turn change, freeze/swap event sounds, elimination detection (the 450ms wind-up → trap animation → 2.5s settle → elimination sound chain), win/draw sound gated on the trap animation completing, and the GameOverScreen gating. One place to add or tune any observational in-game effect.
+**`GameScreen.jsx`** — shared in-game rendering + overlay routing: board/panels, trap visuals, winner hero overlay, and GameOverScreen gating. It also computes the per-gameover `heroSoundKey` and passes winner-hero callbacks down so controllers can coordinate audio handoff timing.
 
 **`useDerivedAnimations.js`** — the four transient animation overlays (`bombBlast`, `portalJump`, `swapFlash`, `flyingFreeze`) + their item-pickup sounds (`playBomb`, `playPortal`, `playSwapActivate`, `playPortalJump`). Called from each controller once; feeds into GameScreen as props.
 
-**`LocalGameController.jsx`** — screen state (`start | game | sandbox`), pre-game countdown (3-2-1-GO + sounds), the turn timer (setInterval + `playTick` on last 3s, dispatches `TIMEOUT`), the gremlin auto-move scheduler, and the exit-confirm modal. Specific to hotseat because server owns these concerns online.
+**`LocalGameController.jsx`** — screen state (`start | game | sandbox`), pre-game countdown (3-2-1-GO + sounds), the turn timer (setInterval + `playTick` on last 3s, dispatches `TIMEOUT`), the gremlin auto-move scheduler, exit-confirm modal, and winner-audio handoff state (`heroMusicCutRequested` + `heroMenuWarmupActive`) that cuts bg music before fanfare and starts menu music 2s later.
 
-**`OnlineGameController.jsx`** — socket lifecycle (`useNetworkGame`), HELLO handshake, connection-state screens, lobby rendering.
+**`OnlineGameController.jsx`** — socket lifecycle (`useNetworkGame`), HELLO handshake, connection-state screens, lobby rendering, plus the same winner-audio handoff state machine as local so endgame music timing matches across modes.
+
+**`useGameplaySounds.js`** — controller-level gameplay sound policy (bg/menu theme ownership, move/claim/your-turn). Winner handoff behavior is centralized here: once controllers request the hero cut, both themes stay silent until the 2s warmup flips on, then the menu loop starts and continues into leaderboard without restart.
 
 ## Gotchas & invariants
 

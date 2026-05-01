@@ -9,7 +9,17 @@ import { useEffect, useRef } from 'react';
 import { isBotPlayer, shouldRouletteFreezeSwap } from './rouletteCriteria';
 import * as sounds from './sounds';
 
-export function useGameplaySounds(gameState, mySeats = [], { enabled = true, trapPlaying = false, heroPlaying = false } = {}) {
+export function useGameplaySounds(
+  gameState,
+  mySeats = [],
+  {
+    enabled = true,
+    trapPlaying = false,
+    heroPlaying = false,
+    heroMusicCutRequested = false,
+    heroMenuWarmupActive = false,
+  } = {},
+) {
   const prevTurnRef = useRef(null);
 
   // (iOS audio-recovery listeners now live at module load in sounds.js so
@@ -22,32 +32,49 @@ export function useGameplaySounds(gameState, mySeats = [], { enabled = true, tra
   // The `enabled` flag (#35) keeps both silent during the pre-game
   // 3-2-1-GO countdown. The `trapPlaying` + `heroPlaying` flags hold
   // the menu music until trap chain (#36) and winner hero are done.
+  // Winner hero handoff (#66):
+  //   1) very fast bg cut right before fanfare
+  //   2) 2s silent gap under the fanfare tail
+  //   3) menu theme starts (from start) while still on hero/leaderboard
   useEffect(() => {
     if (!enabled) {
       sounds.stopBgTheme();
       sounds.stopMenuTheme();
       return undefined;
     }
+    const phase = gameState?.phase;
+    const hasWinner = gameState?.winner !== null && gameState?.winner !== undefined;
+    const winnerHandoffWaiting =
+      phase === 'gameover' &&
+      hasWinner &&
+      heroMusicCutRequested &&
+      !heroMenuWarmupActive;
     // bg-spring keeps playing all the way through the in-game flow:
     //   - phase=='playing'                 (live game)
     //   - phase=='gameover' && trapPlaying (death animation)
-    //   - phase=='gameover' && heroPlaying (winner spotlight, #60)
+    //   - phase=='gameover' && heroPlaying && !heroMusicCutRequested
+    //     (winner spotlight before fanfare handoff #66)
     // Stops only when the leaderboard takes over, so the player
     // doesn't experience a silent "limbo" between the second-to-last
-    // death and the leaderboard.
+    // death and the fanfare handoff.
     const inGameAudio =
-      gameState?.phase === 'playing' ||
-      (gameState?.phase === 'gameover' && (trapPlaying || heroPlaying));
+      phase === 'playing' ||
+      (phase === 'gameover' && (trapPlaying || (heroPlaying && !heroMusicCutRequested)));
     if (inGameAudio) {
       sounds.stopMenuTheme();
       sounds.startBgTheme();
       return undefined;
     }
+    if (winnerHandoffWaiting) {
+      sounds.stopBgTheme();
+      sounds.stopMenuTheme();
+      return undefined;
+    }
     sounds.stopBgTheme();
-    // Start screen / lobby / post-hero leaderboard → menu immediately.
+    // Start screen / lobby / post-handoff hero / leaderboard → menu.
     sounds.startMenuTheme();
     return undefined;
-  }, [gameState?.phase, enabled, trapPlaying, heroPlaying]);
+  }, [gameState?.phase, gameState?.winner, enabled, trapPlaying, heroPlaying, heroMusicCutRequested, heroMenuWarmupActive]);
 
   // Freeze / swap apply sounds moved to useDerivedAnimations#fireImmediate
   // so they line up with the deferred visual after the bot-pick roulette
