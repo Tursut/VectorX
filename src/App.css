@@ -889,6 +889,11 @@
   z-index: 10;
 }
 
+/* Lobby keeps the sticky CTA but without the bottom fade veil. */
+.lobby-start-button-bar {
+  background: transparent;
+}
+
 .waiting-flourish-overlay {
   position: fixed;
   inset: 0;
@@ -1209,6 +1214,21 @@
   transform: translateY(0) scale(0.98);
 }
 
+/* Inline online CTA stays clickable so validation can surface errors (same idea as aria-disabled sticky bar). */
+.start-button-muted {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: 0 4px 14px rgba(231, 76, 60, 0.25);
+}
+
+/* In-drawer CREATE/JOIN — same gradient as sticky bar, full width of card. */
+.online-inline-primary {
+  max-width: none;
+  margin-top: 4px;
+  box-sizing: border-box;
+}
+
 .sandbox-entry-btn {
   background: none;
   border: none;
@@ -1354,6 +1374,12 @@
 .sandbox-ctrl-btn:hover { background: #1e1e3e; color: #ccccee; }
 .sandbox-reset-btn:hover { color: #f39c12; border-color: #f39c12; }
 .sandbox-exit-btn:hover  { color: #e74c3c; border-color: #e74c3c; }
+.sandbox-debug-btn:hover { color: #c8caff; border-color: #7a8cff; }
+.sandbox-debug-btn.is-active {
+  color: #c8caff;
+  border-color: #7a8cff;
+  box-shadow: 0 0 10px rgba(122, 140, 255, 0.28);
+}
 
 .sandbox-sound-section {
   margin-top: 14px;
@@ -2330,6 +2356,8 @@
 .lobby-hero {
   display: flex;
   flex-direction: column;
+  align-items: center;
+  text-align: center;
 }
 /* Sibling of .start-title — same Fredoka One + clamp + glow pulse, scaled
    down because LOBBY is a sub-screen, not the app's home title. */
@@ -2616,55 +2644,6 @@
   text-align: center;
   margin: 0;
   line-height: 1.45;
-}
-
-/* "or" divider between the form and the alternative-mode button.
-   Horizontal hairlines flank a tiny uppercase label so the eye reads
-   the separation as "two distinct paths" instead of one continuous
-   form. */
-.online-divider {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-family: 'Segoe UI', sans-serif;
-  font-size: 11px;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  color: #66668a;
-  margin: 4px 0;
-}
-.online-divider::before,
-.online-divider::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: #2a2a44;
-}
-
-/* Alternative-mode button inside the online drawer. Styled as a
-   secondary button — lavender-bordered, full width, transparent fill —
-   so it reads as a real second path next to the primary CTA at the
-   bottom, not a fine-print toggle. Same vocabulary as the
-   .hero-button-secondary used on the menu, just smaller. */
-.online-mode-toggle {
-  background: none;
-  border: 1.5px solid #333355;
-  color: #c8caff;
-  font-family: 'Segoe UI', sans-serif;
-  font-size: 14px;
-  cursor: pointer;
-  text-align: center;
-  padding: 11px 14px;
-  border-radius: 10px;
-  letter-spacing: 0.3px;
-  transition: color 0.15s, border-color 0.15s, background 0.15s;
-}
-@media (hover: hover) {
-  .online-mode-toggle:hover {
-    color: #ffffff;
-    border-color: #7a8cff;
-    background: rgba(122, 140, 255, 0.08);
-  }
 }
 
 /* Mode drawer — wraps the per-view form blocks (online + local).

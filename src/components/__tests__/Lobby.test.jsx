@@ -85,6 +85,36 @@ describe('Lobby — host-only controls', () => {
     expect(onStart).toHaveBeenCalled();
   });
 
+  it('shows Magic/Classic for host when onMagicItemsChange is provided', () => {
+    const onMagicItemsChange = vi.fn();
+    render(
+      <Lobby
+        code="Q7K4N"
+        players={fourPlayers}
+        hostId={0}
+        mySeatId={0}
+        magicItems={false}
+        onMagicItemsChange={onMagicItemsChange}
+      />,
+    );
+    expect(screen.getByRole('button', { name: /magic/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /classic/i })).toBeInTheDocument();
+  });
+
+  it('hides Magic/Classic for non-host even with onMagicItemsChange', () => {
+    render(
+      <Lobby
+        code="Q7K4N"
+        players={fourPlayers}
+        hostId={0}
+        mySeatId={1}
+        magicItems={false}
+        onMagicItemsChange={() => {}}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: /magic/i })).toBeNull();
+  });
+
 });
 
 describe('Lobby — leave', () => {

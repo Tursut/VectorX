@@ -5,15 +5,8 @@ import { TURN_TIME } from '../game/constants';
 let mockRouletteActive = false;
 const mockMove = vi.fn();
 
-vi.mock('framer-motion', () => ({
-  AnimatePresence: ({ children }) => <>{children}</>,
-  motion: {
-    div: ({ children, ...props }) => <div {...props}>{children}</div>,
-  },
-}));
-
-vi.mock('../net/useNetworkGame', () => ({
-  useNetworkGame: () => ({
+function createDefaultNetworkMock() {
+  return {
     gameState: {
       phase: 'playing',
       turnCount: 1,
@@ -33,7 +26,21 @@ vi.mock('../net/useNetworkGame', () => ({
     restartRoom: vi.fn(),
     move: mockMove,
     clearError: vi.fn(),
-  }),
+  };
+}
+
+/** @type {ReturnType<typeof createDefaultNetworkMock>} */
+let mockNetwork = createDefaultNetworkMock();
+
+vi.mock('framer-motion', () => ({
+  AnimatePresence: ({ children }) => <>{children}</>,
+  motion: {
+    div: ({ children, ...props }) => <div {...props}>{children}</div>,
+  },
+}));
+
+vi.mock('../net/useNetworkGame', () => ({
+  useNetworkGame: () => mockNetwork,
 }));
 
 vi.mock('../game/useDerivedAnimations', () => ({
@@ -93,12 +100,14 @@ vi.mock('../game/sounds', () => ({
 }));
 
 import OnlineGameController from '../OnlineGameController';
+import { useBackGuard } from '../useBackGuard';
 
 describe('OnlineGameController timer', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.clearAllMocks();
     mockRouletteActive = false;
+    mockNetwork = createDefaultNetworkMock();
   });
 
   afterEach(() => {
@@ -128,5 +137,71 @@ describe('OnlineGameController timer', () => {
       vi.advanceTimersByTime(1000);
     });
     expect(screen.getByTestId('time-left')).toHaveTextContent(String(TURN_TIME - 1));
+  });
+});
+
+describe('OnlineGameController browser back guard', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockNetwork = createDefaultNetworkMock();
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  it('activates useBackGuard when host is in post-restart lobby (gameover + lobby phase)', () => {
+    mockNetwork = {
+      ...createDefaultNetworkMock(),
+      gameState: {
+        phase: 'gameover',
+        turnCount: 3,
+        currentPlayerIndex: 0,
+        winner: 0,
+        players: [{ id: 0 }, { id: 1 }, { id: 2 }, { id: 3 }],
+      },
+      lobby: {
+        phase: 'lobby',
+        hostId: 0,
+        players: [{ id: 0, displayName: 'Host', isBot: false, isHost: true }],
+      },
+      mySeatId: 0,
+    };
+    const { rerender } = render(
+      <OnlineGameController code="ABCDE" displayName="Host" onExit={() => {}} />,
+    );
+    rerender(<OnlineGameController code="ABCDE" displayName="Host" onExit={() => {}} />);
+
+    expect(screen.getByTestId('lobby')).toBeInTheDocument();
+    expect(vi.mocked(useBackGuard).mock.calls.some(([active]) => active === true)).toBe(true);
+  });
+
+  it('does not activate useBackGuard for joiner on gameover board before they tap JOIN ROOM', () => {
+    mockNetwork = {
+      ...createDefaultNetworkMock(),
+      gameState: {
+        phase: 'gameover',
+        turnCount: 3,
+        currentPlayerIndex: 0,
+        winner: 0,
+        players: [{ id: 0 }, { id: 1 }, { id: 2 }, { id: 3 }],
+      },
+      lobby: {
+        phase: 'lobby',
+        hostId: 0,
+        players: [
+          { id: 0, displayName: 'Host', isBot: false, isHost: true },
+          { id: 1, displayName: 'Joiner', isBot: false, isHost: false },
+        ],
+      },
+      mySeatId: 1,
+    };
+    const { rerender } = render(
+      <OnlineGameController code="ABCDE" displayName="Joiner" onExit={() => {}} />,
+    );
+    rerender(<OnlineGameController code="ABCDE" displayName="Joiner" onExit={() => {}} />);
+
+    expect(screen.getByTestId('time-left')).toBeInTheDocument();
+    expect(vi.mocked(useBackGuard).mock.calls.every(([active]) => active === false)).toBe(true);
   });
 });

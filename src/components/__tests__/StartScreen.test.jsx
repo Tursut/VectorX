@@ -2,8 +2,8 @@
 // online (multiplayer drawer with name + create/join sub-state), local
 // (hotseat slider). Cold-open share-link + retry-after-rejection skip
 // the menu and land directly in the online view in join mode. Joiners
-// (online + join + valid code) get a stripped view — the Magic/Classic
-// block, the create/join toggle, and the rules list all hide.
+// (online + join + valid code) get a stripped view — no create/join hero,
+// and the rules list hides.
 
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -103,13 +103,13 @@ describe('StartScreen — online view sub-states', () => {
     expect(screen.getByRole('button', { name: /join room →/i })).toBeInTheDocument();
   });
 
-  it('the toggle flips back to create — "host a new room" copy on it', async () => {
+  it('the toggle flips back to create — "HOST A ROOM" copy on it', async () => {
     const user = userEvent.setup();
     render(<StartScreen {...withOnline()} />);
     await user.click(screen.getByTestId('hero-play-online'));
     const toggle = await screen.findByTestId('toggle-join-mode');
     await user.click(toggle);
-    expect(screen.getByTestId('toggle-join-mode')).toHaveTextContent(/host a new room/i);
+    expect(screen.getByTestId('toggle-join-mode')).toHaveTextContent(/host a room/i);
     await user.click(screen.getByTestId('toggle-join-mode'));
     expect(screen.queryByLabelText(/room code/i)).toBeNull();
   });
@@ -174,7 +174,9 @@ describe('StartScreen — primary button label', () => {
     const user = userEvent.setup();
     render(<StartScreen {...withOnline()} />);
     await user.click(screen.getByTestId('hero-play-online'));
-    expect(screen.getByRole('button', { name: /create room →/i })).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /create room →/i })).toBeInTheDocument(),
+    );
   });
 
   it('is "JOIN ROOM" in online/join view with a valid code', () => {
@@ -206,12 +208,15 @@ describe('StartScreen — magic toggle visibility', () => {
     expect(screen.queryByRole('button', { name: /^✨ magic/i })).toBeNull();
   });
 
-  it('shows Magic/Classic in online/create view', async () => {
+  it('hides Magic/Classic in online/create view (host picks in lobby)', async () => {
     const user = userEvent.setup();
     render(<StartScreen {...withOnline()} />);
     await user.click(screen.getByTestId('hero-play-online'));
-    expect(await screen.findByRole('button', { name: /magic/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /classic/i })).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByRole('textbox', { name: /your name/i })).toBeInTheDocument(),
+    );
+    expect(screen.queryByRole('button', { name: /^✨ magic/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /classic/i })).toBeNull();
   });
 
   it('shows Magic/Classic in local view', async () => {

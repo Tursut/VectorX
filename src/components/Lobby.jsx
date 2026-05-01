@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ITEM_TYPES } from '../game/constants';
 import { playClick } from '../game/sounds';
 
 const MAX_PLAYERS = 4;
@@ -44,6 +45,8 @@ export default function Lobby({
   players = [],
   hostId,
   mySeatId,
+  magicItems = false,
+  onMagicItemsChange,
   onStart,
   onLeave,
 }) {
@@ -167,6 +170,45 @@ export default function Lobby({
         {!isHost && (
           <p className="lobby-wait-note">Waiting for the host to start…</p>
         )}
+
+        {isHost && typeof onMagicItemsChange === 'function' && (
+          <div className="mode-section lobby-magic-section">
+            <div className="mode-selector">
+              <button
+                type="button"
+                className={`mode-btn ${magicItems ? 'mode-btn-active mode-btn-magic' : ''}`}
+                onClick={() => { playClick(); if (!magicItems) onMagicItemsChange(true); }}
+              >
+                <span className="mode-btn-icon">✨</span>
+                <span className="mode-btn-label">MAGIC</span>
+                <span className="mode-btn-sub">Items appear. Things get interesting.</span>
+              </button>
+              <button
+                type="button"
+                className={`mode-btn ${!magicItems ? 'mode-btn-active mode-btn-classic' : ''}`}
+                onClick={() => { playClick(); if (magicItems) onMagicItemsChange(false); }}
+              >
+                <span className="mode-btn-icon">⚔️</span>
+                <span className="mode-btn-label">CLASSIC</span>
+                <span className="mode-btn-sub">Pure territory, no surprises.</span>
+              </button>
+            </div>
+
+            {magicItems && (
+              <div className="magic-items-list">
+                {Object.values(ITEM_TYPES).map((item) => (
+                  <div key={item.type} className="magic-item-entry">
+                    <span className="magic-item-icon">{item.icon}</span>
+                    <div>
+                      <span className="magic-item-name" style={{ color: item.color }}>{item.name}</span>
+                      <span className="magic-item-desc"> — {item.desc}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </section>
 
       {/* Exit-to-menu button sits OUTSIDE the lobby card so it visually
@@ -187,7 +229,7 @@ export default function Lobby({
           gradient button at the bottom of the start screen → land in the
           lobby → tap the same orange gradient button at the bottom to play. */}
       {isHost && (
-        <div className="start-button-bar">
+        <div className="start-button-bar lobby-start-button-bar">
           <button
             type="button"
             className="start-button"

@@ -276,9 +276,9 @@ export default function StartScreen({
     isOnline ? 'CREATE ROOM →' :
     'START THE GAME →';
 
-  // Joiners don't pick magic items — the host does. Hide Magic/Classic
-  // toggle in that case; create + local views see it.
-  const showMagicToggle = !isJoiner && (isLocal || (isOnline && !joinMode));
+  // Magic/Classic is a pass-and-play + host-lobby choice only; online
+  // create/join no longer shows it (issue #64).
+  const showMagicToggle = isLocal && !isJoiner;
 
   const nameInput = (
     <>
@@ -509,22 +509,35 @@ at:          ${onlineErrorDebug.at ?? '(unknown)'}`}
                   {submitError === 'code' && (
                     <p className="field-error" role="alert">Enter a 5-character room code.</p>
                   )}
-                  {!isJoiner && (
-                    <>
-                      <div className="online-divider" aria-hidden="true">or</div>
-                      <button
-                        type="button"
-                        className="online-mode-toggle"
-                        data-testid="toggle-join-mode"
-                        onClick={toggleJoinMode}
-                      >
-                        {joinMode ? 'host a new room instead →' : 'got a code? join a room →'}
-                      </button>
-                    </>
-                  )}
                   {errorBlock}
+                  {!creatingRoom && (
+                    <button
+                      type="button"
+                      className={`start-button online-inline-primary${!canSubmit ? ' start-button-muted' : ''}`}
+                      data-testid="primary-button"
+                      onClick={handlePrimaryClick}
+                      aria-disabled={!canSubmit}
+                    >
+                      {primaryLabel}
+                    </button>
+                  )}
                 </div>
               </div>
+              {!isJoiner && (
+                <button
+                  type="button"
+                  className="hero-button hero-button-secondary online-join-hero"
+                  data-testid="toggle-join-mode"
+                  onClick={toggleJoinMode}
+                >
+                  <span className="hero-button-label">
+                    {joinMode ? 'HOST A ROOM' : 'GOT A CODE?'}
+                  </span>
+                  <span className="hero-button-sub">
+                    {joinMode ? 'Create a new room instead' : 'Join a room'}
+                  </span>
+                </button>
+              )}
               <button
                 type="button"
                 className="exit-game-btn back-to-menu"
@@ -575,7 +588,7 @@ at:          ${onlineErrorDebug.at ?? '(unknown)'}`}
           </div>
         )}
 
-        {isOnline && joinMode && !showMagicToggle && (
+        {isOnline && joinMode && (
           <div className="mode-hostnote">
             <span className="mode-btn-icon">✨</span>
             The host picks magic items for this room.
@@ -611,7 +624,7 @@ at:          ${onlineErrorDebug.at ?? '(unknown)'}`}
                 <WaitingFlourish />
               </motion.div>
             </div>
-          ) : (
+          ) : isLocal ? (
             <div className="start-button-bar">
               <AnimatePresence mode="wait" initial={false}>
                 <motion.button
@@ -629,7 +642,7 @@ at:          ${onlineErrorDebug.at ?? '(unknown)'}`}
                 </motion.button>
               </AnimatePresence>
             </div>
-          )}
+          ) : null}
         </>
       )}
 

@@ -1,7 +1,8 @@
 // Online multiplayer game renderer.
 //
 // Receives an already-established room (`code`) + the joining user's chosen
-// identity (`displayName` + `initialMagicItems`) from the parent (App.jsx).
+// identity (`displayName`) from the parent (App.jsx). `initialMagicItems`
+// seeds the host lobby toggle until START.
 // Owns the WebSocket lifetime via useNetworkGame. Routes on connection state
 // + game phase:
 //
@@ -59,9 +60,7 @@ export default function OnlineGameController({
     clearError,
   } = useNetworkGame({ url });
 
-  // setter isn't wired up yet — the host's magic-toggle UI in the lobby would
-  // own it; for now we just lock the value from the prop at mount.
-  const [magicItems] = useState(initialMagicItems);
+  const [magicItems, setMagicItems] = useState(initialMagicItems);
   const [soundEnabled, setSoundEnabled] = useState(() => !sounds.loadMutedPreference());
   const [exitConfirm, setExitConfirm] = useState(false);
   const [timeLeft, setTimeLeft] = useState(TURN_TIME);
@@ -239,16 +238,24 @@ export default function OnlineGameController({
     sounds.setMuted(!next);
   }
 
-  // Browser back-button guard (issue #29). Active iff we're rendering
-  // the lobby or an active game — NOT any of the StatusScreen variants
-  // (connect / closed / fatal / joining) where back should leave
-  // naturally, and NOT gameover where the result is final.
+  // Derived before early returns so useBackGuard sees post-restart lobby too.
+  const iAmHost =
+    lobby != null &&
+    mySeatId !== null &&
+    mySeatId !== undefined &&
+    lobby.hostId === mySeatId;
+  const onlineGameOver = gameState?.phase === 'gameover';
+  const roomRestarted = onlineGameOver && lobby?.phase === 'lobby';
+  const showLobbyNow = roomRestarted && (iAmHost || showLobbyFromGameOver);
+
+  // Browser back-button guard (issue #29). Same modal as in-app exit when
+  // we're in lobby UI or mid-play; off on bare gameover board and status screens.
   const guardActive =
     connectionState === 'open' &&
     helloSent.current &&
     !lastError &&
     lobby !== null &&
-    (!gameState || gameState.phase === 'playing');
+    (!gameState || gameState.phase === 'playing' || showLobbyNow);
   useBackGuard(guardActive, () => setExitConfirm(true));
 
   // Hide the App-level MenuAvatarStage on screens that need full focus:
@@ -310,13 +317,6 @@ export default function OnlineGameController({
   // to warn about. Mirrors LocalGameController's pattern.
   const inGameover = gameState?.phase === 'gameover';
   const requestExit = inGameover ? onExit : () => setExitConfirm(true);
-
-  const iAmHost = mySeatId !== null && mySeatId !== undefined && lobby?.hostId === mySeatId;
-  const onlineGameOver = gameState?.phase === 'gameover';
-  const roomRestarted = onlineGameOver && lobby?.phase === 'lobby';
-  // Host auto-transitions to lobby once the server confirms the restart
-  // (lobby.phase flips to 'lobby'). Joiners need an explicit "JOIN ROOM" click.
-  const showLobbyNow = roomRestarted && (iAmHost || showLobbyFromGameOver);
 
   let restartLabel = 'PLAY AGAIN';
   let restartDisabled = false;
@@ -492,6 +492,8 @@ export default function OnlineGameController({
         players={lobby.players}
         hostId={lobby.hostId}
         mySeatId={mySeatId}
+        magicItems={magicItems}
+        onMagicItemsChange={setMagicItems}
         onStart={() => {
           sounds.logAudioDebugEvent('gesture-online-lobby-start');
           sounds.resumeAudio();
