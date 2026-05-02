@@ -11,7 +11,9 @@ posthog.init(import.meta.env.VITE_POSTHOG_KEY || 'phc_s59K2SNa6Rv3bCd8A3fRYZXc6e
   capture_pageview: false,
   capture_pageleave: false,
   autocapture: false,
+  disable_session_recording: true,
   persistence: 'localStorage',
+  bootstrap: { featureFlags: {} },
 })
 
 createRoot(document.getElementById('root')).render(
