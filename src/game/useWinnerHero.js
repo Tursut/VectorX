@@ -57,5 +57,5 @@ export function useWinnerHero(gameState, trapPlaying) {
     setHeroEnded(true);
   }, []);
 
-  return { heroPlaying, dismissHero };
+  return { heroPlaying, dismissHero, heroEnded };
 }

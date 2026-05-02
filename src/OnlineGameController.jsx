@@ -107,7 +107,7 @@ export default function OnlineGameController({
   const { trappedPlayers, trapPlaying } = useTrapChain(gameState);
 
   // Winner hero phase (#60). See LocalGameController for rationale.
-  const { heroPlaying, dismissHero } = useWinnerHero(gameState, trapPlaying);
+  const { heroPlaying, dismissHero, heroEnded } = useWinnerHero(gameState, trapPlaying);
 
   const handleHeroBeforeFanfare = useCallback(() => {
     setHeroMusicCutRequested(true);
@@ -165,7 +165,7 @@ export default function OnlineGameController({
     {
       enabled: countdown === null,
       trapPlaying,
-      heroPlaying,
+      heroEnded,
       heroMusicCutRequested,
       heroMenuWarmupActive,
     },

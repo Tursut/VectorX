@@ -15,7 +15,7 @@ export function useGameplaySounds(
   {
     enabled = true,
     trapPlaying = false,
-    heroPlaying = false,
+    heroEnded = false,
     heroMusicCutRequested = false,
     heroMenuWarmupActive = false,
   } = {},
@@ -30,13 +30,18 @@ export function useGameplaySounds(
   //   - in-game (bg-spring) plays while phase === 'playing'
   //   - menu (bg-menu) plays in the start screen / lobby / leaderboard
   // The `enabled` flag (#35) keeps both silent during the pre-game
-  // 3-2-1-GO countdown. The `trapPlaying` + `heroPlaying` flags hold
-  // the menu music until trap chain (#36) and winner hero are done.
+  // 3-2-1-GO countdown. `trapPlaying` and winner-hero `heroEnded` / cut
+  // flags hold the menu music until trap chain (#36) and fanfare are done.
   // Winner hero handoff (#66):
   //   1) very fast bg cut right before fanfare
   //   2) 2s silent gap under the fanfare tail
   //   3) menu theme starts (from start) while still on hero/leaderboard
+  // sounds.js latches bg starts after stopBgThemeFast until menu wins or
+  // a new playing phase clears it — avoids one stray startBgTheme restart.
   useEffect(() => {
+    if (gameState?.phase === 'playing') {
+      sounds.clearBgStartSuppressionAfterWinnerFanfare();
+    }
     if (!enabled) {
       sounds.stopBgTheme();
       sounds.stopMenuTheme();
@@ -49,17 +54,20 @@ export function useGameplaySounds(
       hasWinner &&
       heroMusicCutRequested &&
       !heroMenuWarmupActive;
-    // bg-spring keeps playing all the way through the in-game flow:
-    //   - phase=='playing'                 (live game)
-    //   - phase=='gameover' && trapPlaying (death animation)
-    //   - phase=='gameover' && heroPlaying && !heroMusicCutRequested
-    //     (winner spotlight before fanfare handoff #66)
-    // Stops only when the leaderboard takes over, so the player
-    // doesn't experience a silent "limbo" between the second-to-last
-    // death and the fanfare handoff.
+    // Winner + fanfare: keep spring for the whole post-game arc until the
+    // fanfare cut or leaderboard — not only when heroPlaying is true. There
+    // is often a frame (trap just cleared, readyForHero not yet true) where
+    // trapPlaying and heroPlaying are both false; treating that as "menu"
+    // stops spring and starts menu, then the next frame restarts spring.
+    const winnerSpringHold =
+      phase === 'gameover' &&
+      hasWinner &&
+      !heroEnded &&
+      !heroMusicCutRequested;
+    const drawTrapHold =
+      phase === 'gameover' && !hasWinner && trapPlaying;
     const inGameAudio =
-      phase === 'playing' ||
-      (phase === 'gameover' && (trapPlaying || (heroPlaying && !heroMusicCutRequested)));
+      phase === 'playing' || winnerSpringHold || drawTrapHold;
     if (inGameAudio) {
       sounds.stopMenuTheme();
       sounds.startBgTheme();
@@ -74,7 +82,15 @@ export function useGameplaySounds(
     // Start screen / lobby / post-handoff hero / leaderboard → menu.
     sounds.startMenuTheme();
     return undefined;
-  }, [gameState?.phase, gameState?.winner, enabled, trapPlaying, heroPlaying, heroMusicCutRequested, heroMenuWarmupActive]);
+  }, [
+    gameState?.phase,
+    gameState?.winner,
+    enabled,
+    trapPlaying,
+    heroEnded,
+    heroMusicCutRequested,
+    heroMenuWarmupActive,
+  ]);
 
   // Freeze / swap apply sounds moved to useDerivedAnimations#fireImmediate
   // so they line up with the deferred visual after the bot-pick roulette

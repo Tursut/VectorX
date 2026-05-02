@@ -62,7 +62,7 @@ vi.mock('../game/useTrapChain', () => ({
 }));
 
 vi.mock('../game/useWinnerHero', () => ({
-  useWinnerHero: () => ({ heroPlaying: false, dismissHero: vi.fn() }),
+  useWinnerHero: () => ({ heroPlaying: false, heroEnded: false, dismissHero: vi.fn() }),
 }));
 
 vi.mock('../game/useGameplaySounds', () => ({

@@ -182,6 +182,8 @@ export function resumeAudio() {
     if (bgWas || menuWas) {
       ctx.resume().then(() => {
         pushAudioDebug('resume-ok-recreated', { bgWas, menuWas });
+        // menuTrack.start bypasses startMenuTheme wrapper — keep latch aligned.
+        clearBgStartSuppressionAfterWinnerFanfare();
         if (bgWas) bgTrack.start();
         else if (menuWas) menuTrack.start();
       }).catch((err) => {
@@ -483,12 +485,32 @@ function makeBgTrack(file, volume) {
 const bgTrack = makeBgTrack(BG_FILE, BG_VOLUME);
 const menuTrack = makeBgTrack(MENU_FILE, MENU_VOLUME);
 
-export const startBgTheme = bgTrack.start;
+// After stopBgThemeFast (winner fanfare handoff), useGameplaySounds can still
+// run one policy pass with in-game audio true while bg playing is already
+// cleared — startBgTheme would spin a fresh loop. Latch blocks that until
+// menu theme wins or a new round clears it from useGameplaySounds.
+let suppressBgThemeStartAfterFanfareCut = false;
+
+export function clearBgStartSuppressionAfterWinnerFanfare() {
+  suppressBgThemeStartAfterFanfareCut = false;
+}
+
+export function startBgTheme() {
+  if (suppressBgThemeStartAfterFanfareCut) return;
+  bgTrack.start();
+}
+
 export const stopBgTheme = bgTrack.stop;
 export function stopBgThemeFast() {
+  suppressBgThemeStartAfterFanfareCut = true;
   stopBgTheme({ fadeMs: FAST_TRACK_FADE_OUT_MS });
 }
-export const startMenuTheme = menuTrack.start;
+
+export function startMenuTheme() {
+  suppressBgThemeStartAfterFanfareCut = false;
+  menuTrack.start();
+}
+
 export const stopMenuTheme = menuTrack.stop;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

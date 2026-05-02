@@ -10,8 +10,10 @@ describe('VITE_ENABLE_ONLINE flag', () => {
     vi.unstubAllEnvs();
   });
 
-  it('defaults to false (committed .env)', async () => {
-    // `.env` ships with VITE_ENABLE_ONLINE=false — that default must survive.
+  it('is false when VITE_ENABLE_ONLINE is unset or false (committed .env default)', async () => {
+    // Must stub: Vitest loads the repo `.env` into import.meta.env; without a
+    // stub, local `VITE_ENABLE_ONLINE=true` makes this test flaky.
+    vi.stubEnv('VITE_ENABLE_ONLINE', 'false');
     expect(await loadConfig()).toBe(false);
   });
 

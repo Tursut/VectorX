@@ -94,7 +94,7 @@ export default function LocalGameController({
   // settles, plays a stinger, holds until the user taps "TAP TO
   // CONTINUE". Lives here (not in GameScreen) so useGameplaySounds
   // can keep bg-spring playing through the hero phase.
-  const { heroPlaying, dismissHero } = useWinnerHero(gameState, trapPlaying);
+  const { heroPlaying, dismissHero, heroEnded } = useWinnerHero(gameState, trapPlaying);
 
   const handleHeroBeforeFanfare = useCallback(() => {
     setHeroMusicCutRequested(true);
@@ -302,7 +302,7 @@ export default function LocalGameController({
   useGameplaySounds(gameState, mySeats, {
     enabled: countdown === null,
     trapPlaying,
-    heroPlaying,
+    heroEnded,
     heroMusicCutRequested,
     heroMenuWarmupActive,
   });
