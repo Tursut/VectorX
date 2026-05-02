@@ -2630,8 +2630,10 @@ body.winner-hero-scroll-lock {
 }
 
 .lobby-wait-note--prominent {
+  font-family: 'Segoe UI', sans-serif;
   font-size: 15px;
   font-style: normal;
+  font-weight: 400;
   text-align: center;
   margin: 0;
 }
