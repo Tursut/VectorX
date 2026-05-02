@@ -1070,9 +1070,11 @@ export class RoomDurableObject extends DurableObject<Env> {
 // Bot thinking-delay schedule. Exported so the timing branches are unit-
 // testable without driving real alarms (which would also run a non-
 // deterministic bot move and complicate any "what's the next delay?"
-// assertion). Mirrors LocalGameController's branch:
+// assertion). Aligned with LocalGameController intent:
 //   - human's turn → full TURN_TIME budget for them to move
 //   - bot's turn, at least one human still alive → 800–1400 ms thinking pace
+//   - bot's turn right after an elimination (trap animation) → 600–1000 ms;
+//     local hotseat still uses 1600–2200 ms after trapPlaying (#83)
 //   - bot's turn, no humans left → 120–200 ms speed-run pace
 export function computeTurnDelay(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1087,10 +1089,23 @@ export function computeTurnDelay(
       !p.isEliminated && humanIds.has(p.id),
   );
 
+  const justEliminated =
+    anyHumanAlive &&
+    game.players.some((p: {
+      isEliminated: boolean;
+      finishTurn?: number | null;
+    }) => (
+      p.isEliminated &&
+      typeof p.finishTurn === 'number' &&
+      p.finishTurn === game.turnCount - 1
+    ));
+
   const baseDelay = isHuman
     ? TURN_TIME_MS
     : anyHumanAlive
-      ? 800 + Math.floor(Math.random() * 600)
+      ? justEliminated
+        ? 600 + Math.floor(Math.random() * 400)
+        : 800 + Math.floor(Math.random() * 600)
       : 120 + Math.floor(Math.random() * 80);
 
   // Pre-game countdown extension (issue #35). The very first turn's
@@ -1131,18 +1146,8 @@ export function computeTurnDelay(
   // start under the wobble-and-fade. Skipped in bots-only endgame
   // (no humans alive) to mirror the client's "no audience, no
   // animation" branch in useTrapChain.
-  if (anyHumanAlive) {
-    const justEliminated = game.players.some((p: {
-      isEliminated: boolean;
-      finishTurn?: number | null;
-    }) => (
-      p.isEliminated &&
-      typeof p.finishTurn === 'number' &&
-      p.finishTurn === game.turnCount - 1
-    ));
-    if (justEliminated) {
-      return baseDelay + TRAP_DELAY_MS;
-    }
+  if (justEliminated) {
+    return baseDelay + TRAP_DELAY_MS;
   }
 
   return baseDelay;

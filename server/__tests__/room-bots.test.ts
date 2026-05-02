@@ -535,9 +535,9 @@ describe('computeTurnDelay (bot pacing)', () => {
     };
     for (let i = 0; i < 50; i++) {
       const d = computeTurnDelay(game, lobby);
-      // Base bot delay (800–1400) + trap-cycle extension.
-      expect(d).toBeGreaterThanOrEqual(800 + TRAP_CYCLE_MS);
-      expect(d).toBeLessThan(1400 + TRAP_CYCLE_MS);
+      // Post-elim bot pacing (600–1000) + trap-cycle extension (#83).
+      expect(d).toBeGreaterThanOrEqual(600 + TRAP_CYCLE_MS);
+      expect(d).toBeLessThan(1000 + TRAP_CYCLE_MS);
     }
   });
 
@@ -600,9 +600,9 @@ describe('computeTurnDelay (bot pacing)', () => {
     expect(postElim.players[1].finishTurn).toBe(postElim.turnCount - 1);
     for (let i = 0; i < 50; i++) {
       const d = computeTurnDelay(postElim, lobby);
-      // Base bot delay (800–1400) + trap-cycle extension.
-      expect(d).toBeGreaterThanOrEqual(800 + TRAP_CYCLE_MS);
-      expect(d).toBeLessThan(1400 + TRAP_CYCLE_MS);
+      // Post-elim bot pacing (600–1000) + trap-cycle extension (#83).
+      expect(d).toBeGreaterThanOrEqual(600 + TRAP_CYCLE_MS);
+      expect(d).toBeLessThan(1000 + TRAP_CYCLE_MS);
     }
   });
 });
