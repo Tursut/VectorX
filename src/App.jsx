@@ -285,15 +285,15 @@ export default function App() {
             className="waiting-flourish-overlay"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.22, ease: 'easeOut' }}
+            exit={{ opacity: 0, transition: { duration: 0.3, delay: 0.5 } }}
+            transition={{ duration: 0.3 }}
           >
             <motion.div
               key="flourish"
               className="waiting-flourish-card-wrap"
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
+              exit={{ scale: 0.9, opacity: 0, transition: { duration: 0.3, delay: 0.5 } }}
               transition={{ duration: 0.3, ease: 'easeOut' }}
             >
               <WaitingFlourish />

@@ -1,10 +1,12 @@
 // Waiting indicator while CREATE ROOM is in flight (POST /rooms + WS handshake).
 // Avatar parade — four characters in a row, one wiggle at a time — plus a
-// static heading/subtitle. Mounted inline in StartScreen's bottom bar.
+// static heading/subtitle. Rendered in App's creating-room overlay; on dismiss
+// the outer fly layer matches Tap to Begin (see avatarFlyFromCorners.js).
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { PLAYERS } from '../game/constants';
+import { avatarFlyExit } from './avatarFlyFromCorners';
 
 const PARADE_INTERVAL_MS = 600;
 
@@ -41,16 +43,23 @@ export default function WaitingFlourish() {
           return (
             <motion.div
               key={p.id}
-              className="waiting-flourish-avatar"
-              style={{ backgroundColor: p.darkColor, borderColor: p.color }}
-              animate={isActive ? PARADE_ANIMS[i] : { x: 0, y: 0, rotate: 0, scale: 1 }}
-              transition={
-                isActive
-                  ? { duration: PARADE_INTERVAL_MS / 1000, ease: 'easeInOut' }
-                  : { duration: 0.18 }
-              }
+              className="waiting-flourish-avatar-fly"
+              initial={{ x: 0, y: 0, rotate: 0, scale: 1, opacity: 1 }}
+              animate={{ x: 0, y: 0, rotate: 0, scale: 1, opacity: 1 }}
+              exit={avatarFlyExit(i)}
             >
-              <span className="waiting-flourish-avatar-icon">{p.icon}</span>
+              <motion.div
+                className="waiting-flourish-avatar"
+                style={{ backgroundColor: p.darkColor, borderColor: p.color }}
+                animate={isActive ? PARADE_ANIMS[i] : { x: 0, y: 0, rotate: 0, scale: 1 }}
+                transition={
+                  isActive
+                    ? { duration: PARADE_INTERVAL_MS / 1000, ease: 'easeInOut' }
+                    : { duration: 0.18 }
+                }
+              >
+                <span className="waiting-flourish-avatar-icon">{p.icon}</span>
+              </motion.div>
             </motion.div>
           );
         })}

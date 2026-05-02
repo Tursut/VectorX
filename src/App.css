@@ -2849,6 +2849,12 @@ body[data-bg-hidden='true'] .menu-avatar-stage {
   justify-content: center;
   margin-bottom: 14px;
 }
+/* Outer slot for corner fly-out exit — matches .tap-to-begin-avatar-fly. */
+.waiting-flourish-avatar-fly {
+  width: 64px;
+  height: 64px;
+  flex: 0 0 auto;
+}
 .waiting-flourish-avatar {
   width: 64px;
   height: 64px;
@@ -2888,6 +2894,10 @@ body[data-bg-hidden='true'] .menu-avatar-stage {
   .waiting-flourish-parade {
     gap: 12px;
   }
+  .waiting-flourish-avatar-fly {
+    width: 56px;
+    height: 56px;
+  }
   .waiting-flourish-avatar {
     width: 56px;
     height: 56px;
@@ -2897,7 +2907,10 @@ body[data-bg-hidden='true'] .menu-avatar-stage {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .waiting-flourish-avatar { transform: none !important; }
+  .waiting-flourish-avatar-fly,
+  .waiting-flourish-avatar {
+    transform: none !important;
+  }
 }
 
 /* Online form block (replaces "Who's playing?" in online mode). Border/bg/

@@ -11,6 +11,7 @@
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { PLAYERS } from '../game/constants';
+import { avatarFlyExit, FLY_IN_STARTS } from './avatarFlyFromCorners';
 
 // Once-per-page-session flag. The modal lives inside StartScreen,
 // which unmounts/remounts whenever the user exits to menu (between
@@ -20,13 +21,6 @@ import { PLAYERS } from '../game/constants';
 // only on full page reload — which is the moment the autoplay
 // gesture requirement comes back anyway.
 let hasShownTapToBegin = false;
-
-const FLY_IN_STARTS = [
-  { x: -260, y: -180, rotate: -240 },
-  { x:  260, y: -180, rotate:  240 },
-  { x: -260, y:  180, rotate:  360 },
-  { x:  260, y:  180, rotate: -540 },
-];
 
 const BOUNCE_START_DELAY_S = 0.85;
 
@@ -107,17 +101,7 @@ export default function TapToBeginModal() {
                     opacity: 0,
                   }}
                   animate={{ x: 0, y: 0, rotate: 0, scale: 1, opacity: 1 }}
-                  exit={{
-                    x: FLY_IN_STARTS[i].x,
-                    y: FLY_IN_STARTS[i].y,
-                    rotate: FLY_IN_STARTS[i].rotate,
-                    scale: 0.5,
-                    transition: {
-                      duration: 0.5,
-                      ease: [0.7, 0, 0.84, 0],
-                      delay: i * 0.05,
-                    },
-                  }}
+                  exit={avatarFlyExit(i)}
                   transition={{
                     type: 'spring',
                     stiffness: 220,
