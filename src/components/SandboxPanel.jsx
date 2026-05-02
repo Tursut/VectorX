@@ -1,6 +1,18 @@
+import { useState } from 'react';
 import { ITEM_TYPES } from '../game/constants';
 import SoundToggle from './SoundToggle';
 import * as sounds from '../game/sounds';
+
+const SANDBOX_SOUNDS_OPEN_KEY = 'sandboxSoundsOpen';
+
+function readSandboxSoundsOpen() {
+  if (typeof window === 'undefined') return false;
+  try {
+    return localStorage.getItem(SANDBOX_SOUNDS_OPEN_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
 
 const SOUND_BUTTONS = [
   { label: '▶ Move',        fn: () => sounds.playMove(false) },
@@ -31,6 +43,19 @@ export default function SandboxPanel({
 
   const buttonsEnabled = !isThinking && !portalActive && !swapActive;
   const audioDebugLabel = audioDebugEnabled ? 'AUDIO DEBUG: ON' : 'AUDIO DEBUG: OFF';
+  const [soundsOpen, setSoundsOpen] = useState(readSandboxSoundsOpen);
+
+  function handleToggleSoundsOpen() {
+    setSoundsOpen((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(SANDBOX_SOUNDS_OPEN_KEY, next ? '1' : '0');
+      } catch {
+        // Ignore persistence failures.
+      }
+      return next;
+    });
+  }
 
   function handleToggleAudioDebug() {
     const next = !audioDebugEnabled;
@@ -84,9 +109,20 @@ export default function SandboxPanel({
         </button>
       </div>
 
-      <div className="sandbox-sound-section">
-        <div className="sandbox-sound-title">SOUNDS</div>
-        <div className="sandbox-sound-grid">
+      <div className={`sandbox-sound-section${soundsOpen ? ' is-open' : ''}`}>
+        <button
+          type="button"
+          className="sandbox-sound-toggle"
+          onClick={handleToggleSoundsOpen}
+          aria-expanded={soundsOpen}
+          aria-controls="sandbox-sound-grid"
+        >
+          <span className="sandbox-sound-chevron" aria-hidden="true">
+            {soundsOpen ? '▲' : '▼'}
+          </span>
+          <span>SOUNDS ({SOUND_BUTTONS.length})</span>
+        </button>
+        <div id="sandbox-sound-grid" className="sandbox-sound-grid">
           {SOUND_BUTTONS.map(({ label, fn }) => (
             <button key={label} className="sandbox-sound-btn" onClick={fn}>
               {label}
