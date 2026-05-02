@@ -348,8 +348,8 @@ describe('computeTurnDelay (bot pacing)', () => {
 
   // Roulette-suspense pacing (issue #30). When the prior turn ended
   // with a bot-driven freeze/swap that the client will roulette over,
-  // the next turn alarm is pushed out by ~6.2 s so the next bot
-  // doesn't start moving + the human's turn timer doesn't start
+  // the next turn alarm is pushed out by ROULETTE_DELAY_MS so the next
+  // bot doesn't start moving + the human's turn timer doesn't start
   // ticking while the wheel is still rolling. Mirrors the client's
   // skipRoulette gates.
   it('adds the roulette delay after a bot freeze when humans are alive and ≥ 2 opponents remain', () => {
@@ -367,9 +367,9 @@ describe('computeTurnDelay (bot pacing)', () => {
     };
     for (let i = 0; i < 50; i++) {
       const d = computeTurnDelay(game, lobby);
-      // Base bot delay (800–1400) + 6200 = 7000–7600.
-      expect(d).toBeGreaterThanOrEqual(7000);
-      expect(d).toBeLessThan(7600);
+      // Base bot delay (800–1400) + 5200 = 6000–6600.
+      expect(d).toBeGreaterThanOrEqual(6000);
+      expect(d).toBeLessThan(6600);
     }
   });
 
@@ -386,7 +386,7 @@ describe('computeTurnDelay (bot pacing)', () => {
     const lobby = {
       players: [{ id: 0, displayName: 'Alice', isBot: false, disconnectedAt: null }],
     };
-    expect(computeTurnDelay(game, lobby)).toBe(10_000 + 6200);
+    expect(computeTurnDelay(game, lobby)).toBe(10_000 + 5200);
   });
 
   it('does NOT add the roulette delay for a HUMAN-driven freeze (humans pick targets manually, no suspense)', () => {

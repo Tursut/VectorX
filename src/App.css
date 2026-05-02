@@ -275,7 +275,7 @@ body.winner-hero-scroll-lock {
    useDerivedAnimations.js. */
 .cell-roulette-reveal {
   z-index: 2;
-  animation: rouletteReveal 0.9s ease-in-out;
+  animation: rouletteReveal 0.65s ease-in-out;
 }
 
 @keyframes rouletteReveal {

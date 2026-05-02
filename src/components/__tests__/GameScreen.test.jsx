@@ -193,7 +193,7 @@ describe('GameScreen — rendering', () => {
 describe('GameScreen — roulette overrides displayed current player', () => {
   // Setup: bot at seat 2 just used freeze on the human at seat 0.
   // The reducer has already advanced currentPlayerIndex to seat 3
-  // (the next bot), but the 6-second roulette animation is rolling
+  // (the next bot), but the roulette animation is rolling
   // for seat 2's pick. The on-board pulse + PlayerPanel banner must
   // stay on seat 2 (the actor) until the wheel resolves.
   const ROULETTE_PROPS = {

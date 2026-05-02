@@ -35,13 +35,11 @@ import { PLAYERS, TRAP_CYCLE_MS, TURN_TIME } from '../src/game/constants';
 // DO alarm API expects milliseconds.
 const TURN_TIME_MS = TURN_TIME * 1000;
 // Roulette suspense (issue #30): when a bot applies freeze/swap with ≥ 2
-// alive opponents and ≥ 1 alive human, the client plays a ~6 s drum-roll
-// before showing the result. We push the next turn alarm out by this
-// amount so the next bot doesn't move + the human's turn timer doesn't
-// start while the wheel is still rolling. Stays in lockstep with the
-// hop / hold / reveal totals in src/game/useDerivedAnimations.js — bump
-// here whenever those constants change.
-const ROULETTE_DELAY_MS = 6200;
+// alive opponents and ≥ 1 alive human, the client plays a ~5 s drum-roll
+// before showing the result. Push the next turn alarm by ROULETTE_DELAY_MS
+// so bots don't advance + humans' timers don't tick mid-wheel — in lockstep
+// with hop / hold / reveal totals in src/game/useDerivedAnimations.js.
+const ROULETTE_DELAY_MS = 5200;
 // Pre-game 3-2-1-GO countdown (issue #35). Online runs the visual
 // countdown as an overlay on top of an already-playing GAME_STATE
 // (the server has no concept of the client's overlay), so without

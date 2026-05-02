@@ -27,18 +27,18 @@ import * as sounds from './sounds';
 // follow, slowing dramatically into the final reveal — the last 3
 // hops are unmistakably long so the wheel looks like it's coasting
 // to a stop.
-// 13 hops, ~5.0 s total + reveal blink ≈ 6 s end-to-end.
+// 13 hops, ~4.4 s total + hold + reveal blink ≈ 5.1 s end-to-end.
 const ROULETTE_HOP_DURATIONS_MS = [
-  65, 85, 110, 140, 175, 215, 265, 325, 400, 500, 650, 870, 1180,
+  57, 75, 97, 123, 155, 190, 235, 287, 354, 442, 575, 769, 1021,
 ];
 // Brief pause after the final hop before the 3-blink reveal starts —
 // the spotlight settles for a beat ("…and the winner is…") before
 // we celebrate.
-const ROULETTE_HOLD_MS = 250;
+const ROULETTE_HOLD_MS = 100;
 // Duration of the 3-blink reveal animation. Must match the
 // .cell-roulette-reveal keyframes in App.css. The deferred
 // swap/freeze fly-in fires when this elapses.
-const ROULETTE_REVEAL_MS = 900;
+const ROULETTE_REVEAL_MS = 650;
 
 export function useDerivedAnimations(gameState) {
   const [bombBlast, setBombBlast] = useState(null);
@@ -119,7 +119,7 @@ export function useDerivedAnimations(gameState) {
     // Fires the deferred visual + sound for the freeze/swap apply.
     // Sounds moved here from useGameplaySounds so they line up with
     // the animation rather than playing the moment GAME_STATE arrives
-    // (which, when a roulette is rolling, is ~6 s too early).
+    // (which, when a roulette is rolling, is ~5 s too early).
     const fireImmediate = () => {
       if (ev.type === 'freeze') {
         setFlyingFreeze({

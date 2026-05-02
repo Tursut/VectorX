@@ -25,10 +25,10 @@ import * as sounds from '../sounds';
 
 // Hop schedule must match useDerivedAnimations.js. 13 hops + hold + 3-blink reveal.
 const HOP_DURATIONS = [
-  65, 85, 110, 140, 175, 215, 265, 325, 400, 500, 650, 870, 1180,
+  57, 75, 97, 123, 155, 190, 235, 287, 354, 442, 575, 769, 1021,
 ];
-const HOP_HOLD_MS = 250;
-const REVEAL_MS = 900;
+const HOP_HOLD_MS = 100;
+const REVEAL_MS = 650;
 const ROULETTE_TOTAL_MS =
   HOP_DURATIONS.reduce((a, b) => a + b, 0) + HOP_HOLD_MS + REVEAL_MS;
 

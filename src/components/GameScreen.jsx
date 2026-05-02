@@ -86,7 +86,7 @@ export default function GameScreen({
 
   // Issue #39 — while the freeze/swap roulette is rolling, the reducer
   // has already advanced currentPlayerIndex to the next seat, but the
-  // 6-second animation belongs to the actor's turn. Override only the
+  // ~5 s roulette belongs to the actor's turn. Override only the
   // *displayed* seat for the on-board "whose turn" pulse and the
   // PlayerPanel "← NOW" banner so they keep pointing at the actor
   // until the wheel resolves. Turn logic (validMoves, myTurn, taunt,
