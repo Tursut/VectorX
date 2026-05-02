@@ -10,6 +10,7 @@ import { useGameplaySounds } from './game/useGameplaySounds';
 import { useBackGuard } from './useBackGuard';
 import * as sounds from './game/sounds';
 import { useBgHidden } from './game/useBgHidden';
+import { track } from './game/track';
 import StartScreen from './components/StartScreen';
 import GameScreen from './components/GameScreen';
 import GameBoard from './components/GameBoard';
@@ -212,10 +213,16 @@ export default function LocalGameController({
     if (countdown === null) return;
     if (countdown < 0) {
       setCountdown(null);
+      const startGremlins = queuedStartGremlinCount ?? gremlinCount;
       dispatch({
         type: 'START',
         magicItems,
-        gremlinCount: queuedStartGremlinCount ?? gremlinCount,
+        gremlinCount: startGremlins,
+      });
+      track('game_started', {
+        mode: 'local',
+        gremlin_count: startGremlins,
+        magic_mode: magicItems,
       });
       setQueuedStartGremlinCount(null);
       setScreen('game');
@@ -247,6 +254,7 @@ export default function LocalGameController({
   }
 
   function handleSandboxStart() {
+    track('sandbox_started');
     dispatch({ type: 'SANDBOX_START' });
     setScreen('sandbox');
   }
@@ -261,6 +269,14 @@ export default function LocalGameController({
   }
 
   function handleBackToStart() {
+    if (gameState?.phase === 'playing') {
+      track('game_quit_midgame', {
+        mode: 'local',
+        gremlin_count: gameState?.gremlinCount ?? 0,
+        magic_mode: !!gameState?.magicItems,
+        turn_count: gameState?.turnCount ?? 0,
+      });
+    }
     setExitConfirm(false);
     setScreen('start');
     dispatch({ type: 'RESET' });

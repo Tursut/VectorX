@@ -19,9 +19,10 @@
 // the outer controllers.
 
 import { AnimatePresence, motion } from 'framer-motion';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { PLAYERS, TURN_TAUNTS, TURN_TIME } from '../game/constants';
 import { getCurrentValidMoves } from '../game/logic';
+import { track } from '../game/track';
 import PlayerPanel from './PlayerPanel';
 import TurnIndicator from './TurnIndicator';
 import GameBoard from './GameBoard';
@@ -175,6 +176,28 @@ export default function GameScreen({
       document.body.classList.remove('winner-hero-scroll-lock');
     };
   }, [showHero]);
+
+  // Fire game_finished once per game when the gameover phase first settles.
+  // Reset the latch when phase leaves gameover so a follow-up match re-fires.
+  const finishedFiredRef = useRef(false);
+  useEffect(() => {
+    if (gameState.phase !== 'gameover') {
+      finishedFiredRef.current = false;
+      return;
+    }
+    if (trapPlaying || finishedFiredRef.current) return;
+    finishedFiredRef.current = true;
+    const isOnline = gameState.players?.some((p) => p.isBot !== undefined);
+    track('game_finished', {
+      mode: isOnline ? 'online' : 'local',
+      winner_id: gameState.winner ?? null,
+      is_draw: gameState.winner == null,
+      turn_count: gameState.turnCount ?? 0,
+      player_count: gameState.players?.length ?? 0,
+      gremlin_count: gameState.gremlinCount ?? 0,
+      magic_mode: !!gameState.magicItems,
+    });
+  }, [gameState.phase, trapPlaying, gameState.winner, gameState.turnCount, gameState.players, gameState.gremlinCount, gameState.magicItems]);
 
   return (
     <>

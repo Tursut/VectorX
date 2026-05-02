@@ -25,6 +25,7 @@ import { useGameplaySounds } from './game/useGameplaySounds';
 import { useBackGuard } from './useBackGuard';
 import * as sounds from './game/sounds';
 import { useBgHidden } from './game/useBgHidden';
+import { track } from './game/track';
 import Lobby from './components/Lobby';
 import GameScreen from './components/GameScreen';
 import AudioDebugOverlay from './components/AudioDebugOverlay';
@@ -564,6 +565,11 @@ export default function OnlineGameController({
         onStart={() => {
           sounds.logAudioDebugEvent('gesture-online-lobby-start');
           sounds.resumeAudio();
+          track('game_started', {
+            mode: 'online',
+            player_count: lobby?.players?.length ?? 0,
+            magic_mode: magicItems,
+          });
           start(magicItems);
         }}
         onLeave={() => setExitConfirm(true)}
