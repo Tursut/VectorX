@@ -290,7 +290,7 @@ export default function App() {
           >
             <motion.div
               key="flourish"
-              style={{ width: 'min(100% - 40px, 560px)' }}
+              className="waiting-flourish-card-wrap"
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -6 }}
