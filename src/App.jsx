@@ -2,6 +2,7 @@ import { lazy, Suspense, useCallback, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ENABLE_ONLINE, SERVER_URL } from './config';
 import * as sounds from './game/sounds';
+import { track } from './game/track';
 import LocalGameController from './LocalGameController';
 import MenuAvatarStage from './components/MenuAvatarStage';
 import WaitingFlourish from './components/WaitingFlourish';
@@ -148,6 +149,7 @@ export default function App() {
       // The overlay stays up (creatingRoom === true) until either the
       // controller's lobby is live or a fatal error is surfaced —
       // handleOnlineReady drives the dismiss (issue #74).
+      track('online_room_created', { magic_mode: magicItems });
       setColdOpenCode(null);
       setOnline({ code: body.code, displayName, magicItems });
     } catch (err) {
@@ -195,6 +197,7 @@ export default function App() {
     setColdOpenCode(null);
     setPendingDisplayName('');
     setPendingCode('');
+    track('online_room_joined');
     // Joiner's initial magic-items choice is irrelevant — host decides.
     // Default false just so the lobby has a concrete value.
     setOnline({ code, displayName, magicItems: false });

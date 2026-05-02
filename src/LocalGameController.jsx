@@ -9,6 +9,7 @@ import { useWinnerHero } from './game/useWinnerHero';
 import { useGameplaySounds } from './game/useGameplaySounds';
 import { useBackGuard } from './useBackGuard';
 import * as sounds from './game/sounds';
+import { track } from './game/track';
 import { useBgHidden } from './game/useBgHidden';
 import StartScreen from './components/StartScreen';
 import GameScreen from './components/GameScreen';
@@ -113,6 +114,26 @@ export default function LocalGameController({
     setHeroMusicCutRequested(false);
     setHeroMenuWarmupActive(false);
   }, [gameState?.phase, gameState?.winner]);
+
+  // Track game_finished once death animations settle. trapPlaying guards
+  // against firing before the trap sequence completes.
+  useEffect(() => {
+    if (gameState?.phase !== 'gameover') return;
+    if (trapPlaying) return;
+    const gc = gameState.gremlinCount ?? 0;
+    const humanCount = PLAYERS.length - gc;
+    const winnerType = gameState.winner === null
+      ? 'draw'
+      : gameState.players[gameState.winner]?.id < humanCount ? 'human' : 'gremlin';
+    track('game_finished', {
+      gremlin_count: gc,
+      magic_mode: gameState.magicItems ?? false,
+      winner_type: winnerType,
+      turn_count: gameState.turnCount,
+      mode: 'local',
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameState?.phase, trapPlaying]);
 
   // Hide the App-level MenuAvatarStage while the active game board is
   // showing — gameplay needs focus. Sandbox during play likewise hides it
@@ -234,6 +255,7 @@ export default function LocalGameController({
   function handleStart() {
     sounds.logAudioDebugEvent('gesture-local-start');
     sounds.resumeAudio();
+    track('game_started', { gremlin_count: gremlinCount, magic_mode: magicItems, mode: 'local' });
     setQueuedStartGremlinCount(null);
     setCountdown(3);
   }
@@ -241,12 +263,14 @@ export default function LocalGameController({
   function handleQuickPlay() {
     sounds.logAudioDebugEvent('gesture-local-start');
     sounds.resumeAudio();
+    track('game_started', { gremlin_count: 3, magic_mode: magicItems, mode: 'quick_play' });
     setGremlinCount(3);
     setQueuedStartGremlinCount(3);
     setCountdown(3);
   }
 
   function handleSandboxStart() {
+    track('sandbox_started');
     dispatch({ type: 'SANDBOX_START' });
     setScreen('sandbox');
   }
@@ -261,6 +285,13 @@ export default function LocalGameController({
   }
 
   function handleBackToStart() {
+    if (gameState?.phase === 'playing') {
+      track('game_quit_midgame', {
+        gremlin_count: gameState.gremlinCount ?? 0,
+        magic_mode: gameState.magicItems ?? false,
+        mode: 'local',
+      });
+    }
     setExitConfirm(false);
     setScreen('start');
     dispatch({ type: 'RESET' });
