@@ -30,6 +30,8 @@ jobs:
       - run: npm ci
 
       - run: npm run build
+        env:
+          VITE_POSTHOG_KEY: ${{ secrets.VITE_POSTHOG_KEY }}
 
       - uses: actions/configure-pages@v5
 

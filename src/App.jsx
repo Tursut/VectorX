@@ -4,6 +4,7 @@ import { initGame, initSandboxGame, applyMove, getCurrentValidMoves, eliminateCu
 import { getGremlinMove } from './game/ai';
 import { PLAYERS, TURN_TAUNTS, TURN_TIME, GRID_SIZE } from './game/constants';
 import * as sounds from './game/sounds';
+import { track } from './game/track';
 import StartScreen from './components/StartScreen';
 import GameBoard from './components/GameBoard';
 import TurnIndicator from './components/TurnIndicator';
@@ -194,8 +195,20 @@ export default function App() {
   useEffect(() => {
     if (gameState?.phase !== 'gameover') return;
     if (trappedPlayers.length > 0 || eliminationPending) return;
+    const gc = gameState.gremlinCount ?? 0;
+    const humanCount = PLAYERS.length - gc;
+    const winnerType = gameState.winner === null
+      ? 'draw'
+      : gameState.players[gameState.winner]?.id < humanCount ? 'human' : 'gremlin';
+    track('game_finished', {
+      gremlin_count: gc,
+      magic_mode: gameState.magicItems ?? false,
+      winner_type: winnerType,
+      turn_count: gameState.turnCount,
+    });
     if (gameState.winner !== null) sounds.playWin();
     else sounds.playDraw();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameState?.phase, trappedPlayers, eliminationPending]);
 
   // Gremlin auto-move
@@ -259,10 +272,12 @@ export default function App() {
   }, [countdown]);
 
   function handleStart() {
+    track('game_started', { gremlin_count: gremlinCount, magic_mode: magicItems });
     setCountdown(3);
   }
 
   function handleSandboxStart() {
+    track('sandbox_started');
     dispatch({ type: 'SANDBOX_START' });
     setScreen('sandbox');
   }
@@ -280,6 +295,12 @@ export default function App() {
   }
 
   function handleBackToStart() {
+    if (gameState?.phase === 'playing') {
+      track('game_quit_midgame', {
+        gremlin_count: gameState.gremlinCount ?? 0,
+        magic_mode: gameState.magicItems ?? false,
+      });
+    }
     if (trappedTimerRef.current) clearTimeout(trappedTimerRef.current);
     dispatch({ type: 'RESET' });
     setExitConfirm(false);
