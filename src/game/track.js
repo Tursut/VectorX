@@ -4,7 +4,6 @@ import posthog from 'posthog-js';
 // If PostHog fails to load, is blocked, or throws, the game is unaffected.
 export function track(event, props = {}) {
   try {
-    if (!posthog.__loaded) return;
     posthog.capture(event, props);
   } catch {
     // swallow — analytics must never break gameplay
