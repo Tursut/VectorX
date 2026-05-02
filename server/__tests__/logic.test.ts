@@ -13,6 +13,7 @@
 
 import { describe, it, expect } from 'vitest';
 import {
+  createInitialGrid,
   initGame,
   applyMove,
   eliminateCurrentPlayer,
@@ -320,6 +321,47 @@ describe('freeze interacts correctly with intermediate trap-elimination', () => 
 
     expect(next.frozenPlayerId).toBeNull();
     expect(next.frozenTurnsLeft).toBe(0);
+  });
+});
+
+describe('freeze with two players (#84)', () => {
+  it('trap-eliminates the mover immediately when freeze skip returns to them with no moves', () => {
+    const base = initGame(false, 0);
+    const grid = createInitialGrid();
+    grid[5][5] = { owner: 0 };
+    grid[4][5] = { owner: 1 };
+    const wall = { owner: 2 };
+    for (const dr of [-1, 0, 1]) {
+      for (const dc of [-1, 0, 1]) {
+        if (dr === 0 && dc === 0) continue;
+        const r = 5 + dr;
+        const c = 5 + dc;
+        if (r === 4 && c === 5) continue;
+        grid[r][c] = wall;
+      }
+    }
+
+    const s = {
+      ...base,
+      grid,
+      magicItems: false,
+      freezeSelectActive: true,
+      currentPlayerIndex: 0,
+      items: [],
+      players: base.players.map((p, i) => {
+        if (i === 0) return { ...p, row: 5, col: 5, isEliminated: false };
+        if (i === 1) return { ...p, row: 4, col: 5, isEliminated: false };
+        return { ...p, isEliminated: true };
+      }),
+    };
+
+    expect(getValidMoves(s.grid, 5, 5).length).toBe(0);
+
+    const next = applyMove(s, 4, 5);
+
+    expect(next.players[0].isEliminated).toBe(true);
+    expect(next.phase).toBe('gameover');
+    expect(next.winner).toBe(1);
   });
 });
 

@@ -171,7 +171,17 @@ function completeTurn(state) {
   let safety = 0;
   while (safety++ <= players.length * 2) {
     const nextPlayer = updatedPlayers[nextIndex];
-    if (nextIndex === currentPlayerIndex || nextPlayer.isEliminated) break;
+    if (nextPlayer.isEliminated) break;
+    // Wrap landed back on the mover (e.g. 2p freeze skips the only opponent).
+    // Still trap-check — otherwise a surrounded mover stays "playing" (#84).
+    if (nextIndex === currentPlayerIndex) {
+      if (getValidMoves(grid, nextPlayer.row, nextPlayer.col).length > 0) break;
+      updatedPlayers = updatedPlayers.map((p) =>
+        p.id === nextPlayer.id ? { ...markEliminated(p), finishTurn: turnCount } : p
+      );
+      nextIndex = advanceToNextActive(updatedPlayers, nextIndex);
+      continue;
+    }
     if (frozenPlayerId !== null && nextPlayer.id === frozenPlayerId) {
       if (frozenTurnsLeft > 0) {
         // Skip this turn for the frozen seat. Decrement, advance, retry.
