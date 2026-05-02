@@ -4,9 +4,11 @@
 // rushing through the climax of the game is exactly what we don't
 // want, so no auto-dismiss.
 
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { useEffect, useRef } from 'react';
 import * as sounds from '../game/sounds';
+
+const WINNER_LABEL = 'WINNER!';
 
 export default function WinnerHero({
   winner,
@@ -15,6 +17,7 @@ export default function WinnerHero({
   onBeforeFanfare = null,
   onAfterFanfareStart = null,
 }) {
+  const reduceMotion = useReducedMotion();
   const playedSoundKeyRef = useRef(null);
   const beforeFanfareRef = useRef(onBeforeFanfare);
   const afterFanfareRef = useRef(onAfterFanfareStart);
@@ -45,6 +48,27 @@ export default function WinnerHero({
 
   if (!winner) return null;
 
+  const avatarBg = winner.darkColor ?? winner.color;
+
+  const avatarIdle = reduceMotion
+    ? { rotate: 0, y: 0, scale: 1 }
+    : {
+        rotate: [0, 12, -12, 0],
+        y: [0, -8, 0, 6, 0],
+        scale: [1, 1.05, 1, 1.04, 1],
+      };
+
+  const avatarIdleTransition = reduceMotion
+    ? { duration: 0 }
+    : {
+        duration: 2.2,
+        repeat: Infinity,
+        ease: 'easeInOut',
+        delay: 0.4,
+      };
+
+  const letterIdle = reduceMotion ? { y: 0, rotate: 0 } : { y: [0, -12, 0], rotate: [0, -4, 0] };
+
   return (
     <motion.div
       className="winner-hero-screen"
@@ -58,9 +82,8 @@ export default function WinnerHero({
       }}
     >
       <div className="winner-hero-content">
-        {/* Outer motion handles the entrance; inner handles a subtle
-            idle "breathing" animation so the screen doesn't feel
-            frozen during the hold. */}
+        {/* Outer motion handles the entrance; inner handles idle
+            celebration — ring + wobble like menu bubbles (#86). */}
         <motion.div
           initial={{ scale: 0, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
@@ -68,33 +91,46 @@ export default function WinnerHero({
         >
           <motion.div
             className="winner-hero-avatar"
-            style={{ backgroundColor: winner.color }}
-            animate={{ rotate: [0, 4, -4, 0] }}
-            transition={{
-              duration: 3.2,
-              repeat: Infinity,
-              ease: 'easeInOut',
-              delay: 0.4,
+            style={{
+              backgroundColor: avatarBg,
+              borderColor: winner.color,
             }}
+            animate={avatarIdle}
+            transition={avatarIdleTransition}
           >
-            {winner.icon ?? '🏆'}
+            <span className="winner-hero-avatar-icon">{winner.icon ?? '🏆'}</span>
           </motion.div>
         </motion.div>
 
         <motion.div
           className="winner-hero-text"
           style={{ color: winner.color }}
+          role="heading"
+          aria-level={2}
+          aria-label={WINNER_LABEL}
           initial={{ y: 32, opacity: 0, rotate: -6 }}
           animate={{ y: 0, opacity: 1, rotate: 0 }}
           transition={{ delay: 0.18, type: 'spring', stiffness: 280, damping: 14 }}
         >
-          <motion.span
-            style={{ display: 'inline-block', transformOrigin: 'center' }}
-            animate={{ scale: [1, 1.06, 1] }}
-            transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
-          >
-            WINNER!
-          </motion.span>
+          {WINNER_LABEL.split('').map((char, i) => (
+            <motion.span
+              key={`${char}-${i}`}
+              style={{ display: 'inline-block', transformOrigin: 'center bottom' }}
+              animate={letterIdle}
+              transition={
+                reduceMotion
+                  ? { duration: 0 }
+                  : {
+                      duration: 1.05,
+                      repeat: Infinity,
+                      ease: 'easeInOut',
+                      delay: i * 0.07,
+                    }
+              }
+            >
+              {char}
+            </motion.span>
+          ))}
         </motion.div>
 
         {/* Tap-to-continue prompt. Same vocabulary as TapToBeginModal's

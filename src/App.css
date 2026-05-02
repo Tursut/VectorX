@@ -1905,10 +1905,15 @@ body.winner-hero-scroll-lock {
   width: 140px;
   height: 140px;
   border-radius: 50%;
+  border: 3px solid;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 0 48px rgba(255, 255, 255, 0.18);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35), 0 0 40px rgba(255, 255, 255, 0.12);
+}
+.winner-hero-avatar-icon {
+  line-height: 1;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.45));
 }
 .winner-hero-text {
   font-family: 'Fredoka One', 'Segoe UI', sans-serif;

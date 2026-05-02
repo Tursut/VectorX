@@ -28,7 +28,7 @@ afterEach(() => {
 describe('WinnerHero', () => {
   it('renders hero content when winner is present', () => {
     render(<WinnerHero winner={winner} onContinue={() => {}} soundKey="g1" />);
-    expect(screen.getByText('WINNER!')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'WINNER!' })).toBeInTheDocument();
     expect(screen.getByText('TAP TO CONTINUE')).toBeInTheDocument();
     // Sound fires after the macrotask (setTimeout 0).
     expect(sounds.playWin).not.toHaveBeenCalled();
@@ -39,7 +39,7 @@ describe('WinnerHero', () => {
   it('renders nothing and plays no sound when winner is missing', () => {
     render(<WinnerHero winner={null} onContinue={() => {}} soundKey="g2" />);
     act(() => vi.advanceTimersByTime(0));
-    expect(screen.queryByText('WINNER!')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'WINNER!' })).not.toBeInTheDocument();
     expect(sounds.playWin).not.toHaveBeenCalled();
   });
 
