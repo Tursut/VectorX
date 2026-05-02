@@ -14,7 +14,13 @@ posthog.init(import.meta.env.VITE_POSTHOG_KEY || 'phc_s59K2SNa6Rv3bCd8A3fRYZXc6e
   disable_session_recording: true,
   persistence: 'localStorage',
   bootstrap: { featureFlags: {} },
+  loaded: (ph) => {
+    if (typeof window !== 'undefined') window.posthog = ph;
+    // eslint-disable-next-line no-console
+    console.log('[posthog] loaded — try posthog.capture("manual_test")');
+  },
 })
+if (typeof window !== 'undefined') window.posthog = posthog;
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
