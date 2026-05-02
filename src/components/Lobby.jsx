@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { ITEM_TYPES } from '../game/constants';
+import { motion } from 'framer-motion';
+import { ITEM_TYPES, PLAYERS } from '../game/constants';
 import { playClick } from '../game/sounds';
 import SoundToggle from './SoundToggle';
 
@@ -108,7 +109,13 @@ export default function Lobby({
           <SoundToggle enabled={soundEnabled} onToggle={onToggleSound} />
         </div>
       )}
-      <section className="lobby" aria-label="Waiting room">
+      <motion.section
+        className="lobby"
+        aria-label="Waiting room"
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.32, ease: 'easeOut' }}
+      >
         <div className="lobby-hero">
           <h1 className="lobby-title">LOBBY</h1>
         </div>
@@ -158,6 +165,13 @@ export default function Lobby({
         <ul className="lobby-players" aria-label="Players">
           {players.map((p) => (
             <li key={p.id} className="lobby-player">
+              <span
+                className="lobby-player-avatar"
+                style={{ backgroundColor: PLAYERS[p.id].color }}
+                aria-hidden="true"
+              >
+                {PLAYERS[p.id].icon}
+              </span>
               <span className="lobby-player-name">{p.displayName}</span>
               {p.id === hostId && <span className="lobby-badge-host" aria-label="host"> 👑</span>}
               {p.id === mySeatId && <span className="lobby-badge-you"> (you)</span>}
@@ -169,7 +183,13 @@ export default function Lobby({
               className="lobby-player lobby-empty-seat"
               data-testid="lobby-empty-seat"
             >
-              🤖 Bot will fill this slot
+              <span
+                className="lobby-player-avatar lobby-player-avatar-bot"
+                aria-hidden="true"
+              >
+                👾
+              </span>
+              <span className="lobby-player-name">Bot will fill this slot</span>
             </li>
           ))}
         </ul>
@@ -216,7 +236,7 @@ export default function Lobby({
             )}
           </div>
         )}
-      </section>
+      </motion.section>
 
       {/* Exit-to-menu button sits OUTSIDE the lobby card so it visually
           matches the GameScreen's exit-game-btn (same class, same styling,

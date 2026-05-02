@@ -56,6 +56,19 @@ describe('Lobby — rendering', () => {
     expect(bots).toHaveLength(2);
   });
 
+  it('renders an avatar for every player and empty seat', () => {
+    const { container } = render(
+      <Lobby
+        code="Q7K4N"
+        players={fourPlayers.slice(0, 2)}
+        hostId={0}
+        mySeatId={0}
+      />,
+    );
+    expect(container.querySelectorAll('.lobby-player-avatar')).toHaveLength(4);
+    expect(container.querySelectorAll('.lobby-player-avatar-bot')).toHaveLength(2);
+  });
+
   it('renders sound toggle when sound props are provided', () => {
     render(
       <Lobby
