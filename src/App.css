@@ -2457,10 +2457,8 @@ body.winner-hero-scroll-lock {
   top: -40px;
   right: 6px;
 }
-/* Invite card. The room code is the visual hero — it's the human-friendly
-   value the host actually says out loud. The URL + copy button collapse to
-   a single row beneath, so this section is two visual elements (code, link)
-   not three (label, url, button). */
+/* Invite card: CODE line, "Room link" section label, then URL + share row +
+   copy feedback. */
 .lobby-invite {
   background: transparent;
   border: 1px solid #333366;
@@ -2470,15 +2468,25 @@ body.winner-hero-scroll-lock {
   flex-direction: column;
   gap: 10px;
 }
-/* Room code as the section's lead. Fredoka One amber matching the previous
-   .lobby-code colour, sized between the LOBBY title and section headings. */
+/* Room code line (includes "CODE:" prefix). Slightly tighter tracking than
+   bare codes so the prefix + 5 letters fit comfortably on narrow phones. */
 .lobby-invite-code {
   font-family: 'Fredoka One', 'Segoe UI', sans-serif;
   font-size: clamp(22px, 6vw, 32px);
-  letter-spacing: 0.18em;
+  letter-spacing: 0.1em;
   color: #ffcc66;
   text-align: center;
   margin: 0;
+}
+/* Same section-label vocabulary as .lobby-explainer-title. */
+.lobby-invite-link-label {
+  font-size: 11px;
+  font-weight: bold;
+  color: #c8caff;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin: 0;
+  text-align: center;
 }
 /* URL + icon copy button on one row. URL flexes to fill, button is fixed. */
 .lobby-invite-row {
@@ -2547,10 +2555,8 @@ body.winner-hero-scroll-lock {
   opacity: 1;
 }
 
-/* Bridges the invite card and the player roster — explains how to fill the
-   room without making the lobby feel like a form. Heading uses the project's
-   11px uppercase letter-spaced section-label vocabulary; body is Segoe UI in
-   the same secondary lavender as .lobby-wait-note for visual continuity. */
+/* Directly under LOBBY — explains how to fill the room before the invite
+   card. Heading uses the project's 11px uppercase section-label vocabulary. */
 .lobby-explainer {
   display: flex;
   flex-direction: column;
@@ -2627,6 +2633,13 @@ body.winner-hero-scroll-lock {
   color: #aaaacc;
   font-style: italic;
   font-family: 'Segoe UI', sans-serif;
+}
+
+.lobby-wait-note--prominent {
+  font-size: 15px;
+  font-style: normal;
+  text-align: center;
+  margin: 0;
 }
 
 /* (.lobby-leave-btn removed — the lobby's exit-to-menu button now reuses

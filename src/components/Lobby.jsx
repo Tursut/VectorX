@@ -120,14 +120,30 @@ export default function Lobby({
           <h1 className="lobby-title">LOBBY</h1>
         </div>
 
+        <div className="lobby-explainer">
+          <h2 className="lobby-explainer-title">GATHER YOUR CREW</h2>
+          {isHost ? (
+            <p className="lobby-explainer-body">
+              Share the link or code with friends. When everyone&apos;s in,
+              hit start — any empty seats get filled with bots.
+            </p>
+          ) : (
+            <p className="lobby-explainer-body">
+              Share the link or code with friends. The game is started by the
+              host — any empty seats get filled with bots.
+            </p>
+          )}
+        </div>
+
         <div className="lobby-invite">
           <p
             className="lobby-invite-code"
             data-testid="lobby-code"
             aria-label={`Room code ${code}`}
           >
-            {code}
+            CODE: {code}
           </p>
+          <p className="lobby-invite-link-label">Room link</p>
           <div className="lobby-invite-row">
             <a
               className="lobby-invite-url"
@@ -154,13 +170,11 @@ export default function Lobby({
           </p>
         </div>
 
-        <div className="lobby-explainer">
-          <h2 className="lobby-explainer-title">GATHER YOUR CREW</h2>
-          <p className="lobby-explainer-body">
-            Share the link or code with friends. When everyone&apos;s in,
-            hit start — any empty seats get filled with bots.
+        {!isHost && (
+          <p className="lobby-wait-note lobby-wait-note--prominent">
+            Waiting for the host to start…
           </p>
-        </div>
+        )}
 
         <ul className="lobby-players" aria-label="Players">
           {players.map((p) => (
@@ -193,10 +207,6 @@ export default function Lobby({
             </li>
           ))}
         </ul>
-
-        {!isHost && (
-          <p className="lobby-wait-note">Waiting for the host to start…</p>
-        )}
 
         {isHost && typeof onMagicItemsChange === 'function' && (
           <div className="mode-section lobby-magic-section">

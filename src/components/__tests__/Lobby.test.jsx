@@ -15,9 +15,26 @@ const fourPlayers = [
 ];
 
 describe('Lobby — rendering', () => {
-  it('shows the room code', () => {
+  it('shows the room code with CODE prefix', () => {
     render(<Lobby code="Q7K4N" players={[]} hostId={null} mySeatId={null} />);
-    expect(screen.getByText('Q7K4N')).toBeInTheDocument();
+    expect(screen.getByTestId('lobby-code')).toHaveTextContent('CODE: Q7K4N');
+  });
+
+  it('shows the Room link section label', () => {
+    render(<Lobby code="Q7K4N" players={[]} hostId={null} mySeatId={null} />);
+    expect(screen.getByText('Room link')).toBeInTheDocument();
+  });
+
+  it('uses host explainer copy when viewer is host', () => {
+    render(<Lobby code="Q7K4N" players={fourPlayers} hostId={0} mySeatId={0} />);
+    expect(screen.getByText(/hit start/)).toBeInTheDocument();
+    expect(screen.queryByText(/started by the host/)).toBeNull();
+  });
+
+  it('uses joiner explainer copy when viewer is not host', () => {
+    render(<Lobby code="Q7K4N" players={fourPlayers} hostId={0} mySeatId={1} />);
+    expect(screen.getByText(/started by the host/)).toBeInTheDocument();
+    expect(screen.queryByText(/hit start/)).toBeNull();
   });
 
   it('renders each player by displayName', () => {
@@ -108,9 +125,18 @@ describe('Lobby — host-only controls', () => {
   });
 
   it('hides host controls for a non-host seat', () => {
-    render(<Lobby code="Q7K4N" players={fourPlayers} hostId={0} mySeatId={1} />);
+    const { container } = render(
+      <Lobby code="Q7K4N" players={fourPlayers} hostId={0} mySeatId={1} />,
+    );
     expect(screen.queryByRole('button', { name: /start/i })).toBeNull();
-    expect(screen.getByText(/Waiting for the host/i)).toBeInTheDocument();
+    const wait = screen.getByText(/Waiting for the host to start/);
+    expect(wait).toBeInTheDocument();
+    expect(wait).toHaveClass('lobby-wait-note--prominent');
+    const list = container.querySelector('.lobby-players');
+    expect(list).toBeTruthy();
+    expect(
+      wait.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
   it('clicking Start fires onStart', async () => {
