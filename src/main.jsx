@@ -1,20 +1,14 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import posthog from 'posthog-js'
+import mixpanel from 'mixpanel-browser'
 import './index.css'
 import App from './App.jsx'
 
-// Project API key is public by design — safe to embed in frontend source.
-// VITE_POSTHOG_KEY env var overrides this (useful for forks or CI).
-posthog.init(import.meta.env.VITE_POSTHOG_KEY || 'phc_s59K2SNa6Rv3bCd8A3fRYZXc6ekGNVwFq25AUoaycckD', {
-  api_host: 'https://eu.i.posthog.com',
-  capture_pageview: false,
-  capture_pageleave: false,
-  autocapture: false,
-  disable_session_recording: true,
+// Project token is public by design — safe to embed in frontend source.
+mixpanel.init('cafa8f66569f86a476bac0b3c1d0c17b', {
+  api_host: 'https://api-eu.mixpanel.com',
+  track_pageview: false,
   persistence: 'localStorage',
-  bootstrap: { featureFlags: {} },
-  loaded: (ph) => { window.posthog = ph; },
 })
 
 createRoot(document.getElementById('root')).render(
