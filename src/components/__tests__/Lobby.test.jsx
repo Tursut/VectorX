@@ -15,14 +15,18 @@ const fourPlayers = [
 ];
 
 describe('Lobby — rendering', () => {
-  it('shows the room code with CODE prefix', () => {
+  it('shows the CODE and LINK labels and room code value', () => {
     render(<Lobby code="Q7K4N" players={[]} hostId={null} mySeatId={null} />);
-    expect(screen.getByTestId('lobby-code')).toHaveTextContent('CODE: Q7K4N');
+    expect(screen.getByTestId('lobby-code')).toHaveTextContent('Q7K4N');
+    const invite = document.querySelector('.lobby-invite');
+    expect(invite).toBeTruthy();
+    expect(invite.querySelectorAll('.lobby-invite-field-label')[0]).toHaveTextContent('CODE');
+    expect(invite.querySelectorAll('.lobby-invite-field-label')[1]).toHaveTextContent('LINK');
   });
 
-  it('shows the Room link section label', () => {
+  it('renders share control with SHARE label', () => {
     render(<Lobby code="Q7K4N" players={[]} hostId={null} mySeatId={null} />);
-    expect(screen.getByText('Room link')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /share invite link/i })).toHaveTextContent(/SHARE/);
   });
 
   it('uses host explainer copy when viewer is host', () => {

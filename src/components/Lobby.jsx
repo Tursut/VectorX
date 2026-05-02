@@ -136,31 +136,31 @@ export default function Lobby({
         </div>
 
         <div className="lobby-invite">
+          <p className="lobby-invite-field-label">CODE</p>
           <p
             className="lobby-invite-code"
             data-testid="lobby-code"
             aria-label={`Room code ${code}`}
           >
-            CODE: {code}
+            {code}
           </p>
-          <p className="lobby-invite-link-label">Room link</p>
-          <div className="lobby-invite-row">
-            <a
-              className="lobby-invite-url"
-              href={shareLink}
-              onClick={handleUrlClick}
-            >
-              {displayShareLink(shareLink)}
-            </a>
-            <button
-              type="button"
-              className="lobby-copy-btn"
-              onClick={shareOrCopy}
-              aria-label="Share invite link"
-            >
-              <ShareIcon />
-            </button>
-          </div>
+          <p className="lobby-invite-field-label">LINK</p>
+          <a
+            className="lobby-invite-url"
+            href={shareLink}
+            onClick={handleUrlClick}
+          >
+            {displayShareLink(shareLink)}
+          </a>
+          <button
+            type="button"
+            className="lobby-share-btn"
+            onClick={shareOrCopy}
+            aria-label="Share invite link"
+          >
+            <span className="lobby-share-btn-text">SHARE</span>
+            <ShareIcon />
+          </button>
           <p
             className={`lobby-copy-feedback${copied ? ' lobby-copy-feedback-shown' : ''}`}
             role="status"

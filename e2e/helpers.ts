@@ -52,11 +52,10 @@ export async function waitForLobby(page: Page): Promise<void> {
   await page.waitForSelector('[aria-label="Waiting room"]', { timeout: 10_000 });
 }
 
-// Extract the 5-char room code from the lobby invite line ("CODE: XXXXX").
+// Extract the 5-char room code from the lobby invite card.
 export async function getLobbyCode(page: Page): Promise<string> {
   const text = await page.getByTestId('lobby-code').textContent();
-  const trimmed = text?.trim() ?? '';
-  return trimmed.replace(/^CODE:\s*/i, '').trim();
+  return text?.trim() ?? '';
 }
 
 // Click the first valid-move cell on the game board (role="button" is only

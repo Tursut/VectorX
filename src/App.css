@@ -2352,8 +2352,8 @@ body.winner-hero-scroll-lock {
   flex: 1 1 auto;
   min-width: 0;
 }
-/* Compact icon-only reroll button — same vocabulary as the lobby's
-   .lobby-copy-btn (transparent + lavender outline + lavender hover). */
+/* Compact icon-only reroll button — same outline vocabulary as
+   .lobby-share-btn (transparent + lavender border + lavender hover). */
 .name-reroll-btn {
   flex: 0 0 auto;
   background: transparent;
@@ -2457,8 +2457,8 @@ body.winner-hero-scroll-lock {
   top: -40px;
   right: 6px;
 }
-/* Invite card: CODE line, "Room link" section label, then URL + share row +
-   copy feedback. */
+/* Invite card: stacked CODE label, room code, LINK label, URL, SHARE —
+   all centered (issue #81 iteration). */
 .lobby-invite {
   background: transparent;
   border: 1px solid #333366;
@@ -2466,75 +2466,69 @@ body.winner-hero-scroll-lock {
   padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-}
-/* Room code line (includes "CODE:" prefix). Slightly tighter tracking than
-   bare codes so the prefix + 5 letters fit comfortably on narrow phones. */
-.lobby-invite-code {
-  font-family: 'Fredoka One', 'Segoe UI', sans-serif;
-  font-size: clamp(22px, 6vw, 32px);
-  letter-spacing: 0.1em;
-  color: #ffcc66;
+  align-items: center;
   text-align: center;
-  margin: 0;
+  gap: 8px;
 }
-/* Same section-label vocabulary as .lobby-explainer-title. */
-.lobby-invite-link-label {
+/* SECTION labels CODE / LINK — same vocabulary as .lobby-explainer-title. */
+.lobby-invite-field-label {
   font-size: 11px;
   font-weight: bold;
   color: #c8caff;
   text-transform: uppercase;
   letter-spacing: 1px;
   margin: 0;
-  text-align: center;
 }
-/* URL + icon copy button on one row. URL flexes to fill, button is fixed. */
-.lobby-invite-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+/* Room code only (label "CODE" is separate above). */
+.lobby-invite-code {
+  font-family: 'Fredoka One', 'Segoe UI', sans-serif;
+  font-size: clamp(22px, 6vw, 32px);
+  letter-spacing: 0.1em;
+  color: #ffcc66;
+  margin: 0;
 }
-/* URL reads as a normal text link — Segoe UI body font, mid-lavender,
-   underlined. */
+/* Underlined lavender link, centered — inline-block respects max-width. */
 .lobby-invite-url {
-  flex: 1 1 auto;
-  min-width: 0;
+  display: inline-block;
+  max-width: 100%;
   font-family: 'Segoe UI', sans-serif;
   font-size: 13px;
   color: #aaaacc;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   line-height: 1.4;
   text-decoration: underline;
   text-decoration-color: #555588;
   text-underline-offset: 2px;
+  word-break: break-all;
 }
 .lobby-invite-url:hover {
   color: #e8e8f4;
   text-decoration-color: #7a8cff;
 }
-/* Compact icon-only copy button. Square, transparent, lavender outline —
-   same vocabulary as .exit-game-btn but sized as a small inline action. */
-.lobby-copy-btn {
-  flex: 0 0 auto;
+/* Labelled share — inherits icon-only-outline vocabulary, not START gradient. */
+.lobby-share-btn {
+  margin-top: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   background: transparent;
   border: 1px solid #555588;
   border-radius: 6px;
   color: #aaaacc;
-  font-size: 16px;
+  font-size: 13px;
   line-height: 1;
   font-family: 'Segoe UI', sans-serif;
-  width: 36px;
-  height: 32px;
-  padding: 0;
+  padding: 8px 16px;
   cursor: pointer;
   transition: background 0.15s, color 0.15s, border-color 0.15s;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
 }
-.lobby-copy-btn:hover {
+.lobby-share-btn-text {
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-size: 11px;
+}
+.lobby-share-btn:hover {
   background: rgba(122, 140, 255, 0.08);
   color: #e8e8f4;
   border-color: #7a8cff;
