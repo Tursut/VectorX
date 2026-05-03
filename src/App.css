@@ -2471,20 +2471,46 @@ body.winner-hero-scroll-lock {
   top: -40px;
   right: 6px;
 }
-/* GATHER YOUR CREW — own .start-rules card, same rhythm as menu explainer. */
+/* GATHER YOUR CREW — centered copy; .start-rules defaults to text-align:left. */
 .lobby-explainer-panel.start-rules {
-  gap: 6px;
+  gap: 8px;
+  text-align: center;
+  align-items: center;
 }
 
-/* CODE / LINK / share — separate .start-rules card; code row centered. */
+/* CODE / LINK card — vertical centering of the stack; invite-only overrides
+   for .start-rules p which otherwise washes out labels + room code. */
 .lobby-invite.start-rules {
   gap: 0;
+  justify-content: center;
+  min-height: clamp(200px, 38vh, 280px);
+  padding-top: 22px;
+  padding-bottom: 22px;
+}
+
+.lobby-invite.start-rules .lobby-invite-field-label {
+  color: #c8caff;
+}
+
+.lobby-invite.start-rules p.lobby-invite-code {
+  color: #ffcc66;
+  font-family: 'Fredoka One', 'Segoe UI', sans-serif;
+  font-size: clamp(28px, 8vw, 42px);
+  font-weight: bold;
+  letter-spacing: 0.12em;
+  line-height: 1.15;
+}
+
+.lobby-invite.start-rules p.lobby-copy-feedback {
+  color: #2ecc71;
+  font-size: 12px;
 }
 
 .lobby-invite-code-block {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   text-align: center;
   gap: 8px;
   width: 100%;
@@ -2503,13 +2529,15 @@ body.winner-hero-scroll-lock {
   letter-spacing: 1px;
   margin: 0;
 }
-/* Room code only (label "CODE" is separate above). */
+/* Room code — base sizing; .lobby-invite.start-rules p wins over .start-rules p. */
 .lobby-invite-code {
   font-family: 'Fredoka One', 'Segoe UI', sans-serif;
-  font-size: clamp(22px, 6vw, 32px);
-  letter-spacing: 0.1em;
+  font-size: clamp(28px, 8vw, 42px);
+  font-weight: bold;
+  letter-spacing: 0.12em;
   color: #ffcc66;
   margin: 0;
+  line-height: 1.15;
 }
 /* Underlined lavender link, centered — inline-block respects max-width. */
 .lobby-invite-url {
