@@ -110,7 +110,7 @@ export default function Lobby({
         </div>
       )}
       <motion.section
-        className="lobby"
+        className={`lobby${isHost ? ' lobby--flat' : ''}`}
         aria-label="Waiting room"
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}

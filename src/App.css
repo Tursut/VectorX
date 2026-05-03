@@ -2434,6 +2434,14 @@ body.winner-hero-scroll-lock {
   box-shadow: 0 0 32px rgba(122, 140, 255, 0.08);
 }
 
+/* Host only — outer shell removed so sections sit on page bg. */
+.lobby.lobby--flat {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
 /* Hero: LOBBY heading only — room code now lives as the visual lead of
    .lobby-invite where the user actually shares it. */
 .lobby-hero {
