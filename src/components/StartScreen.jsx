@@ -96,6 +96,9 @@ export default function StartScreen({
   const nameInputRef = useRef(null);
   const codeInputRef = useRef(null);
   const drawerSentinelIssuedRef = useRef(false);
+  // Second stack entry when flipping to GOT A CODE? join mode so browser back peels
+  // HOST/join picker before leaving the multiplayer drawer altogether (#90).
+  const joinHistoryLayerRef = useRef(false);
   const rerollAnimRef = useRef({ id: null, target: null });
   const debugTapRef = useRef({ count: 0, timer: null });
 
@@ -174,6 +177,7 @@ export default function StartScreen({
   // changed their mind needs the share-link hash stripped so a refresh
   // doesn't loop them back into join mode.
   const applyBackToMenuState = useCallback(() => {
+    joinHistoryLayerRef.current = false;
     setView(onlineAvailable ? 'menu' : 'local');
     setJoinMode(false);
     setCode('');
@@ -204,6 +208,7 @@ export default function StartScreen({
   useLayoutEffect(() => {
     if (!drawerBackGuardActive) {
       drawerSentinelIssuedRef.current = false;
+      joinHistoryLayerRef.current = false;
       return undefined;
     }
     if (typeof window === 'undefined' || !window.history?.pushState) return undefined;
@@ -211,6 +216,11 @@ export default function StartScreen({
       pushDrawerSentinelOnce();
     }
     function onPop() {
+      if (joinHistoryLayerRef.current) {
+        joinHistoryLayerRef.current = false;
+        setJoinMode(false);
+        return;
+      }
       applyBackToMenuState();
     }
     window.addEventListener('popstate', onPop);
@@ -286,6 +296,7 @@ export default function StartScreen({
 
   function openOnline() {
     playClick();
+    joinHistoryLayerRef.current = false;
     pushDrawerSentinelOnce();
     setView('online');
     setJoinMode(false);
@@ -294,6 +305,7 @@ export default function StartScreen({
 
   function openLocal() {
     playClick();
+    joinHistoryLayerRef.current = false;
     pushDrawerSentinelOnce();
     setView('local');
     setSubmitError(null);
@@ -301,8 +313,26 @@ export default function StartScreen({
 
   function toggleJoinMode() {
     playClick();
-    setJoinMode((j) => !j);
+    if (!joinMode) {
+      setJoinMode(true);
+      setSubmitError(null);
+      if (onlineAvailable && typeof window !== 'undefined' && window.history?.pushState) {
+        window.history.pushState({ vxStartDrawer: 'join' }, '');
+        joinHistoryLayerRef.current = true;
+      }
+      return;
+    }
     setSubmitError(null);
+    if (
+      joinHistoryLayerRef.current &&
+      typeof window !== 'undefined' &&
+      typeof window.history?.back === 'function'
+    ) {
+      window.history.back();
+      return;
+    }
+    joinHistoryLayerRef.current = false;
+    setJoinMode(false);
   }
 
   const primaryLabel =

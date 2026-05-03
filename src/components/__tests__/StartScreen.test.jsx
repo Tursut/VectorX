@@ -160,6 +160,24 @@ describe('StartScreen — drawer history sentinel', () => {
 
     await waitFor(() => expect(screen.getByTestId('hero-play')).toBeInTheDocument());
   });
+
+  it('from join sub-mode, browser back peels to create first, then back leaves the drawer', async () => {
+    const user = userEvent.setup();
+    render(<StartScreen {...withOnline()} />);
+    await user.click(screen.getByTestId('hero-play-online'));
+    const toggle = await screen.findByTestId('toggle-join-mode');
+    await user.click(toggle);
+    expect(await screen.findByLabelText(/room code/i)).toBeInTheDocument();
+
+    window.dispatchEvent(new PopStateEvent('popstate'));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /create room →/i })).toBeInTheDocument(),
+    );
+    expect(screen.queryByLabelText(/room code/i)).toBeNull();
+
+    window.dispatchEvent(new PopStateEvent('popstate'));
+    await waitFor(() => expect(screen.getByTestId('hero-play')).toBeInTheDocument());
+  });
 });
 
 // ---------- Cold-open (share link / retry-after-rejection) ----------
