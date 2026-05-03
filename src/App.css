@@ -2714,9 +2714,9 @@ body.winner-hero-scroll-lock {
 /* Hero buttons — full-width CTAs in the menu view. Primary is the
    reused .start-button orange-gradient vocabulary so the visual
    weight matches what users see on the lobby + game-over screens.
-   Secondary is a lavender-bordered restatement: same shape, quieter
-   colour, so the choice is "primary action / secondary action" not
-   "two equal options". */
+   Secondary stays below primary weight but reads as an outlined
+   control (not another .mode-drawer card): light tint fill, thin
+   border, glow mainly on hover. */
 .hero-button {
   display: flex;
   flex-direction: column;
@@ -2729,6 +2729,13 @@ body.winner-hero-scroll-lock {
   text-align: center;
   font-family: 'Fredoka One', 'Segoe UI', sans-serif;
   transition: transform 0.1s, box-shadow 0.15s, border-color 0.15s, background 0.15s;
+}
+.hero-button:focus:not(:focus-visible) {
+  outline: none;
+}
+.hero-button:focus-visible {
+  outline: 2px solid #7a8cff;
+  outline-offset: 3px;
 }
 .hero-button:active {
   transform: translateY(1px);
@@ -2745,16 +2752,24 @@ body.winner-hero-scroll-lock {
   }
 }
 .hero-button-secondary {
-  background: #0f0f23;
+  background: rgba(122, 140, 255, 0.07);
   color: #c8caff;
-  border: 2px solid #333366;
-  box-shadow: 0 0 20px rgba(122, 140, 255, 0.2);
+  border: 1px solid #555588;
+  box-shadow: none;
 }
 @media (hover: hover) {
   .hero-button-secondary:hover {
+    background: rgba(122, 140, 255, 0.12);
     border-color: #7a8cff;
-    box-shadow: 0 0 24px rgba(122, 140, 255, 0.35);
+    box-shadow: 0 0 18px rgba(122, 140, 255, 0.28);
   }
+}
+.hero-button-secondary .hero-button-label {
+  font-size: 20px;
+  letter-spacing: 2px;
+}
+.hero-button-secondary .hero-button-sub {
+  color: #888aaa;
 }
 .hero-button-label {
   font-size: 22px;

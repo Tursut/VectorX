@@ -588,7 +588,7 @@ at:          ${onlineErrorDebug.at ?? '(unknown)'}`}
               {!isJoiner && (
                 <button
                   type="button"
-                  className="hero-button hero-button-secondary online-join-hero"
+                  className="hero-button hero-button-secondary"
                   data-testid="toggle-join-mode"
                   onClick={toggleJoinMode}
                 >
