@@ -586,13 +586,6 @@ at:          ${onlineErrorDebug.at ?? '(unknown)'}`}
           </div>
         )}
 
-        {isOnline && joinMode && (
-          <div className="mode-hostnote">
-            <span className="mode-btn-icon">✨</span>
-            The host picks magic items for this room.
-          </div>
-        )}
-
         {isMenu && (
           <div className="start-rules">
             <p>🗺️ Move onto any adjacent square — including diagonally.</p>
