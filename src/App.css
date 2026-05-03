@@ -2436,12 +2436,16 @@ body.winner-hero-scroll-lock {
   box-shadow: 0 0 32px rgba(122, 140, 255, 0.08);
 }
 
-/* Host only — outer shell removed so sections sit on page bg. */
+/* Host only — outer shell removed so sections sit on page bg. No horizontal
+   padding here: .lobby-wrap already mirrors .start-content (20px). Section
+   padding was double-counted and made panels narrower than the start screen. */
 .lobby.lobby--flat {
   background: transparent;
   border: none;
   border-radius: 0;
   box-shadow: none;
+  padding-left: 0;
+  padding-right: 0;
 }
 
 /* Hero: LOBBY heading only — code/link live in .lobby-invite below. */
