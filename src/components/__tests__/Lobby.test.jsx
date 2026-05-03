@@ -20,6 +20,7 @@ describe('Lobby — rendering', () => {
     expect(screen.getByTestId('lobby-code')).toHaveTextContent('Q7K4N');
     const invite = document.querySelector('.lobby-invite');
     expect(invite).toBeTruthy();
+    expect(invite?.textContent).toMatch(/GATHER YOUR CREW/);
     expect(invite.querySelectorAll('.lobby-invite-field-label')[0]).toHaveTextContent('CODE');
     expect(invite.querySelectorAll('.lobby-invite-field-label')[1]).toHaveTextContent('LINK');
   });

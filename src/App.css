@@ -2470,18 +2470,24 @@ body.winner-hero-scroll-lock {
   top: -40px;
   right: 6px;
 }
-/* Invite card: stacked CODE label, room code, LINK label, URL, SHARE —
-   all centered (issue #81 iteration). */
-.lobby-invite {
-  background: transparent;
-  border: 1px solid #333366;
-  border-radius: 8px;
-  padding: 16px;
+/* Invite panel — reuses .start-rules shell; intro left, code/link centered. */
+.lobby-invite.start-rules {
+  gap: 12px;
+}
+
+.lobby-invite-code-block {
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
   gap: 8px;
+  width: 100%;
+  margin-top: 4px;
+}
+
+/* Player list sits in the same card treatment as start-screen rules. */
+.lobby-roster.start-rules {
+  gap: 0;
 }
 /* SECTION labels CODE / LINK — same vocabulary as .lobby-explainer-title. */
 .lobby-invite-field-label {
@@ -2562,14 +2568,7 @@ body.winner-hero-scroll-lock {
   opacity: 1;
 }
 
-/* Directly under LOBBY — explains how to fill the room before the invite
-   card. Heading uses the project's 11px uppercase section-label vocabulary. */
-.lobby-explainer {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  text-align: center;
-}
+/* GATHER YOUR CREW — same section-label vocabulary as gremlin questions. */
 .lobby-explainer-title {
   font-size: 11px;
   font-weight: bold;
@@ -2609,6 +2608,9 @@ body.winner-hero-scroll-lock {
   border-radius: 0;
   font-family: 'Segoe UI', sans-serif;
   font-size: 15px;
+}
+.lobby-roster .lobby-player {
+  border-bottom-color: #2a2a44;
 }
 .lobby-player:last-child {
   border-bottom: none;

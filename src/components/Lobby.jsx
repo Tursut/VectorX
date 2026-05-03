@@ -120,7 +120,7 @@ export default function Lobby({
           <h1 className="lobby-title">LOBBY</h1>
         </div>
 
-        <div className="lobby-explainer">
+        <div className="lobby-invite start-rules">
           <h2 className="lobby-explainer-title">GATHER YOUR CREW</h2>
           {isHost ? (
             <p className="lobby-explainer-body">
@@ -133,41 +133,40 @@ export default function Lobby({
               host — any empty seats get filled with bots.
             </p>
           )}
-        </div>
-
-        <div className="lobby-invite">
-          <p className="lobby-invite-field-label">CODE</p>
-          <p
-            className="lobby-invite-code"
-            data-testid="lobby-code"
-            aria-label={`Room code ${code}`}
-          >
-            {code}
-          </p>
-          <p className="lobby-invite-field-label">LINK</p>
-          <a
-            className="lobby-invite-url"
-            href={shareLink}
-            onClick={handleUrlClick}
-          >
-            {displayShareLink(shareLink)}
-          </a>
-          <button
-            type="button"
-            className="lobby-share-btn"
-            onClick={shareOrCopy}
-            aria-label="Share invite link"
-          >
-            <span className="lobby-share-btn-text">SHARE</span>
-            <ShareIcon />
-          </button>
-          <p
-            className={`lobby-copy-feedback${copied ? ' lobby-copy-feedback-shown' : ''}`}
-            role="status"
-            aria-live="polite"
-          >
-            {copied ? '✓ Link copied!' : ''}
-          </p>
+          <div className="lobby-invite-code-block">
+            <p className="lobby-invite-field-label">CODE</p>
+            <p
+              className="lobby-invite-code"
+              data-testid="lobby-code"
+              aria-label={`Room code ${code}`}
+            >
+              {code}
+            </p>
+            <p className="lobby-invite-field-label">LINK</p>
+            <a
+              className="lobby-invite-url"
+              href={shareLink}
+              onClick={handleUrlClick}
+            >
+              {displayShareLink(shareLink)}
+            </a>
+            <button
+              type="button"
+              className="lobby-share-btn"
+              onClick={shareOrCopy}
+              aria-label="Share invite link"
+            >
+              <span className="lobby-share-btn-text">SHARE</span>
+              <ShareIcon />
+            </button>
+            <p
+              className={`lobby-copy-feedback${copied ? ' lobby-copy-feedback-shown' : ''}`}
+              role="status"
+              aria-live="polite"
+            >
+              {copied ? '✓ Link copied!' : ''}
+            </p>
+          </div>
         </div>
 
         {!isHost && (
@@ -176,37 +175,39 @@ export default function Lobby({
           </p>
         )}
 
-        <ul className="lobby-players" aria-label="Players">
-          {players.map((p) => (
-            <li key={p.id} className="lobby-player">
-              <span
-                className="lobby-player-avatar"
-                style={{ backgroundColor: PLAYERS[p.id].color }}
-                aria-hidden="true"
+        <div className="lobby-roster start-rules">
+          <ul className="lobby-players" aria-label="Players">
+            {players.map((p) => (
+              <li key={p.id} className="lobby-player">
+                <span
+                  className="lobby-player-avatar"
+                  style={{ backgroundColor: PLAYERS[p.id].color }}
+                  aria-hidden="true"
+                >
+                  {PLAYERS[p.id].icon}
+                </span>
+                <span className="lobby-player-name">{p.displayName}</span>
+                {p.id === hostId && <span className="lobby-badge-host" aria-label="host"> 👑</span>}
+                {p.id === mySeatId && <span className="lobby-badge-you"> (you)</span>}
+              </li>
+            ))}
+            {Array.from({ length: emptySeats }, (_, i) => (
+              <li
+                key={`empty-${i}`}
+                className="lobby-player lobby-empty-seat"
+                data-testid="lobby-empty-seat"
               >
-                {PLAYERS[p.id].icon}
-              </span>
-              <span className="lobby-player-name">{p.displayName}</span>
-              {p.id === hostId && <span className="lobby-badge-host" aria-label="host"> 👑</span>}
-              {p.id === mySeatId && <span className="lobby-badge-you"> (you)</span>}
-            </li>
-          ))}
-          {Array.from({ length: emptySeats }, (_, i) => (
-            <li
-              key={`empty-${i}`}
-              className="lobby-player lobby-empty-seat"
-              data-testid="lobby-empty-seat"
-            >
-              <span
-                className="lobby-player-avatar lobby-player-avatar-bot"
-                aria-hidden="true"
-              >
-                👾
-              </span>
-              <span className="lobby-player-name">Bot will fill this slot</span>
-            </li>
-          ))}
-        </ul>
+                <span
+                  className="lobby-player-avatar lobby-player-avatar-bot"
+                  aria-hidden="true"
+                >
+                  👾
+                </span>
+                <span className="lobby-player-name">Bot will fill this slot</span>
+              </li>
+            ))}
+          </ul>
+        </div>
 
         {isHost && typeof onMagicItemsChange === 'function' && (
           <div className="mode-section lobby-magic-section">
