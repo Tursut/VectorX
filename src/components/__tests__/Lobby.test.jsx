@@ -18,9 +18,11 @@ describe('Lobby — rendering', () => {
   it('shows the CODE and LINK labels and room code value', () => {
     render(<Lobby code="Q7K4N" players={[]} hostId={null} mySeatId={null} />);
     expect(screen.getByTestId('lobby-code')).toHaveTextContent('Q7K4N');
+    expect(document.querySelector('.lobby-explainer-panel')?.textContent).toMatch(
+      /GATHER YOUR CREW/,
+    );
     const invite = document.querySelector('.lobby-invite');
     expect(invite).toBeTruthy();
-    expect(invite?.textContent).toMatch(/GATHER YOUR CREW/);
     expect(invite.querySelectorAll('.lobby-invite-field-label')[0]).toHaveTextContent('CODE');
     expect(invite.querySelectorAll('.lobby-invite-field-label')[1]).toHaveTextContent('LINK');
   });

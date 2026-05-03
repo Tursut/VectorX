@@ -2404,15 +2404,17 @@ body.winner-hero-scroll-lock {
 }
 
 /* Wraps the lobby card + the exit-to-menu button as a vertical stack.
-   The width/margin live on the wrap so the exit button sits on the page
-   bg below the card (mirroring .exit-game-btn's position below the game
-   board), but stays horizontally aligned with the card's left edge. */
+   Horizontal width matches .start-content so rules-style panels line up
+   with the start screen (max 560px, 20px side padding, border-box). */
 .lobby-wrap {
-  width: min(100% - 40px, 560px);
+  max-width: 560px;
+  width: 100%;
+  margin: 48px auto 120px;
+  padding: 0 20px;
+  box-sizing: border-box;
   /* Bottom margin clears the sticky .start-button-bar (~80 px tall on its
      fade gradient + button + safe-area) so the last lobby element isn't
      covered. */
-  margin: 48px auto 120px;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -2442,8 +2444,7 @@ body.winner-hero-scroll-lock {
   box-shadow: none;
 }
 
-/* Hero: LOBBY heading only — room code now lives as the visual lead of
-   .lobby-invite where the user actually shares it. */
+/* Hero: LOBBY heading only — code/link live in .lobby-invite below. */
 .lobby-hero {
   display: flex;
   flex-direction: column;
@@ -2470,9 +2471,14 @@ body.winner-hero-scroll-lock {
   top: -40px;
   right: 6px;
 }
-/* Invite panel — reuses .start-rules shell; intro left, code/link centered. */
+/* GATHER YOUR CREW — own .start-rules card, same rhythm as menu explainer. */
+.lobby-explainer-panel.start-rules {
+  gap: 6px;
+}
+
+/* CODE / LINK / share — separate .start-rules card; code row centered. */
 .lobby-invite.start-rules {
-  gap: 12px;
+  gap: 0;
 }
 
 .lobby-invite-code-block {
@@ -2482,7 +2488,6 @@ body.winner-hero-scroll-lock {
   text-align: center;
   gap: 8px;
   width: 100%;
-  margin-top: 4px;
 }
 
 /* Player list sits in the same card treatment as start-screen rules. */

@@ -120,7 +120,7 @@ export default function Lobby({
           <h1 className="lobby-title">LOBBY</h1>
         </div>
 
-        <div className="lobby-invite start-rules">
+        <div className="lobby-explainer-panel start-rules">
           <h2 className="lobby-explainer-title">GATHER YOUR CREW</h2>
           {isHost ? (
             <p className="lobby-explainer-body">
@@ -133,6 +133,9 @@ export default function Lobby({
               host — any empty seats get filled with bots.
             </p>
           )}
+        </div>
+
+        <div className="lobby-invite start-rules">
           <div className="lobby-invite-code-block">
             <p className="lobby-invite-field-label">CODE</p>
             <p
