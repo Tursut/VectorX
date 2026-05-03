@@ -71,9 +71,18 @@ body.winner-hero-scroll-lock {
   cursor: pointer;
   padding: 2px 4px;
   letter-spacing: 0.03em;
-  transition: color 0.15s;
+  transition: color 0.15s, transform 0.12s, text-shadow 0.15s;
 }
-.exit-game-btn:hover { color: #aab; }
+@media (hover: hover) {
+  .exit-game-btn:hover {
+    color: #aab;
+    transform: scale(1.03);
+    text-shadow: 0 0 12px rgba(122, 140, 255, 0.35);
+  }
+}
+.exit-game-btn:active {
+  transform: scale(0.97);
+}
 
 .exit-confirm-overlay {
   position: fixed;
@@ -118,9 +127,18 @@ body.winner-hero-scroll-lock {
   font-size: 15px;
   font-weight: 700;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background 0.15s, transform 0.12s, box-shadow 0.15s;
 }
-.exit-confirm-yes:hover { background: #c0392b; }
+@media (hover: hover) {
+  .exit-confirm-yes:hover {
+    background: #c0392b;
+    transform: scale(1.03);
+    box-shadow: 0 8px 20px rgba(231, 76, 60, 0.35);
+  }
+}
+.exit-confirm-yes:active {
+  transform: scale(0.97);
+}
 .exit-confirm-no {
   background: #1e1e3a;
   color: #aab;
@@ -130,9 +148,19 @@ body.winner-hero-scroll-lock {
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition: background 0.15s, color 0.15s, transform 0.12s, box-shadow 0.15s;
 }
-.exit-confirm-no:hover { background: #252545; color: #ccd; }
+@media (hover: hover) {
+  .exit-confirm-no:hover {
+    background: #252545;
+    color: #ccd;
+    transform: scale(1.03);
+    box-shadow: 0 8px 18px rgba(122, 140, 255, 0.18);
+  }
+}
+.exit-confirm-no:active {
+  transform: scale(0.97);
+}
 
 /* On narrow screens, player panel goes above the board */
 @media (max-width: 620px) {
@@ -1277,10 +1305,17 @@ body.winner-hero-scroll-lock {
   cursor: pointer;
   padding: 4px 0;
   display: block;
-  transition: color 0.15s;
+  transition: color 0.15s, transform 0.12s, text-shadow 0.15s;
 }
-.sandbox-entry-btn:hover {
-  color: #8855bb;
+@media (hover: hover) {
+  .sandbox-entry-btn:hover {
+    color: #8855bb;
+    transform: scale(1.03);
+    text-shadow: 0 0 14px rgba(136, 85, 187, 0.35);
+  }
+}
+.sandbox-entry-btn:active {
+  transform: scale(0.97);
 }
 
 /* ── Sandbox Panel ── */
@@ -1406,13 +1441,23 @@ body.winner-hero-scroll-lock {
   font-family: 'Fredoka One', 'Segoe UI', sans-serif;
   color: #777899;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.12s, box-shadow 0.15s;
   white-space: nowrap;
 }
-.sandbox-ctrl-btn:hover { background: #1e1e3e; color: #ccccee; }
-.sandbox-reset-btn:hover { color: #f39c12; border-color: #f39c12; }
-.sandbox-exit-btn:hover  { color: #e74c3c; border-color: #e74c3c; }
-.sandbox-debug-btn:hover { color: #c8caff; border-color: #7a8cff; }
+@media (hover: hover) {
+  .sandbox-ctrl-btn:hover {
+    background: #1e1e3e;
+    color: #ccccee;
+    transform: scale(1.03);
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.3);
+  }
+  .sandbox-reset-btn:hover { color: #f39c12; border-color: #f39c12; }
+  .sandbox-exit-btn:hover  { color: #e74c3c; border-color: #e74c3c; }
+  .sandbox-debug-btn:hover { color: #c8caff; border-color: #7a8cff; }
+}
+.sandbox-ctrl-btn:active {
+  transform: scale(0.97);
+}
 .sandbox-debug-btn.is-active {
   color: #c8caff;
   border-color: #7a8cff;
@@ -1444,10 +1489,17 @@ body.winner-hero-scroll-lock {
   color: #555577;
   cursor: pointer;
   text-align: left;
-  transition: color 0.15s;
+  transition: color 0.15s, transform 0.12s, text-shadow 0.15s;
 }
-.sandbox-sound-toggle:hover {
-  color: #777899;
+@media (hover: hover) {
+  .sandbox-sound-toggle:hover {
+    color: #777899;
+    transform: scale(1.02);
+    text-shadow: 0 0 10px rgba(122, 140, 255, 0.2);
+  }
+}
+.sandbox-sound-toggle:active {
+  transform: scale(0.97);
 }
 
 .sandbox-sound-chevron {
@@ -1459,8 +1511,10 @@ body.winner-hero-scroll-lock {
   color: #666888;
   transition: color 0.15s;
 }
-.sandbox-sound-toggle:hover .sandbox-sound-chevron {
-  color: #888aaa;
+@media (hover: hover) {
+  .sandbox-sound-toggle:hover .sandbox-sound-chevron {
+    color: #888aaa;
+  }
 }
 
 .sandbox-sound-section.is-open .sandbox-sound-grid {
@@ -1482,13 +1536,20 @@ body.winner-hero-scroll-lock {
   font-family: 'Fredoka One', 'Segoe UI', sans-serif;
   color: #8888aa;
   cursor: pointer;
-  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  transition: background 0.12s, color 0.12s, border-color 0.12s, transform 0.12s, box-shadow 0.15s;
   white-space: nowrap;
 }
-.sandbox-sound-btn:hover {
-  background: #1a1a38;
-  color: #ccccee;
-  border-color: #5555aa;
+@media (hover: hover) {
+  .sandbox-sound-btn:hover {
+    background: #1a1a38;
+    color: #ccccee;
+    border-color: #5555aa;
+    transform: scale(1.03);
+    box-shadow: 0 5px 12px rgba(0, 0, 0, 0.3);
+  }
+}
+.sandbox-sound-btn:active {
+  transform: scale(0.97);
 }
 
 .sandbox-bgmusic-grid {
@@ -1582,13 +1643,20 @@ body.winner-hero-scroll-lock {
   border-radius: 12px;
   background: #0f0f23;
   cursor: pointer;
-  transition: border-color 0.15s, background 0.15s, transform 0.12s;
+  transition: border-color 0.15s, background 0.15s, transform 0.12s, box-shadow 0.15s;
   color: #888aaa;
 }
 
-.mode-btn:hover {
-  border-color: #555588;
-  background: #14142e;
+@media (hover: hover) {
+  .mode-btn:hover {
+    border-color: #555588;
+    background: #14142e;
+    transform: scale(1.03);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+  }
+}
+.mode-btn:active {
+  transform: scale(0.97);
 }
 
 .mode-btn-icon {
@@ -1674,18 +1742,27 @@ body.winner-hero-scroll-lock {
   cursor: pointer;
   color: rgba(255, 255, 255, 0.38);
   line-height: 0;
-  transition: color 0.15s, background 0.15s;
+  transition: color 0.15s, background 0.15s, transform 0.12s, box-shadow 0.15s;
   flex-shrink: 0;
 }
-.sound-btn:hover {
-  color: rgba(255, 255, 255, 0.72);
-  background: rgba(255, 255, 255, 0.07);
+@media (hover: hover) {
+  .sound-btn:hover {
+    color: rgba(255, 255, 255, 0.72);
+    background: rgba(255, 255, 255, 0.07);
+    transform: scale(1.05);
+    box-shadow: 0 0 14px rgba(122, 140, 255, 0.25);
+  }
 }
 .sound-btn-muted {
   color: rgba(255, 255, 255, 0.18);
 }
-.sound-btn-muted:hover {
-  color: rgba(255, 255, 255, 0.52);
+@media (hover: hover) {
+  .sound-btn-muted:hover {
+    color: rgba(255, 255, 255, 0.52);
+  }
+}
+.sound-btn:active {
+  transform: scale(0.94);
 }
 
 /* Position inside TurnIndicator shell */
@@ -1785,11 +1862,18 @@ body.winner-hero-scroll-lock {
   padding: 8px 10px;
   border-radius: 8px;
   line-height: 1;
-  transition: color 0.15s, background 0.15s;
+  transition: color 0.15s, background 0.15s, transform 0.12s, box-shadow 0.15s;
 }
-.elim-moment-close:hover {
-  color: #ccccee;
-  background: rgba(255,255,255,0.09);
+@media (hover: hover) {
+  .elim-moment-close:hover {
+    color: #ccccee;
+    background: rgba(255,255,255,0.09);
+    transform: scale(1.05);
+    box-shadow: 0 0 14px rgba(122, 140, 255, 0.25);
+  }
+}
+.elim-moment-close:active {
+  transform: scale(0.94);
 }
 
 /* ── Countdown Overlay ── */
@@ -2028,8 +2112,11 @@ body.winner-hero-scroll-lock {
   letter-spacing: 1px;
 }
 
-.gameover-button-secondary:hover {
-  transform: translateY(-2px);
+@media (hover: hover) {
+  .gameover-button-secondary:hover {
+    transform: translateY(-2px) scale(1.03);
+    box-shadow: 0 8px 18px rgba(122, 140, 255, 0.2);
+  }
 }
 
 .gameover-button-primary {
@@ -2053,6 +2140,9 @@ body.winner-hero-scroll-lock {
   background: #1a1a3e;
   color: #aaaacc;
   border: 2px solid #333355;
+}
+.gameover-button-secondary:active {
+  transform: translateY(0) scale(0.97);
 }
 
 /* ── Items on board ── */
@@ -2371,18 +2461,22 @@ body.winner-hero-scroll-lock {
   width: 44px;
   padding: 0;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.12s;
+  transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.12s, box-shadow 0.15s;
   display: inline-flex;
   align-items: center;
   justify-content: center;
 }
-.name-reroll-btn:hover {
-  background: rgba(122, 140, 255, 0.08);
-  color: #e8e8f4;
-  border-color: #7a8cff;
+@media (hover: hover) {
+  .name-reroll-btn:hover {
+    background: rgba(122, 140, 255, 0.08);
+    color: #e8e8f4;
+    border-color: #7a8cff;
+    transform: scale(1.05);
+    box-shadow: 0 0 14px rgba(122, 140, 255, 0.26);
+  }
 }
 .name-reroll-btn:active {
-  transform: rotate(-12deg);
+  transform: scale(0.94) rotate(-8deg);
 }
 
 .join-actions {
@@ -2576,7 +2670,7 @@ body.winner-hero-scroll-lock {
   font-family: 'Segoe UI', sans-serif;
   padding: 8px 16px;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.12s, box-shadow 0.15s;
 }
 .lobby-share-btn-text {
   font-weight: bold;
@@ -2584,10 +2678,17 @@ body.winner-hero-scroll-lock {
   letter-spacing: 1px;
   font-size: 11px;
 }
-.lobby-share-btn:hover {
-  background: rgba(122, 140, 255, 0.08);
-  color: #e8e8f4;
-  border-color: #7a8cff;
+@media (hover: hover) {
+  .lobby-share-btn:hover {
+    background: rgba(122, 140, 255, 0.08);
+    color: #e8e8f4;
+    border-color: #7a8cff;
+    transform: scale(1.03);
+    box-shadow: 0 6px 14px rgba(122, 140, 255, 0.24);
+  }
+}
+.lobby-share-btn:active {
+  transform: scale(0.97);
 }
 /* Inline confirmation under the URL row. Reserves a fixed line height so the
    row above doesn't jump when it appears, and fades in/out via opacity. */
@@ -2738,7 +2839,7 @@ body.winner-hero-scroll-lock {
   outline-offset: 3px;
 }
 .hero-button:active {
-  transform: translateY(1px);
+  transform: scale(0.97);
 }
 .hero-button-primary {
   background: linear-gradient(135deg, #e74c3c, #f39c12);
@@ -2748,6 +2849,7 @@ body.winner-hero-scroll-lock {
 }
 @media (hover: hover) {
   .hero-button-primary:hover {
+    transform: scale(1.03);
     box-shadow: 0 8px 26px rgba(243, 156, 18, 0.5);
   }
 }
@@ -2761,6 +2863,7 @@ body.winner-hero-scroll-lock {
   .hero-button-secondary:hover {
     background: rgba(122, 140, 255, 0.12);
     border-color: #7a8cff;
+    transform: scale(1.03);
     box-shadow: 0 0 18px rgba(122, 140, 255, 0.28);
   }
 }
@@ -2798,12 +2901,17 @@ body.winner-hero-scroll-lock {
   cursor: pointer;
   padding: 8px 4px;
   letter-spacing: 0.3px;
-  transition: color 0.15s;
+  transition: color 0.15s, transform 0.12s, text-shadow 0.15s;
 }
 @media (hover: hover) {
   .hero-text-link:hover {
     color: #c8caff;
+    transform: scale(1.03);
+    text-shadow: 0 0 10px rgba(122, 140, 255, 0.3);
   }
+}
+.hero-text-link:active {
+  transform: scale(0.97);
 }
 
 /* "← Back to menu" link sits below the drawer in online + local views,
@@ -3019,9 +3127,18 @@ body[data-bg-hidden='true'] .menu-avatar-stage {
   cursor: pointer;
   padding: 2px 4px;
   letter-spacing: 0.03em;
-  transition: color 0.15s;
+  transition: color 0.15s, transform 0.12s, text-shadow 0.15s;
 }
-.online-back-btn:hover { color: #aab; }
+@media (hover: hover) {
+  .online-back-btn:hover {
+    color: #aab;
+    transform: scale(1.03);
+    text-shadow: 0 0 12px rgba(122, 140, 255, 0.35);
+  }
+}
+.online-back-btn:active {
+  transform: scale(0.97);
+}
 .online-error {
   color: #ff8899;
   font-size: 13px;
@@ -3120,6 +3237,18 @@ body[data-bg-hidden='true'] .menu-avatar-stage {
   padding: 4px 8px;
   font-size: 10px;
   cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.12s, box-shadow 0.15s;
+}
+@media (hover: hover) {
+  .audio-debug-copy:hover {
+    background: #25254a;
+    border-color: #7a8cff;
+    transform: scale(1.04);
+    box-shadow: 0 0 12px rgba(122, 140, 255, 0.3);
+  }
+}
+.audio-debug-copy:active {
+  transform: scale(0.96);
 }
 
 .audio-debug-body {
