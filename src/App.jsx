@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ENABLE_ONLINE, SERVER_URL } from './config';
 import * as sounds from './game/sounds';
@@ -106,6 +106,9 @@ export default function App() {
   // the min-duration tail.
   const dismissTimerRef = useRef(null);
   const [audioDebugEnabled, setAudioDebugEnabled] = useState(readAudioDebugEnabled);
+  // One-shot: next StartScreen mount opens the friends drawer (create/join) after
+  // leaving a lobby / post-game room list — browser back parity (issue #90).
+  const [resumeFriendsDrawer, setResumeFriendsDrawer] = useState(false);
 
   function handleSetAudioDebugEnabled(next) {
     setAudioDebugEnabled(next);
@@ -148,8 +151,9 @@ export default function App() {
       // The overlay stays up (creatingRoom === true) until either the
       // controller's lobby is live or a fatal error is surfaced —
       // handleOnlineReady drives the dismiss (issue #74).
-      setColdOpenCode(null);
-      setOnline({ code: body.code, displayName, magicItems });
+    setColdOpenCode(null);
+    setResumeFriendsDrawer(false);
+    setOnline({ code: body.code, displayName, magicItems });
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err);
       setOnlineError(`Couldn't reach the server: ${reason}`);
@@ -197,6 +201,7 @@ export default function App() {
     setPendingCode('');
     // Joiner's initial magic-items choice is irrelevant — host decides.
     // Default false just so the lobby has a concrete value.
+    setResumeFriendsDrawer(false);
     setOnline({ code, displayName, magicItems: false });
   }
 
@@ -225,9 +230,12 @@ export default function App() {
     setCreatingRoom(false);
     onlineReadyHandledRef.current = false;
     clearRoomHash();
+    setResumeFriendsDrawer(false);
   }
 
-  function handleOnlineExit() {
+  /** @param {{ target?: 'menu' | 'friends' }} [options] */
+  function handleOnlineExit(options = {}) {
+    const target = options.target ?? 'menu';
     setOnline(null);
     setOnlineError(null);
     setOnlineErrorDebug(null);
@@ -237,13 +245,23 @@ export default function App() {
     setCreatingRoom(false);
     onlineReadyHandledRef.current = false;
     clearRoomHash();
+    setResumeFriendsDrawer(target === 'friends');
   }
+
+  useEffect(() => {
+    if (online || !resumeFriendsDrawer) return;
+    setResumeFriendsDrawer(false);
+  }, [online, resumeFriendsDrawer]);
 
   // Effective default-mode + defaults. A pending failed-join takes priority
   // over a cold-open hash code; both fall back to the hotseat default.
   const effectiveDefaultCode = pendingCode || coldOpenCode || '';
   const effectiveDefaultMode =
-    pendingCode || (ENABLE_ONLINE && coldOpenCode) ? 'join' : 'this-device';
+    pendingCode || (ENABLE_ONLINE && coldOpenCode)
+      ? 'join'
+      : resumeFriendsDrawer
+        ? 'create'
+        : 'this-device';
 
   // MenuAvatarStage lives here (above the controller swap) so the bubble
   // drift is one continuous animation across start/lobby/gameover instead of

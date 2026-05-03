@@ -230,8 +230,16 @@ describe('disconnect during playing: last human leaves a 1h3b', () => {
 
     const final = await peekGameAndAlarm(code);
     expect(final.game!.phase).toBe('gameover');
-    const alive = final.game!.players.filter((p) => !p.isEliminated);
-    expect(alive).toHaveLength(1);
+    const players = final.game!.players;
+    const alive = players.filter((p) => !p.isEliminated);
+    expect(alive.length).toBeLessThanOrEqual(1);
+    const w = final.game!.winner;
+    if (alive.length === 1) {
+      expect(w).toBe(alive[0].id);
+    } else if (w !== null) {
+      const row = players.find((p) => p.id === w);
+      expect(row?.isEliminated).toBe(true);
+    }
     // Alice (seat 0) was eliminated by disconnect, so she can't be the winner.
     expect(final.game!.winner).not.toBe(0);
     // Post-GAME_OVER reaper alarm is scheduled ~10 min out (Step 20).

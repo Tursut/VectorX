@@ -75,7 +75,7 @@ vi.mock('../game/useWinnerHero', () => ({
   useWinnerHero: () => ({ heroPlaying: false, heroEnded: false, dismissHero: () => {} }),
 }));
 vi.mock('../game/useGameplaySounds', () => ({ useGameplaySounds: () => {} }));
-vi.mock('../useBackGuard', () => ({ useBackGuard: () => {} }));
+vi.mock('../useBackGuard', () => ({ useBackGuard: vi.fn() }));
 vi.mock('../game/useBgHidden', () => ({ useBgHidden: () => {} }));
 vi.mock('../game/sounds', () => ({
   loadMutedPreference: () => false,
@@ -88,10 +88,12 @@ vi.mock('../game/sounds', () => ({
 }));
 
 import LocalGameController from '../LocalGameController';
+import { useBackGuard } from '../useBackGuard';
 
 describe('LocalGameController quick play', () => {
   beforeEach(() => {
     initGameMock.mockClear();
+    vi.mocked(useBackGuard).mockClear();
   });
 
   it('resets local player composition to 1 human and 3 bots', () => {
@@ -102,5 +104,13 @@ describe('LocalGameController quick play', () => {
 
     fireEvent.click(screen.getByTestId('quick-play'));
     expect(screen.getByTestId('gremlin-count')).toHaveTextContent('3');
+  });
+
+  it('activates browser back guard during quick-play countdown (issue #90)', () => {
+    render(<LocalGameController />);
+    fireEvent.click(screen.getByTestId('quick-play'));
+    expect(vi.mocked(useBackGuard).mock.calls.some(([active]) => active === true)).toBe(
+      true,
+    );
   });
 });

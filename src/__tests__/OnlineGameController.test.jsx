@@ -78,7 +78,13 @@ vi.mock('../game/useBgHidden', () => ({
 }));
 
 vi.mock('../components/Lobby', () => ({
-  default: () => <div data-testid="lobby" />,
+  default: ({ onLeave }) => (
+    <div data-testid="lobby">
+      <button type="button" data-testid="mock-lobby-exit-trigger" onClick={onLeave}>
+        mock lobby exit
+      </button>
+    </div>
+  ),
 }));
 
 vi.mock('../components/AudioDebugOverlay', () => ({
@@ -92,13 +98,16 @@ vi.mock('../components/GameScreen', () => ({
 vi.mock('../game/sounds', () => ({
   loadMutedPreference: vi.fn(() => false),
   playTick: vi.fn(),
+  playClick: vi.fn(),
   playCountdownGo: vi.fn(),
   playCountdownBeat: vi.fn(),
   setMuted: vi.fn(),
   logAudioDebugEvent: vi.fn(),
   resumeAudio: vi.fn(),
+  stopBgThemeFast: vi.fn(),
 }));
 
+import userEvent from '@testing-library/user-event';
 import OnlineGameController from '../OnlineGameController';
 import { useBackGuard } from '../useBackGuard';
 
@@ -244,5 +253,62 @@ describe('OnlineGameController status suppression', () => {
     );
 
     expect(screen.getByText(/connecting to room/i)).toBeInTheDocument();
+  });
+});
+
+describe('OnlineGameController exit routing (issue #90)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockNetwork = {
+      ...createDefaultNetworkMock(),
+      gameState: null,
+      lobby: {
+        phase: 'lobby',
+        hostId: 0,
+        players: [{ id: 0, displayName: 'Host', isBot: false }],
+      },
+      connectionState: 'open',
+      mySeatId: 0,
+      lastError: null,
+    };
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  it('lobby confirm exit calls onExit with target friends', async () => {
+    const user = userEvent.setup();
+    const onExit = vi.fn();
+    const { rerender } = render(
+      <OnlineGameController code="ABCDE" displayName="Host" onExit={onExit} />,
+    );
+    rerender(<OnlineGameController code="ABCDE" displayName="Host" onExit={onExit} />);
+
+    expect(screen.getByTestId('lobby')).toBeInTheDocument();
+
+    await user.click(screen.getByTestId('mock-lobby-exit-trigger'));
+    await user.click(screen.getByRole('button', { name: /yes, exit/i }));
+
+    expect(onExit).toHaveBeenCalledTimes(1);
+    expect(onExit).toHaveBeenCalledWith({ target: 'friends' });
+  });
+
+  it('playing phase confirm exit calls onExit with target menu', async () => {
+    const user = userEvent.setup();
+    const onExit = vi.fn();
+    mockNetwork = createDefaultNetworkMock();
+    const { rerender } = render(
+      <OnlineGameController code="ABCDE" displayName="Host" onExit={onExit} />,
+    );
+    rerender(<OnlineGameController code="ABCDE" displayName="Host" onExit={onExit} />);
+
+    const activeCalls = vi.mocked(useBackGuard).mock.calls.filter(([a]) => a);
+    const [, onBackBtn] = activeCalls.at(-1) ?? [];
+    expect(typeof onBackBtn).toBe('function');
+    act(() => { onBackBtn(); });
+
+    await user.click(screen.getByRole('button', { name: /yes, exit/i }));
+    expect(onExit).toHaveBeenCalledWith({ target: 'menu' });
   });
 });

@@ -282,6 +282,12 @@ export default function LocalGameController({
     dispatch({ type: 'RESET' });
   }
 
+  function cancelQuickStartCountdown() {
+    setExitConfirm(false);
+    setCountdown(null);
+    setQueuedStartGremlinCount(null);
+  }
+
   function handleMove(row, col) {
     dispatch({ type: 'MOVE', row, col });
   }
@@ -294,21 +300,21 @@ export default function LocalGameController({
 
   const mySeats = humanSeats(gameState);
 
-  // Browser back-button guard (issue #29). Mid-game in-progress play
-  // routes through the same exit-confirm modal the in-app "Exit to
-  // menu" button uses. Sandbox routes straight back to the start
-  // screen (no confirm — sandbox is throwaway tooling). Start screen
-  // is unguarded so back leaves the SPA naturally. Gameover is also
-  // unguarded — the result is final, no state to lose.
+  // Browser back-button guard (#29). Mid-game routes through exit-confirm
+  // (overlay below). Quick-play countdown traps back the same way (#90).
+  // Sandbox skips confirm. Gameover stays unguarded.
   const backGuardActive =
+    countdown !== null ||
     (screen === 'game' && gameState?.phase === 'playing') ||
     screen === 'sandbox';
   useBackGuard(backGuardActive, () => {
-    if (screen === 'game') {
-      setExitConfirm(true);
-    } else if (screen === 'sandbox') {
+    if (screen === 'sandbox') {
       setScreen('start');
       dispatch({ type: 'RESET' });
+    } else if (countdown !== null) {
+      setExitConfirm(true);
+    } else if (screen === 'game') {
+      setExitConfirm(true);
     }
   });
 
@@ -373,6 +379,50 @@ export default function LocalGameController({
           </motion.div>
         )}
       </AnimatePresence>
+      <AnimatePresence>
+        {exitConfirm && (
+          <motion.div
+            className="exit-confirm-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
+          >
+            <motion.div
+              className="exit-confirm-card"
+              initial={{ scale: 0.85, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.85, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 340, damping: 26 }}
+            >
+              <p className="exit-confirm-title">Exit to menu?</p>
+              <p className="exit-confirm-sub">
+                {countdown !== null
+                  ? 'This cancels the countdown — you stay on the start screen.'
+                  : 'Your current game will be lost.'}
+              </p>
+              <div className="exit-confirm-btns">
+                <button
+                  type="button"
+                  className="exit-confirm-yes"
+                  onClick={
+                    countdown !== null ? cancelQuickStartCountdown : handleBackToStart
+                  }
+                >
+                  Yes, exit
+                </button>
+                <button
+                  type="button"
+                  className="exit-confirm-no"
+                  onClick={() => setExitConfirm(false)}
+                >
+                  Keep playing
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       <AnimatePresence mode="wait">
 
         {screen === 'start' && (
@@ -429,32 +479,6 @@ export default function LocalGameController({
               onHeroBeforeFanfare={handleHeroBeforeFanfare}
               onHeroAfterFanfareStart={handleHeroAfterFanfareStart}
             />
-            <AnimatePresence>
-              {exitConfirm && (
-                <motion.div
-                  className="exit-confirm-overlay"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.18 }}
-                >
-                  <motion.div
-                    className="exit-confirm-card"
-                    initial={{ scale: 0.85, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    exit={{ scale: 0.85, opacity: 0 }}
-                    transition={{ type: 'spring', stiffness: 340, damping: 26 }}
-                  >
-                    <p className="exit-confirm-title">Exit to menu?</p>
-                    <p className="exit-confirm-sub">Your current game will be lost.</p>
-                    <div className="exit-confirm-btns">
-                      <button className="exit-confirm-yes" onClick={handleBackToStart}>Yes, exit</button>
-                      <button className="exit-confirm-no" onClick={() => setExitConfirm(false)}>Keep playing</button>
-                    </div>
-                  </motion.div>
-                </motion.div>
-              )}
-            </AnimatePresence>
           </motion.div>
         )}
 

@@ -11,15 +11,15 @@
 // `onBack` is read through a ref so the popstate listener doesn't churn
 // on every prop change of the latest callback closure.
 //
-// Used by LocalGameController + OnlineGameController to gate the
-// browser-back from silently destroying a running game (issue #29).
+// Used by LocalGameController + OnlineGameController (#29 / #90).
+// StartScreen installs its own vxStartDrawer sentinel instead.
 //
 // @param {boolean} active   When true, the guard is installed. When
 //                           false, any installed listener is removed.
 // @param {() => void} onBack Fired when the user presses back while the
 //                           guard is active.
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 
 export function useBackGuard(active, onBack) {
   const onBackRef = useRef(onBack);
@@ -27,7 +27,8 @@ export function useBackGuard(active, onBack) {
     onBackRef.current = onBack;
   }, [onBack]);
 
-  useEffect(() => {
+  // Layout so the sentinel exists before paint / tooling reads history.length (#90).
+  useLayoutEffect(() => {
     if (!active) return;
     if (typeof window === 'undefined' || !window.history) return;
 

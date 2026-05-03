@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { PLAYERS, ITEM_TYPES } from '../game/constants';
 import { generateDisplayName } from '../game/nameGenerator';
@@ -95,6 +95,7 @@ export default function StartScreen({
   const [submitError, setSubmitError] = useState(null);
   const nameInputRef = useRef(null);
   const codeInputRef = useRef(null);
+  const drawerSentinelIssuedRef = useRef(false);
   const rerollAnimRef = useRef({ id: null, target: null });
   const debugTapRef = useRef({ count: 0, timer: null });
 
@@ -146,6 +147,8 @@ export default function StartScreen({
   const canSubmit =
     isOnline ? (joinMode ? canSubmitJoin : canSubmitCreate) : true;
 
+  const drawerBackGuardActive = onlineAvailable && (isOnline || isLocal);
+
   function rerollDisplayName() {
     playClick();
     cancelRerollAnim();
@@ -170,8 +173,7 @@ export default function StartScreen({
   // the cold-open joiner case — a user who tapped a share link and then
   // changed their mind needs the share-link hash stripped so a refresh
   // doesn't loop them back into join mode.
-  function backToMenu() {
-    playClick();
+  const applyBackToMenuState = useCallback(() => {
     setView(onlineAvailable ? 'menu' : 'local');
     setJoinMode(false);
     setCode('');
@@ -183,7 +185,37 @@ export default function StartScreen({
         window.location.pathname + window.location.search,
       );
     }
+  }, [onlineAvailable]);
+
+  const pushDrawerSentinelOnce = useCallback(() => {
+    if (!onlineAvailable) return;
+    if (typeof window === 'undefined' || !window.history?.pushState) return;
+    if (drawerSentinelIssuedRef.current) return;
+    window.history.pushState({ vxStartDrawer: true }, '');
+    drawerSentinelIssuedRef.current = true;
+  }, [onlineAvailable]);
+
+  function backToMenu() {
+    playClick();
+    applyBackToMenuState();
   }
+
+  // One sentinel per drawer session; pop peels to hero without re-arming (#90).
+  useLayoutEffect(() => {
+    if (!drawerBackGuardActive) {
+      drawerSentinelIssuedRef.current = false;
+      return undefined;
+    }
+    if (typeof window === 'undefined' || !window.history?.pushState) return undefined;
+    if (!drawerSentinelIssuedRef.current) {
+      pushDrawerSentinelOnce();
+    }
+    function onPop() {
+      applyBackToMenuState();
+    }
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [drawerBackGuardActive, applyBackToMenuState, pushDrawerSentinelOnce]);
 
   function handleCodeChange(e) {
     setCode(filterCode(e.target.value));
@@ -254,6 +286,7 @@ export default function StartScreen({
 
   function openOnline() {
     playClick();
+    pushDrawerSentinelOnce();
     setView('online');
     setJoinMode(false);
     setSubmitError(null);
@@ -261,6 +294,7 @@ export default function StartScreen({
 
   function openLocal() {
     playClick();
+    pushDrawerSentinelOnce();
     setView('local');
     setSubmitError(null);
   }

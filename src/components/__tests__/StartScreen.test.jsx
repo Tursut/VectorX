@@ -125,6 +125,43 @@ describe('StartScreen — online view sub-states', () => {
   });
 });
 
+// ---------- Browser back — drawer sentinel (issue #90) ----------
+
+describe('StartScreen — drawer history sentinel', () => {
+  let pushSpy;
+
+  beforeEach(() => {
+    pushSpy = vi.spyOn(window.history, 'pushState').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    pushSpy.mockRestore();
+  });
+
+  it('pushes a drawer sentinel and popstate returns to the hero menu', async () => {
+    const user = userEvent.setup();
+    render(<StartScreen {...withOnline()} />);
+    pushSpy.mockClear();
+
+    await user.click(screen.getByTestId('hero-play-online'));
+    await screen.findByRole('textbox', { name: /your name/i });
+
+    expect(
+      pushSpy.mock.calls.some(
+        ([state]) =>
+          typeof state === 'object' &&
+          state !== null &&
+          'vxStartDrawer' in state &&
+          /** @type {{ vxStartDrawer?: unknown }} */ (state).vxStartDrawer === true,
+      ),
+    ).toBe(true);
+
+    window.dispatchEvent(new PopStateEvent('popstate'));
+
+    await waitFor(() => expect(screen.getByTestId('hero-play')).toBeInTheDocument());
+  });
+});
+
 // ---------- Cold-open (share link / retry-after-rejection) ----------
 
 describe('StartScreen — defaultMode + defaultCode (cold-open)', () => {

@@ -414,6 +414,8 @@ Post-unification, the split is:
 
 **`OnlineGameController.jsx`** — socket lifecycle (`useNetworkGame`), HELLO handshake, connection-state screens, lobby rendering, plus the same winner-audio handoff state machine as local so endgame music timing matches across modes.
 
+**Browser / OS “back”** — `src/useBackGuard.js` pushes a sentinel for local play + online gameplay/lobby. StartScreen drawers use a sibling `useLayoutEffect` sentinel (`vxStartDrawer`) + `popstate` peel (no re-arm). Lobby confirm exit lands in the friends drawer (`onExit({ target: 'friends' })`); quitting mid-online-play lands on the hero menu (`target: 'menu'`). Local quick-play countdown + in-progress play share the exit overlay.
+
 **`useGameplaySounds.js`** — controller-level gameplay sound policy (bg/menu theme ownership, move/claim/your-turn). On a win, in-game bg stays on from the last trap through the hero overlay until the fanfare cut (`heroMusicCutRequested`) or leaderboard (`heroEnded`) — avoiding a one-frame “menu then spring restarts” gap when `trapPlaying` and `heroPlaying` are briefly both false. After the cut, both themes stay silent until warmup, then the menu loop runs. `sounds.js` also latches `startBgTheme` after `stopBgThemeFast` until `startMenuTheme` runs or `phase === 'playing'` clears it.
 
 ## Gotchas & invariants

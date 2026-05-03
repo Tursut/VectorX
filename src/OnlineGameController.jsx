@@ -43,6 +43,7 @@ export default function OnlineGameController({
   code,
   displayName,
   initialMagicItems = false,
+  /** @param {{ target?: 'menu' | 'friends' }} [opts] */
   onExit,
   onJoinFailed,
   onReady,
@@ -378,7 +379,8 @@ export default function OnlineGameController({
   // Exit confirm gate. Skip on gameover — the game is already over, nothing
   // to warn about. Mirrors LocalGameController's pattern.
   const inGameover = gameState?.phase === 'gameover';
-  const requestExit = inGameover ? onExit : () => setExitConfirm(true);
+  const requestExit =
+    inGameover ? () => onExit({ target: 'menu' }) : () => setExitConfirm(true);
 
   let restartLabel = 'PLAY AGAIN';
   let restartDisabled = false;
@@ -399,6 +401,9 @@ export default function OnlineGameController({
       handleRestart = roomRestarted ? () => setShowLobbyFromGameOver(true) : undefined;
     }
   }
+  // Mid-play exit → root menu; lobby / restarted lobby → friends drawer (issue #90).
+  const exitLeavesActiveGame =
+    !!gameState && gameState.phase === 'playing';
   const exitConfirmModal = (
     <AnimatePresence>
       {exitConfirm && (
@@ -418,12 +423,19 @@ export default function OnlineGameController({
           >
             <p className="exit-confirm-title">Exit to menu?</p>
             <p className="exit-confirm-sub">
-              {gameState ? 'Your current game will be lost.' : "You'll leave this room."}
+              {exitLeavesActiveGame
+                ? 'Your current game will be lost.'
+                : "You'll leave this room."}
             </p>
             <div className="exit-confirm-btns">
               <button
                 className="exit-confirm-yes"
-                onClick={() => { sounds.playClick(); onExit(); }}
+                onClick={() => {
+                  sounds.playClick();
+                  onExit({
+                    target: exitLeavesActiveGame ? 'menu' : 'friends',
+                  });
+                }}
               >
                 Yes, exit
               </button>

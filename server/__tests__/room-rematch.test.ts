@@ -100,6 +100,10 @@ async function startTwoPlayerRoom() {
   await waitForInbox(joiner.inbox, (m) => m.type === 'GAME_STATE');
 
   await seedGameOver(code);
+  // HELLO-era LOBBY_STATE messages still satisfy waitForInbox's predicate; stale
+  // hits were racing ahead of RESTART_ROOM commits and flaking storage asserts.
+  host.inbox.splice(0, host.inbox.length);
+  joiner.inbox.splice(0, joiner.inbox.length);
   return { code, host, joiner };
 }
 
