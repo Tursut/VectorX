@@ -95,4 +95,24 @@ describe('GameOverScreen — leaderboard naming', () => {
 
     expect(screen.getByText(PLAYERS[1].shortName)).toBeInTheDocument();
   });
+
+  it('strips online 🤖 prefix from win title and leaderboard names (issue #92)', () => {
+    const runtimePlayers = [
+      { id: 0, displayName: 'Mia', isEliminated: true, finishTurn: 12 },
+      { id: 1, displayName: '🤖 Gerald', isEliminated: true, finishTurn: 9 },
+      { id: 2, displayName: 'Bo', isEliminated: true, finishTurn: 4 },
+      { id: 3, displayName: '🤖 Buzzilda', isEliminated: false, finishTurn: null },
+    ];
+    const winner = {
+      ...PLAYERS[3],
+      name: '🤖 Buzzilda',
+      shortName: '🤖 Buzzilda',
+    };
+
+    render(<GameOverScreen winner={winner} players={runtimePlayers} onMenu={() => {}} />);
+
+    expect(screen.getByText('BUZZILDA WINS!')).toBeInTheDocument();
+    expect(screen.getByText('Buzzilda')).toBeInTheDocument();
+    expect(screen.getByText('Gerald')).toBeInTheDocument();
+  });
 });

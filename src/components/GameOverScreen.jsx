@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { PLAYERS } from '../game/constants';
 import * as sounds from '../game/sounds';
+import { stripOnlineBotNamePrefix } from '../utils/onlineDisplayName';
 
 const MEDALS = ['🥇', '🥈', '🥉', '💀'];
 
@@ -60,7 +61,7 @@ export default function GameOverScreen({
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.22, type: 'spring', stiffness: 300, damping: 22 }}
             >
-              {winner.name.toUpperCase()} WINS!
+              {stripOnlineBotNamePrefix(winner.name).toUpperCase()} WINS!
             </motion.h1>
             <motion.p
               className="gameover-quote"
@@ -125,7 +126,9 @@ export default function GameOverScreen({
                   {config.icon}
                 </div>
                 <span className="gameover-rank-name" style={{ color: config.color }}>
-                  {runtimePlayer?.displayName ?? config.shortName}
+                  {stripOnlineBotNamePrefix(
+                    runtimePlayer?.displayName ?? config.shortName,
+                  )}
                 </span>
               </motion.div>
             ))}
