@@ -84,7 +84,19 @@ export default function LocalGameController({
 
   // Animation overlays derived from gameState diffs (also fires item-pickup
   // sounds). Passed down to GameScreen / sandbox GameBoard.
-  const { bombBlast, portalJump, swapFlash, flyingFreeze, roulettePlayerId, rouletteRevealing, pendingSwap, rouletteActor, rouletteActive } = useDerivedAnimations(gameState);
+  const {
+    bombBlast,
+    portalJump,
+    swapFlash,
+    flyingFreeze,
+    roulettePlayerId,
+    rouletteRevealing,
+    pendingSwap,
+    rouletteActor,
+    rouletteActive,
+    rouletteItemLockActive,
+    rouletteLockedItems,
+  } = useDerivedAnimations(gameState);
 
   // Trap / death animation chain (issue #36). Owns the elimination
   // sound + the queue that drains one death per ~3 s window so
@@ -472,6 +484,8 @@ export default function LocalGameController({
               pendingSwap={pendingSwap}
               rouletteActor={rouletteActor}
               rouletteActive={rouletteActive}
+              rouletteItemLockActive={rouletteItemLockActive}
+              rouletteLockedItems={rouletteLockedItems}
               trappedPlayers={trappedPlayers}
               trapPlaying={trapPlaying}
               heroPlaying={heroPlaying}

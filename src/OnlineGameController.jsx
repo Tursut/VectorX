@@ -99,7 +99,19 @@ export default function OnlineGameController({
   }, [connectionState]);
 
   // Derived animation overlays + item-pickup sounds; fed to GameScreen.
-  const { bombBlast, portalJump, swapFlash, flyingFreeze, roulettePlayerId, rouletteRevealing, pendingSwap, rouletteActor, rouletteActive } = useDerivedAnimations(gameState);
+  const {
+    bombBlast,
+    portalJump,
+    swapFlash,
+    flyingFreeze,
+    roulettePlayerId,
+    rouletteRevealing,
+    pendingSwap,
+    rouletteActor,
+    rouletteActive,
+    rouletteItemLockActive,
+    rouletteLockedItems,
+  } = useDerivedAnimations(gameState);
 
   // Trap / death chain (issue #36) — owns the elimination sound + the
   // queue that drains one death per ~3 s window. Reaches GameScreen
@@ -483,6 +495,8 @@ export default function OnlineGameController({
           pendingSwap={pendingSwap}
           rouletteActor={rouletteActor}
           rouletteActive={rouletteActive}
+          rouletteItemLockActive={rouletteItemLockActive}
+          rouletteLockedItems={rouletteLockedItems}
           trappedPlayers={trappedPlayers}
           trapPlaying={trapPlaying}
           heroPlaying={heroPlaying}
@@ -548,6 +562,8 @@ export default function OnlineGameController({
           pendingSwap={pendingSwap}
           rouletteActor={rouletteActor}
           rouletteActive={rouletteActive}
+          rouletteItemLockActive={rouletteItemLockActive}
+          rouletteLockedItems={rouletteLockedItems}
           trappedPlayers={trappedPlayers}
           trapPlaying={trapPlaying}
           heroPlaying={heroPlaying}

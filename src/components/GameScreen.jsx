@@ -64,6 +64,8 @@ export default function GameScreen({
   pendingSwap = null,
   rouletteActor = null,
   rouletteActive = false,
+  rouletteItemLockActive = false,
+  rouletteLockedItems = null,
   // Trap / death chain — driven by useTrapChain in the controller.
   trappedPlayers = [],
   trapPlaying = false,
@@ -125,6 +127,10 @@ export default function GameScreen({
   // target), but we want them to watch the wheel before acting.
   const validMoves = myTurn && !rouletteActive ? getCurrentValidMoves(gameState) : [];
   const validMoveSet = new Set(validMoves.map((m) => `${m.row},${m.col}`));
+  const displayItems =
+    rouletteItemLockActive && rouletteLockedItems
+      ? rouletteLockedItems
+      : gameState.items;
 
   const playerConfig = PLAYERS[currentPlayerState.id];
   const player = {
@@ -265,7 +271,7 @@ export default function GameScreen({
                 validMoveSet={validMoveSet}
                 onCellClick={(row, col) => { if (myTurn) onMove(row, col); }}
                 currentPlayerIndex={displayedSeat}
-                items={gameState.items}
+                items={displayItems}
                 portalActive={gameState.portalActive}
                 swapActive={gameState.swapActive}
                 freezeSelectActive={gameState.freezeSelectActive}

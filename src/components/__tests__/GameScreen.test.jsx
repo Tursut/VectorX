@@ -46,12 +46,13 @@ vi.mock('../TurnIndicator', () => ({
   default: ({ player }) => <div data-testid="turn-indicator">{player?.name}</div>,
 }));
 vi.mock('../GameBoard', () => ({
-  default: ({ onCellClick, currentPlayerIndex, isOpponentTurn, heldItemActor }) => (
+  default: ({ onCellClick, currentPlayerIndex, isOpponentTurn, heldItemActor, items }) => (
     <button
       data-testid="cell"
       data-current={currentPlayerIndex}
       data-opponent-turn={String(Boolean(isOpponentTurn))}
       data-held-actor={heldItemActor ? `${heldItemActor.playerId}:${heldItemActor.itemKind}` : ''}
+      data-items-count={Array.isArray(items) ? String(items.length) : '0'}
       onClick={() => onCellClick(2, 3)}
     >cell</button>
   ),
@@ -341,6 +342,42 @@ describe('GameScreen — heldItemActor spans pickup + roulette', () => {
       />,
     );
     expect(screen.getByTestId('cell')).toHaveAttribute('data-held-actor', '');
+  });
+
+  it('keeps pre-roulette items visible while item lock is active', () => {
+    render(
+      <GameScreen
+        gameState={baseState({
+          items: [{ id: 'live', type: 'portal', row: 1, col: 1, turnsLeft: 4 }],
+        })}
+        mySeats={[0]}
+        onMove={() => {}}
+        rouletteItemLockActive
+        rouletteLockedItems={[
+          { id: 'locked-a', type: 'bomb', row: 2, col: 2, turnsLeft: 3 },
+          { id: 'locked-b', type: 'swap', row: 3, col: 3, turnsLeft: 2 },
+        ]}
+      />,
+    );
+    expect(screen.getByTestId('cell')).toHaveAttribute('data-items-count', '2');
+  });
+
+  it('uses live gameState items when item lock is inactive', () => {
+    render(
+      <GameScreen
+        gameState={baseState({
+          items: [{ id: 'live', type: 'portal', row: 1, col: 1, turnsLeft: 4 }],
+        })}
+        mySeats={[0]}
+        onMove={() => {}}
+        rouletteItemLockActive={false}
+        rouletteLockedItems={[
+          { id: 'locked-a', type: 'bomb', row: 2, col: 2, turnsLeft: 3 },
+          { id: 'locked-b', type: 'swap', row: 3, col: 3, turnsLeft: 2 },
+        ]}
+      />,
+    );
+    expect(screen.getByTestId('cell')).toHaveAttribute('data-items-count', '1');
   });
 });
 

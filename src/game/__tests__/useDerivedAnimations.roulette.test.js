@@ -124,8 +124,13 @@ describe('roulette — skip cases (immediate fire, pre-#30 timing)', () => {
 describe('roulette — engaged path', () => {
   it('runs the hop schedule for a bot freeze (≥2 opponents, ≥1 alive human)', () => {
     const prev = baseState({ gremlinCount: 3 });
+    prev.items = [{ id: 'before', type: 'bomb', row: 4, col: 4, turnsLeft: 7 }];
     // Bot id 1 freezes a target (the human id 0). Opponents = [0, 2, 3].
-    const next = { ...prev, lastEvent: { type: 'freeze', byId: 1, targetId: 0 } };
+    const next = {
+      ...prev,
+      items: [{ id: 'after', type: 'portal', row: 5, col: 5, turnsLeft: 9 }],
+      lastEvent: { type: 'freeze', byId: 1, targetId: 0 },
+    };
     const { result, rerender } = renderHook(
       ({ gameState }) => useDerivedAnimations(gameState),
       { initialProps: { gameState: prev } },
@@ -136,6 +141,8 @@ describe('roulette — engaged path', () => {
     // GameBoard can show the halo + item icon for the whole sequence
     // (issue #37). Verify before flushing any timers.
     expect(result.current.rouletteActor).toEqual({ playerId: 1, itemKind: 'freeze' });
+    expect(result.current.rouletteItemLockActive).toBe(true);
+    expect(result.current.rouletteLockedItems).toEqual(prev.items);
 
     // The first hop is scheduled at t=0. Tick once to flush it onto state.
     act(() => { vi.advanceTimersByTime(0); });
@@ -156,6 +163,8 @@ describe('roulette — engaged path', () => {
     expect(result.current.rouletteRevealing).toBe(true);
     expect(result.current.flyingFreeze).toBeNull();
     expect(result.current.rouletteActor).toEqual({ playerId: 1, itemKind: 'freeze' });
+    expect(result.current.rouletteItemLockActive).toBe(true);
+    expect(result.current.rouletteLockedItems).toEqual(prev.items);
 
     // Past the reveal: roulette clears and the deferred flyingFreeze
     // finally fires. rouletteActor clears at the same moment so the
@@ -167,7 +176,17 @@ describe('roulette — engaged path', () => {
     expect(result.current.flyingFreeze).toEqual({
       fromRow: 0, fromCol: 9, toRow: 0, toCol: 0,
     });
+    // Item lock is still active while the deferred freeze fly-in is running.
+    expect(result.current.rouletteItemLockActive).toBe(true);
+    expect(result.current.rouletteLockedItems).toEqual(prev.items);
     expect(sounds.playTick).toHaveBeenCalledTimes(HOP_DURATIONS.length);
+
+    // Freeze fly-in auto-clears after 800 ms; item lock should release then.
+    act(() => { vi.advanceTimersByTime(799); });
+    expect(result.current.rouletteItemLockActive).toBe(true);
+    act(() => { vi.advanceTimersByTime(1); });
+    expect(result.current.rouletteItemLockActive).toBe(false);
+    expect(result.current.rouletteLockedItems).toBeNull();
   });
 
   it('rouletteActor stays null when the roulette is skipped (human pick fires fly-in immediately)', () => {

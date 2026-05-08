@@ -61,6 +61,10 @@ export function useDerivedAnimations(gameState) {
   // grabbed the item and WHICH item is being decided. Cleared at the
   // same moment as roulettePlayerId / pendingSwap in the handoff.
   const [rouletteActor, setRouletteActor] = useState(null);
+  // Snapshot of board items captured at roulette start. Stays locked through
+  // the wheel and the follow-up apply animation so item spawns/expiries
+  // don't pop in/out mid-sequence (issue #95).
+  const [rouletteLockedItems, setRouletteLockedItems] = useState(null);
   const prevRef = useRef(null);
   // Last `lastEvent` reference processed — guards against re-firing the
   // roulette / fly-in on a reconnect-driven repeat GAME_STATE or any
@@ -140,6 +144,8 @@ export function useDerivedAnimations(gameState) {
 
     if (!shouldRouletteFreezeSwap(gameState, ev)) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
+      setRouletteLockedItems(null);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       fireImmediate();
       return;
     }
@@ -161,6 +167,11 @@ export function useDerivedAnimations(gameState) {
     // decided.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setRouletteActor({ playerId: ev.byId, itemKind: ev.type });
+    // Freeze visible item changes until roulette + apply animation both finish.
+    // Use the pre-event snapshot when available so newly-ticked items don't
+    // appear/disappear while the wheel is running.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setRouletteLockedItems(prevRef.current?.items ?? gameState.items ?? []);
 
     // Build the hop schedule. Each non-final hop picks a random
     // opponent ≠ the previous hop, so the highlight visibly travels.
@@ -309,6 +320,28 @@ export function useDerivedAnimations(gameState) {
   // playing). Stays true through the hops, hold, AND the 3-blink
   // reveal — only flips false the moment fireImmediate runs.
   const rouletteActive = roulettePlayerId !== null || rouletteRevealing || pendingSwap !== null || rouletteActor !== null;
+  // Keep item changes frozen until BOTH stages are done:
+  // 1) roulette suspense (hops/reveal), and
+  // 2) the deferred freeze/swap apply animation (~800 ms).
+  useEffect(() => {
+    if (rouletteLockedItems === null) return;
+    if (rouletteActive) return;
+    if (swapFlash || flyingFreeze) return;
+    setRouletteLockedItems(null);
+  }, [rouletteLockedItems, rouletteActive, swapFlash, flyingFreeze]);
+  const rouletteItemLockActive = rouletteLockedItems !== null;
 
-  return { bombBlast, portalJump, swapFlash, flyingFreeze, roulettePlayerId, rouletteRevealing, pendingSwap, rouletteActor, rouletteActive };
+  return {
+    bombBlast,
+    portalJump,
+    swapFlash,
+    flyingFreeze,
+    roulettePlayerId,
+    rouletteRevealing,
+    pendingSwap,
+    rouletteActor,
+    rouletteActive,
+    rouletteItemLockActive,
+    rouletteLockedItems,
+  };
 }
