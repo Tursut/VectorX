@@ -172,6 +172,29 @@ describe('useTrapChain — back-to-back deaths queue + drain', () => {
 });
 
 describe('useTrapChain — bots-only endgame', () => {
+  it('keeps one final beat for a same-tick wipe that transitions to bots-only', () => {
+    const start = baseState();
+    const { result, rerender } = renderHook(
+      ({ s }) => useTrapChain(s),
+      { initialProps: { s: start } },
+    );
+
+    // One transition wipes the last human + a bot together.
+    rerender({ s: withEliminated(start, 0, 1) });
+    act(() => { vi.advanceTimersByTime(TRAP_WINDUP_MS); });
+    expect(new Set(result.current.trappedPlayers.map((p) => p.id))).toEqual(new Set([0, 1]));
+    expect(sounds.playElimination).toHaveBeenCalledOnce();
+
+    act(() => { vi.advanceTimersByTime(TRAP_SETTLE_MS); });
+    expect(result.current.trapPlaying).toBe(false);
+
+    // Later bots-only eliminations still skip.
+    rerender({ s: withEliminated(withEliminated(start, 0, 1), 2) });
+    act(() => { vi.advanceTimersByTime(TRAP_TOTAL_MS); });
+    expect(sounds.playElimination).toHaveBeenCalledOnce();
+    expect(result.current.trappedPlayers).toEqual([]);
+  });
+
   it('skips eliminations when no humans are alive (matches the existing speed-run skip)', () => {
     // Eliminate the human first (separate transition before any bots).
     const start = baseState();

@@ -565,7 +565,7 @@ describe('computeTurnDelay (bot pacing)', () => {
     expect(computeTurnDelay(game, lobby)).toBe(10_000);  // no bump
   });
 
-  it('does NOT add the trap delay when no humans are alive (bots-only endgame keeps speed-run pace)', () => {
+  it('adds one final trap delay when the last human was eliminated on the prior turn', () => {
     const game = initGame(false, 3) as {
       players: Array<{ id: number; isEliminated: boolean; finishTurn?: number }>;
       currentPlayerIndex: number;
@@ -580,7 +580,27 @@ describe('computeTurnDelay (bot pacing)', () => {
     };
     for (let i = 0; i < 50; i++) {
       const d = computeTurnDelay(game, lobby);
-      expect(d).toBeLessThan(200);  // speed-run pace, no bump
+      expect(d).toBeGreaterThanOrEqual(120 + TRAP_CYCLE_MS);
+      expect(d).toBeLessThan(200 + TRAP_CYCLE_MS);
+    }
+  });
+
+  it('returns to bots-only speed-run pace after the transition turn', () => {
+    const game = initGame(false, 3) as {
+      players: Array<{ id: number; isEliminated: boolean; finishTurn?: number }>;
+      currentPlayerIndex: number;
+      turnCount: number;
+    };
+    game.currentPlayerIndex = 1;
+    game.turnCount = 6;
+    game.players[0].isEliminated = true;
+    game.players[0].finishTurn = 4; // transition already happened at turnCount=5
+    const lobby = {
+      players: [{ id: 0, displayName: 'Alice', isBot: false, disconnectedAt: null }],
+    };
+    for (let i = 0; i < 50; i++) {
+      const d = computeTurnDelay(game, lobby);
+      expect(d).toBeLessThan(200);
     }
   });
 

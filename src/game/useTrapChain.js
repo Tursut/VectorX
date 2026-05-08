@@ -35,14 +35,18 @@ export function useTrapChain(gameState) {
     if (!gameState?.players) { prevPlayersRef.current = null; return; }
     if (prevPlayersRef.current) {
       const newlyTrapped = [];
+      const humanAliveNow = gameState.players.some(
+        (q) => !q.isEliminated && !isBotPlayer(gameState, q),
+      );
+      const humanAliveBefore = prevPlayersRef.current.some(
+        (q) => !q.isEliminated && !isBotPlayer(gameState, q),
+      );
       gameState.players.forEach((p, i) => {
         const prev = prevPlayersRef.current[i];
         if (prev && p.isEliminated && !prev.isEliminated) {
           const isHuman = !isBotPlayer(gameState, p);
-          const humanAlive = gameState.players.some(
-            (q) => !q.isEliminated && !isBotPlayer(gameState, q),
-          );
-          if (isHuman || humanAlive) {
+          // Keep one final death beat on the transition into bots-only mode.
+          if (isHuman || humanAliveNow || humanAliveBefore) {
             newlyTrapped.push({
               id: p.id,
               row: p.deathCell?.row ?? prev.row,

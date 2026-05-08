@@ -1100,6 +1100,19 @@ export function computeTurnDelay(
       p.finishTurn === game.turnCount - 1
     ));
 
+  const lastHumanEliminatedLastTurn =
+    !anyHumanAlive &&
+    game.players.some((p: {
+      id: number;
+      isEliminated: boolean;
+      finishTurn?: number | null;
+    }) => (
+      p.isEliminated &&
+      humanIds.has(p.id) &&
+      typeof p.finishTurn === 'number' &&
+      p.finishTurn === game.turnCount - 1
+    ));
+
   const baseDelay = isHuman
     ? TURN_TIME_MS
     : anyHumanAlive
@@ -1146,7 +1159,7 @@ export function computeTurnDelay(
   // start under the wobble-and-fade. Skipped in bots-only endgame
   // (no humans alive) to mirror the client's "no audience, no
   // animation" branch in useTrapChain.
-  if (justEliminated) {
+  if (justEliminated || lastHumanEliminatedLastTurn) {
     return baseDelay + TRAP_DELAY_MS;
   }
 

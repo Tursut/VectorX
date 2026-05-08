@@ -108,7 +108,7 @@ Bots live only in `game.players` (as all 4 seats from `initGame`). `lobby.player
 
 A single DO alarm powers two independent behaviours, coordinated by `maybeScheduleTurnAlarm(game, lobby)`:
 
-- **Bot turns** — `computeTurnDelay` sets a "thinking" delay before the server plays for the bot: **800–1400ms** when at least one human is alive and the prior turn did **not** end in an elimination; **600–1000ms** when it did (tighter pacing after trap death theatre; `#83`). With no humans alive, bots speed-run (**120–200ms**). These values stack with countdown / roulette / trap extensions when applicable (see `server/index.ts`).
+- **Bot turns** — `computeTurnDelay` sets a "thinking" delay before the server plays for the bot: **800–1400ms** when at least one human is alive and the prior turn did **not** end in an elimination; **600–1000ms** when it did (tighter pacing after trap death theatre; `#83`). With no humans alive, bots speed-run (**120–200ms**), except for one transition beat: if the previous turn eliminated the last human, we still add one `TRAP_CYCLE_MS` pause before entering full bots-only pace. These values stack with countdown / roulette / trap extensions when applicable (see `server/index.ts`).
 - **Human turn timer** — `TURN_TIME_MS` (= `TURN_TIME × 1000` = 10s) deadline; if the human hasn't moved by then, they auto-forfeit.
 
 After every state-transitioning path (`handleStart`, `handleMove`, `alarm`, `webSocketClose` in playing phase), `maybeScheduleTurnAlarm` runs:
