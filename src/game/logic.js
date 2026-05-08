@@ -235,7 +235,18 @@ export function applyMove(state, targetRow, targetCol) {
   if (state.freezeSelectActive) {
     const target = players.find(p => !p.isEliminated && p.id !== player.id && p.row === targetRow && p.col === targetCol);
     if (!target) return state;
-    const result = completeTurn({ ...state, frozenPlayerId: target.id, frozenTurnsLeft: 3, freezeSelectActive: false });
+    const hasActiveFreeze = state.frozenPlayerId !== null && state.frozenTurnsLeft > 0;
+    const nextFrozenPlayerId = hasActiveFreeze ? state.frozenPlayerId : target.id;
+    const nextFrozenTurnsLeft =
+      hasActiveFreeze
+        ? (state.frozenPlayerId === target.id ? state.frozenTurnsLeft + 3 : state.frozenTurnsLeft)
+        : 3;
+    const result = completeTurn({
+      ...state,
+      frozenPlayerId: nextFrozenPlayerId,
+      frozenTurnsLeft: nextFrozenTurnsLeft,
+      freezeSelectActive: false,
+    });
     return { ...result, lastEvent: { type: 'freeze', byId: player.id, targetId: target.id } };
   }
 

@@ -365,6 +365,36 @@ describe('freeze with two players (#84)', () => {
   });
 });
 
+describe('freeze reapplication semantics (#94)', () => {
+  it('adds +3 turns when re-freezing the same target', () => {
+    const s = initGame(false, 0);
+    s.currentPlayerIndex = 0;
+    s.freezeSelectActive = true;
+    s.frozenPlayerId = 2;
+    s.frozenTurnsLeft = 1;
+
+    const p2 = s.players[2];
+    const next = applyMove(s, p2.row, p2.col);
+
+    expect(next.frozenPlayerId).toBe(2);
+    expect(next.frozenTurnsLeft).toBe(4);
+  });
+
+  it('does not overwrite an existing freeze when a different target is selected', () => {
+    const s = initGame(false, 0);
+    s.currentPlayerIndex = 2; // bot seat to cover bot-path semantics
+    s.freezeSelectActive = true;
+    s.frozenPlayerId = 1;
+    s.frozenTurnsLeft = 2;
+
+    const p0 = s.players[0];
+    const next = applyMove(s, p0.row, p0.col);
+
+    expect(next.frozenPlayerId).toBe(1);
+    expect(next.frozenTurnsLeft).toBe(2);
+  });
+});
+
 // ---------- ai.js — getGremlinMove ----------
 
 describe('getGremlinMove', () => {
