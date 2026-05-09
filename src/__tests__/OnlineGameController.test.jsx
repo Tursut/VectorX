@@ -215,6 +215,72 @@ describe('OnlineGameController browser back guard', () => {
   });
 });
 
+describe('OnlineGameController pre-game countdown', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockNetwork = createDefaultNetworkMock();
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  // Issue #97 regression: after RESTART_ROOM the countdown ref must re-arm
+  // so the next game start shows the 3-2-1-GO overlay. Without the reset,
+  // the server's first-turn COUNTDOWN_DELAY_MS pad turns into a ~7s blank
+  // board because the visual it was sized for never plays.
+  it('re-arms the 3-2-1-GO overlay on the second game start after RESTART_ROOM', () => {
+    // Game 1 mid-play — locks the one-shot countdown ref via turnCount > 0.
+    mockNetwork = {
+      ...createDefaultNetworkMock(),
+      gameState: {
+        phase: 'playing',
+        turnCount: 1,
+        currentPlayerIndex: 0,
+        players: [{ id: 0 }, { id: 1 }, { id: 2 }, { id: 3 }],
+      },
+      lobby: {
+        phase: 'playing',
+        hostId: 0,
+        players: [{ id: 0, displayName: 'Host', isBot: false, isHost: true }],
+      },
+      mySeatId: 0,
+    };
+    const { rerender, container } = render(
+      <OnlineGameController code="ABCDE" displayName="Host" onExit={() => {}} />,
+    );
+
+    // Game ends — leaderboard shown.
+    mockNetwork = {
+      ...mockNetwork,
+      gameState: { ...mockNetwork.gameState, phase: 'gameover', winner: 0 },
+    };
+    rerender(<OnlineGameController code="ABCDE" displayName="Host" onExit={() => {}} />);
+
+    // Host taps RESTART ROOM → server flips lobby phase back to 'lobby'.
+    mockNetwork = {
+      ...mockNetwork,
+      lobby: { ...mockNetwork.lobby, phase: 'lobby' },
+    };
+    rerender(<OnlineGameController code="ABCDE" displayName="Host" onExit={() => {}} />);
+
+    // Host taps Start Game → fresh GAME_STATE with turnCount: 0 lands.
+    mockNetwork = {
+      ...mockNetwork,
+      gameState: {
+        phase: 'playing',
+        turnCount: 0,
+        currentPlayerIndex: 0,
+        players: [{ id: 0 }, { id: 1 }, { id: 2 }, { id: 3 }],
+      },
+      lobby: { ...mockNetwork.lobby, phase: 'playing' },
+    };
+    rerender(<OnlineGameController code="ABCDE" displayName="Host" onExit={() => {}} />);
+
+    expect(container.querySelector('.countdown-overlay')).not.toBeNull();
+  });
+});
+
 describe('OnlineGameController status suppression', () => {
   beforeEach(() => {
     vi.clearAllMocks();

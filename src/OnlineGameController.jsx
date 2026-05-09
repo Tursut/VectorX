@@ -283,6 +283,17 @@ export default function OnlineGameController({
     setCountdown(3);
   }, [gameState?.phase, gameState?.turnCount]);
 
+  // Re-arm the countdown ref between games. After RESTART_ROOM the room
+  // returns to lobby phase before the host fires START again; without
+  // this, the next game start short-circuits the effect above and the
+  // server's first-turn COUNTDOWN_DELAY_MS pad shows as a 7s blank
+  // board (issue #97).
+  useEffect(() => {
+    if (lobby?.phase === 'lobby') {
+      countdownShownRef.current = false;
+    }
+  }, [lobby?.phase]);
+
   useEffect(() => {
     if (gameState?.phase === 'playing') {
       setShowLobbyFromGameOver(false);
