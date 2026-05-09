@@ -175,6 +175,13 @@ function completeTurn(state) {
     // Wrap landed back on the mover (e.g. 2p freeze skips the only opponent).
     // Still trap-check — otherwise a surrounded mover stays "playing" (#84).
     if (nextIndex === currentPlayerIndex) {
+      // If all other players were already eliminated this turn, this player is
+      // the sole survivor and wins — skip the trap-check (it only matters when
+      // an opponent, e.g. a frozen seat, is still alive to benefit).
+      const othersAlive = updatedPlayers.some(
+        (p) => !p.isEliminated && p.id !== nextPlayer.id
+      );
+      if (!othersAlive) break;
       if (getValidMoves(grid, nextPlayer.row, nextPlayer.col).length > 0) break;
       updatedPlayers = updatedPlayers.map((p) =>
         p.id === nextPlayer.id ? { ...markEliminated(p), finishTurn: turnCount } : p

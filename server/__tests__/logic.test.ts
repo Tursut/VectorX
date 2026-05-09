@@ -429,6 +429,74 @@ describe('freeze-skip wraparound with one alive opponent (#96)', () => {
   });
 });
 
+// ---------- sole-survivor guard in completeTurn (duplicate leaderboard row) ----------
+
+describe('completeTurn sole-survivor guard', () => {
+  // Repro for the duplicate leaderboard bug: player 0 makes a valid move into
+  // a pocket where every neighbour is already owned, while all other players
+  // are simultaneously trapped. Pre-fix, the wrap-back path in completeTurn
+  // eliminated player 0 too, leaving stillAlive empty and producing a winner
+  // whose isEliminated flag was true — causing them to appear in both the
+  // winner row and the eliminated list (5 rows for 4 players). Post-fix, the
+  // othersAlive guard breaks out before the trap-check when no opponent
+  // remains, so player 0 wins with isEliminated === false.
+  it('declares sole survivor as winner without marking them eliminated', () => {
+    const base = initGame(false, 0);
+    const grid = createInitialGrid();
+
+    // Player 0 at (0,1). Their only valid move is (1,1).
+    grid[0][1] = { owner: 0 };
+    // All neighbours of (1,1) except (0,1) are owned — player 0 will have no
+    // moves after stepping there.
+    const wall = { owner: 1 };
+    grid[0][0] = wall; grid[0][2] = wall;
+    grid[1][0] = wall; grid[1][2] = wall;
+    grid[2][0] = wall; grid[2][1] = wall; grid[2][2] = wall;
+
+    // Players 1–3 placed in isolated pockets with no valid moves.
+    grid[5][5] = { owner: 1 };
+    grid[4][4] = wall; grid[4][5] = wall; grid[4][6] = wall;
+    grid[5][4] = wall; grid[5][6] = wall;
+    grid[6][4] = wall; grid[6][5] = wall; grid[6][6] = wall;
+
+    grid[9][9] = { owner: 2 };
+    grid[8][8] = wall; grid[8][9] = wall; grid[9][8] = wall;
+
+    grid[9][0] = { owner: 3 };
+    grid[8][0] = wall; grid[8][1] = wall; grid[9][1] = wall;
+
+    const s = {
+      ...base,
+      grid,
+      magicItems: false,
+      items: [],
+      currentPlayerIndex: 0,
+      players: base.players.map((p: ReturnType<typeof initGame>['players'][number], i: number) => {
+        if (i === 0) return { ...p, row: 0, col: 1, isEliminated: false };
+        if (i === 1) return { ...p, row: 5, col: 5, isEliminated: false };
+        if (i === 2) return { ...p, row: 9, col: 9, isEliminated: false };
+        return { ...p, row: 9, col: 0, isEliminated: false };
+      }),
+    };
+
+    // Verify setup: player 0 has exactly one move; others have none.
+    expect(getValidMoves(s.grid, 0, 1)).toEqual([{ row: 1, col: 1 }]);
+    expect(getValidMoves(s.grid, 5, 5)).toHaveLength(0);
+    expect(getValidMoves(s.grid, 9, 9)).toHaveLength(0);
+    expect(getValidMoves(s.grid, 9, 0)).toHaveLength(0);
+
+    const next = applyMove(s, 1, 1);
+
+    expect(next.phase).toBe('gameover');
+    expect(next.winner).toBe(0);
+    // The winner must not be flagged eliminated.
+    expect(next.players[0].isEliminated).toBe(false);
+    // Exactly the other 3 players should be in the eliminated list.
+    const eliminated = next.players.filter((p: { isEliminated: boolean }) => p.isEliminated);
+    expect(eliminated).toHaveLength(3);
+  });
+});
+
 // ---------- ai.js — getGremlinMove ----------
 
 describe('getGremlinMove', () => {
