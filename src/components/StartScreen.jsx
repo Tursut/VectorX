@@ -461,7 +461,7 @@ at:          ${onlineErrorDebug.at ?? '(unknown)'}`}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.2 }}
             >
-              <div className="mode-drawer">
+              <div className="mode-drawer" data-bubble-blocker>
                 <div className="gremlin-section">
                   <p className="gremlin-question">Who's playing?</p>
                   <div className="gremlin-slots">
@@ -517,7 +517,7 @@ at:          ${onlineErrorDebug.at ?? '(unknown)'}`}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.2 }}
             >
-              <div className="mode-drawer">
+              <div className="mode-drawer" data-bubble-blocker>
                 <div className="online-section">
                   {!isJoiner && (
                     <p className="online-intro">
@@ -651,7 +651,7 @@ at:          ${onlineErrorDebug.at ?? '(unknown)'}`}
         )}
 
         {isMenu && (
-          <div className="start-rules">
+          <div className="start-rules" data-bubble-blocker>
             <p>🗺️ Move onto any adjacent square — including diagonally.</p>
             <p>🔒 Claimed squares are locked forever. No take-backs.</p>
             <p>💀 No moves left? You're out. Try not to corner yourself.</p>
@@ -667,7 +667,7 @@ at:          ${onlineErrorDebug.at ?? '(unknown)'}`}
       {!isMenu && (
         <>
           {isLocal ? (
-            <div className="start-button-bar">
+            <div className="start-button-bar" data-bubble-blocker>
               <AnimatePresence mode="wait" initial={false}>
                 <motion.button
                   key="primary"

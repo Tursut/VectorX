@@ -112,6 +112,7 @@ export default function Lobby({
       <motion.section
         className={`lobby${isHost ? ' lobby--flat' : ''}`}
         aria-label="Waiting room"
+        data-bubble-blocker
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.32, ease: 'easeOut' }}
@@ -270,7 +271,7 @@ export default function Lobby({
           gradient button at the bottom of the start screen → land in the
           lobby → tap the same orange gradient button at the bottom to play. */}
       {isHost && (
-        <div className="start-button-bar lobby-start-button-bar">
+        <div className="start-button-bar lobby-start-button-bar" data-bubble-blocker>
           <button
             type="button"
             className="start-button"

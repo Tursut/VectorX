@@ -36,7 +36,7 @@ export default function WaitingFlourish() {
   }, []);
 
   return (
-    <div className="waiting-flourish" role="status" aria-live="polite">
+    <div className="waiting-flourish" role="status" aria-live="polite" data-bubble-blocker>
       <div className="waiting-flourish-parade">
         {PLAYERS.map((p, i) => {
           const isActive = i === activeAvatar;

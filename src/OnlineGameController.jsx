@@ -442,6 +442,7 @@ export default function OnlineGameController({
         >
           <motion.div
             className="exit-confirm-card"
+            data-bubble-blocker
             initial={{ scale: 0.85, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.85, opacity: 0 }}
@@ -647,7 +648,7 @@ function fatalErrorLabel({ code, message }) {
 // didn't accept the recovery.
 function StatusScreen({ label, onBack, debug }) {
   return (
-    <div className="online-status">
+    <div className="online-status" data-bubble-blocker>
       <p>{label}</p>
       {debug && (
         <pre className="online-status-debug" aria-label="Debug context">

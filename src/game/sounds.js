@@ -751,6 +751,30 @@ export async function playClick() {
   src.start(c.currentTime + 0.02);
 }
 
+// Soft sine sweep — ambient feedback for pushing a menu bubble
+export function playPush() {
+  const c = getCtx();
+  if (!c) return;
+  const t = c.currentTime;
+  // Sine sweep 520 Hz → 220 Hz — airy, non-intrusive
+  const osc = c.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(520, t);
+  osc.frequency.exponentialRampToValueAtTime(220, t + 0.14);
+  const g = c.createGain();
+  g.gain.setValueAtTime(0.10, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.14);
+  osc.connect(g); g.connect(out());
+  osc.start(t); osc.stop(t + 0.16);
+  // Tiny percussive noise burst at the attack
+  const src = noise(c, 0.04);
+  const ng = c.createGain();
+  ng.gain.setValueAtTime(0.07, t);
+  ng.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
+  src.connect(ng); ng.connect(out());
+  src.start(t); src.stop(t + 0.05);
+}
+
 // Crystalline ascending arpeggio with icy LFO shimmer
 // Iced-magic sample. Mirrors the win-fanfare load pattern (one-shot
 // AudioBufferSource, lazy fetch + decode, cache invalidated on context
