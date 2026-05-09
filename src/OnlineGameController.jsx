@@ -149,6 +149,9 @@ export default function OnlineGameController({
   // Held while the pre-game countdown is up (issue #35) so the timer
   // bar doesn't drain under the GO overlay; the server's first-turn
   // alarm is bumped by COUNTDOWN_DELAY_MS to match.
+  // turnCount is in the deps (not just currentPlayerIndex) so a freeze-skip
+  // wraparound (#96 — server's completeTurn lands back on the same seat
+  // when the only opponent is frozen) still resets the visible 10 s bar.
   useEffect(() => {
     if (!gameState || gameState.phase !== 'playing') return;
     if (countdown !== null) return;
@@ -168,7 +171,7 @@ export default function OnlineGameController({
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [gameState?.currentPlayerIndex, gameState?.phase, mySeatId, countdown, rouletteActive, trapPlaying]);
+  }, [gameState?.currentPlayerIndex, gameState?.turnCount, gameState?.phase, mySeatId, countdown, rouletteActive, trapPlaying]);
 
   // Gameplay sound effects (bg theme, move/claim/your-turn chime, freeze/swap).
   // `enabled` is gated on the countdown so the bg theme + your-turn

@@ -300,6 +300,60 @@ describe('useGameplaySounds — move + claim + your-turn', () => {
     act(() => { vi.advanceTimersByTime(200); });
     expect(sounds.playClaim).not.toHaveBeenCalled();
   });
+
+  // Issue #96 — last opponent frozen → completeTurn wraps back to the same
+  // human seat. turnCount advances but currentPlayerIndex doesn't. Move +
+  // claim must still fire (the previous "seat changed" trigger silently
+  // missed this), and your-turn must NOT re-fire (a 3-turn freeze loop
+  // would otherwise spam the chime).
+  it('fires move + claim when turnCount advances but currentPlayerIndex stays the same (freeze-skip wraparound, #96)', () => {
+    const beforeFreezeSkip = baseState({
+      currentPlayerIndex: 0,
+      players: [
+        { id: 0, row: 0, col: 0, isEliminated: false },
+        { id: 1, row: 0, col: 9, isEliminated: true },
+        { id: 2, row: 9, col: 0, isEliminated: true },
+        { id: 3, row: 9, col: 9, isEliminated: false },
+      ],
+      frozenPlayerId: 3,
+      frozenTurnsLeft: 3,
+    });
+    const { rerender } = renderHook(({ s, seats }) => useGameplaySounds(s, seats), {
+      initialProps: { s: beforeFreezeSkip, seats: [0] },
+    });
+    vi.clearAllMocks();
+    rerender({
+      s: { ...beforeFreezeSkip, turnCount: 1, frozenTurnsLeft: 2 },
+      seats: [0],
+    });
+    expect(sounds.playMove).toHaveBeenCalledOnce();
+    act(() => { vi.advanceTimersByTime(200); });
+    expect(sounds.playClaim).toHaveBeenCalledOnce();
+  });
+
+  it('does NOT re-fire your-turn chime on a turnCount-only advance (freeze-skip wraparound, #96)', () => {
+    const beforeFreezeSkip = baseState({
+      currentPlayerIndex: 0,
+      players: [
+        { id: 0, row: 0, col: 0, isEliminated: false },
+        { id: 1, row: 0, col: 9, isEliminated: true },
+        { id: 2, row: 9, col: 0, isEliminated: true },
+        { id: 3, row: 9, col: 9, isEliminated: false },
+      ],
+      frozenPlayerId: 3,
+      frozenTurnsLeft: 3,
+    });
+    const { rerender } = renderHook(({ s, seats }) => useGameplaySounds(s, seats), {
+      initialProps: { s: beforeFreezeSkip, seats: [0] },
+    });
+    expect(sounds.playYourTurn).toHaveBeenCalledOnce();
+    vi.clearAllMocks();
+    rerender({
+      s: { ...beforeFreezeSkip, turnCount: 1, frozenTurnsLeft: 2 },
+      seats: [0],
+    });
+    expect(sounds.playYourTurn).not.toHaveBeenCalled();
+  });
 });
 
 // freeze / swap apply sounds moved to useDerivedAnimations#fireImmediate

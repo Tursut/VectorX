@@ -20,7 +20,12 @@ export function useGameplaySounds(
     heroMenuWarmupActive = false,
   } = {},
 ) {
-  const prevTurnRef = useRef(null);
+  // Track turnCount + seat separately: move/claim should fire whenever a
+  // turn completes (including the freeze-skip wraparound where the seat
+  // doesn't change, #96), but the your-turn chime should only sound on
+  // actual seat changes so a 3-turn freeze loop doesn't spam it.
+  const prevTurnCountRef = useRef(null);
+  const prevSeatRef = useRef(null);
 
   // (iOS audio-recovery listeners now live at module load in sounds.js so
   // they persist across mounts and also catch visibilitychange / focus /
@@ -97,15 +102,24 @@ export function useGameplaySounds(
   // (issue #30). Human picks fall through the same fireImmediate path
   // and so still fire at the same wall-clock moment as before.
 
-  // Move + claim on turn change; your-turn chime when a seat I control is up.
-  // Gated on `enabled` so the chime + thump don't fire under the
-  // pre-game countdown overlay (issue #35).
+  // Move + claim on turn completion; your-turn chime when a seat I control
+  // is up. Move/claim is keyed off turnCount so the freeze-skip wraparound
+  // (#96 — completeTurn lands back on the same seat) still fires the
+  // thump. your-turn stays keyed off seat change so the chime doesn't
+  // re-fire each turn during a multi-turn freeze loop on the same player.
+  // Gated on `enabled` so neither plays under the pre-game countdown
+  // overlay (issue #35).
   useEffect(() => {
     if (!enabled) return;
     if (!gameState || gameState.phase !== 'playing') return;
     const seat = gameState.currentPlayerIndex;
-    if (prevTurnRef.current !== null && prevTurnRef.current !== seat) {
-      const prevPlayer = gameState.players[prevTurnRef.current];
+    const turnCount = gameState.turnCount;
+    if (prevTurnCountRef.current !== null && prevTurnCountRef.current !== turnCount) {
+      // Mover is the seat that was current BEFORE this transition. In a
+      // normal turn it's prevSeatRef; in the freeze-skip wraparound the
+      // seat didn't change so it's still the current seat.
+      const moverSeat = prevSeatRef.current ?? seat;
+      const prevPlayer = gameState.players[moverSeat];
       // Skip the per-turn move/claim thump when the just-completed turn
       // ended in a bot-driven freeze/swap that the client will roulette
       // over (issue #31). For freeze the actor doesn't actually change
@@ -118,8 +132,11 @@ export function useGameplaySounds(
         setTimeout(() => sounds.playClaim(), 200);
       }
     }
-    prevTurnRef.current = seat;
-    if (mySeats.includes(seat)) sounds.playYourTurn();
+    if (prevSeatRef.current !== seat && mySeats.includes(seat)) {
+      sounds.playYourTurn();
+    }
+    prevTurnCountRef.current = turnCount;
+    prevSeatRef.current = seat;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameState?.currentPlayerIndex, gameState?.phase, enabled]);
+  }, [gameState?.turnCount, gameState?.currentPlayerIndex, gameState?.phase, enabled]);
 }

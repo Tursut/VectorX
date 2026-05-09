@@ -150,6 +150,9 @@ export default function LocalGameController({
   // burning their 10 s while the wheel rolls. Also paused while the trap
   // chain is still draining (issue #36) — the next turn shouldn't be
   // ticking down while we're showing the previous death's animation.
+  // turnCount is in the deps (not just currentPlayerIndex) so a freeze-skip
+  // wraparound (#96 — last bot frozen → completeTurn lands back on the
+  // same human) still resets the visible 10 s budget.
   useEffect(() => {
     if (!gameState || gameState.phase !== 'playing') return;
     if (gameState.sandboxMode) return;
@@ -174,7 +177,7 @@ export default function LocalGameController({
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [gameState?.currentPlayerIndex, gameState?.phase, gameState?.portalActive, gameState?.freezeSelectActive, rouletteActive, trapPlaying, exitConfirm]);
+  }, [gameState?.currentPlayerIndex, gameState?.turnCount, gameState?.phase, gameState?.portalActive, gameState?.freezeSelectActive, rouletteActive, trapPlaying, exitConfirm]);
 
   // Gremlin auto-move.
   useEffect(() => {

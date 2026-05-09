@@ -395,6 +395,40 @@ describe('freeze reapplication semantics (#94)', () => {
   });
 });
 
+// ---------- freeze-skip wraparound (#96) ----------
+
+describe('freeze-skip wraparound with one alive opponent (#96)', () => {
+  // Repro: human is the only mover left besides one frozen bot. completeTurn
+  // walks past the frozen seat → wraps back to the human → breaks (they
+  // still have valid moves). Result: currentPlayerIndex is unchanged but
+  // turnCount advances. Client effects keyed only off currentPlayerIndex
+  // (turn timer, move/claim sound) silently fail; the fix uses turnCount as
+  // the "a turn just completed" signal instead.
+  it('leaves currentPlayerIndex unchanged but advances turnCount and decrements frozenTurnsLeft', () => {
+    const base = initGame(false, 0);
+    const s = {
+      ...base,
+      currentPlayerIndex: 0,
+      players: base.players.map((p, i) => {
+        if (i === 0) return { ...p, row: 5, col: 5, isEliminated: false };
+        if (i === 1) return { ...p, row: 0, col: 0, isEliminated: false };
+        return { ...p, isEliminated: true };
+      }),
+      frozenPlayerId: 1,
+      frozenTurnsLeft: 3,
+      turnCount: 7,
+    };
+
+    const next = applyMove(s, 5, 6);
+
+    expect(next.currentPlayerIndex).toBe(0);
+    expect(next.turnCount).toBe(8);
+    expect(next.frozenPlayerId).toBe(1);
+    expect(next.frozenTurnsLeft).toBe(2);
+    expect(next.phase).toBe('playing');
+  });
+});
+
 // ---------- ai.js — getGremlinMove ----------
 
 describe('getGremlinMove', () => {
